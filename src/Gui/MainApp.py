@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from src.stock_info import search_stock
+from src.search_tools import search_stock
 
 
 class MainApp(tk.Frame):
@@ -19,9 +19,10 @@ class MainApp(tk.Frame):
         tk.Label(self, text="Searching stocks news created by Roi & Nati Enjoy ;)").pack(side="top", fill="x", pady=10)
 
     def _webchrome(self):
-
         ticker = self.controller.shared_data["Stock search"].get()
-        search_stock(ticker)
+
+        if ticker:
+            search_stock(ticker)
 
     def update_widgets(self):
         pass
