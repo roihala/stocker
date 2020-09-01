@@ -21,7 +21,9 @@ class MainApp(tk.Frame):
     def _webchrome(self):
 
         ticker = self.controller.shared_data["Stock search"].get()
-        search_stock(ticker)
+
+        if ticker:
+            search_stock(ticker)
 
     def update_widgets(self):
         pass
