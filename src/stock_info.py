@@ -16,6 +16,7 @@ TICKER_SITES = [
     "https://ih.advfn.com/stock-market/NASDAQ/{ticker}/stock-price",
     "https://thefly.com/news.php?symbol={ticker}",
     "https://www.otcmarkets.com/stock/{ticker}/overview"
+    "https://www.bamsec.com/entity-search/search?q={ticker}"
 ]
 
 SEARCH_SITES = {
