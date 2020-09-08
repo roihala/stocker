@@ -1,4 +1,5 @@
 from string import Formatter
+import urllib
 
 import requests
 
@@ -22,7 +23,7 @@ class Site(object):
             return self.url.format(ticker=ticker)
 
         elif 'company_name' in format_keys:
-            return self.url.format(company_name=company_name)
+            return self.url.format(company_name=urllib.parse.quote(company_name))
 
         else:
             raise Exception("Invalid site format")
