@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+import os
+
+from src.site import Site
+
+
+START_WEBSITE_COMMAND = ["start", "chrome.exe"]
+
+
+SITES = {
+    Site("yahoo", "https://finance.yahoo.com/quote/{ticker}?ltr=1", is_otc=False),
+    Site("finviz", "https://finviz.com/quote.ashx?t={ticker}", is_otc=False),
+    Site("stocktwits", "https://stocktwits.com/symbol/{ticker}", is_otc=False),
+    Site("investorshub", "https://ih.advfn.com/stock-market/NASDAQ/{ticker}/stock-price", is_otc=True),
+    Site("thefly", "https://thefly.com/news.php?symbol={ticker}", is_otc=False),
+    Site("otcmarkets", "https://www.otcmarkets.com/stock/{ticker}/overview", is_otc=True),
+    Site("bamsec", "https://www.bamsec.com/entity-search/search?q={ticker}", is_otc=False),
+    Site("globenewswire", "https://www.globenewswire.com/Search/NewsSearch?keyword={company_name}", is_otc=True),
+    Site("prnewswire", "https://www.prnewswire.com/search/all/?keyword={company_name}", is_otc=False),
+    Site("bio", "https://www.bio.org/search?keywords={company_name}", is_otc=False),
+    Site("filingre", "https://www.filingre.com/stock/{ticker}", is_otc=True)
+}
+
+
+def search_stock(ticker, is_otc, exclude_list):
+    for site in SITES:
+        # Making sure that the is_otc flag matches the website's argument
+        if is_otc != site.is_otc:
+            continue
+
+        if site.name in exclude_list:
+            continue
+
+        os.system(' '.join(START_WEBSITE_COMMAND + [site.get_ticker_url(ticker)]))
