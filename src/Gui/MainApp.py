@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from src.search_tools import search_stock
+from src.search import search_stock
 
 
 class MainApp(tk.Frame):
@@ -22,7 +22,7 @@ class MainApp(tk.Frame):
         ticker = self.controller.shared_data["Stock search"].get()
 
         if ticker:
-            search_stock(ticker)
+            search_stock(ticker, False)
 
     def update_widgets(self):
         pass
