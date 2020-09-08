@@ -18,7 +18,8 @@ SITES = {
     Site("globenewswire", "https://www.globenewswire.com/Search/NewsSearch?keyword={company_name}", is_otc=True),
     Site("prnewswire", "https://www.prnewswire.com/search/all/?keyword={company_name}", is_otc=False),
     Site("bio", "https://www.bio.org/search?keywords={company_name}", is_otc=False),
-    Site("filingre", "https://www.filingre.com/stock/{ticker}", is_otc=True)
+    Site("filingre", "https://www.filingre.com/stock/{ticker}", is_otc=True),
+    Site("twitter", "https://twitter.com/search?q=%24{ticker}&src=typed_query", is_otc=True)
 }
 
 
