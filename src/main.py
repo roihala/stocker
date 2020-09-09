@@ -14,7 +14,7 @@ def main():
     args = get_args()
 
     if args.console:
-        search_stock(args.ticker, args.otc, args.exclude_sites)
+        search_stock(args.ticker, args.otc, args.exclude_sites, args.include_sites)
     else:
         run_gui()
 
@@ -25,6 +25,8 @@ def get_args():
     parser.add_argument('--console', help='Run with console instead of GUI', default=False, action='store_true')
     parser.add_argument('--otc', dest='otc', help='Looking for OTC stocks?', default=False, action='store_true')
     parser.add_argument("--exclude_sites", help="Which websites you want to exclude?", nargs='+', choices=[site.name for site in SITES], default=[])
+    parser.add_argument("--include_sites", help="Which websites you want to include?", nargs='+',
+                        choices=[site.name for site in SITES], default=[])
 
     return parser.parse_args()
 
