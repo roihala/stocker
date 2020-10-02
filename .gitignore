@@ -6,3 +6,4 @@ pip-selfcheck.json
 ticker_finder.exe
 .idea
 __pycache__
+tickers

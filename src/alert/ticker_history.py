@@ -10,8 +10,8 @@ from src.find.site import Site
 class TickerHistory(object):
     BADGES_SITE = Site('badges', 'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
     PROFILE_SITE = Site('profile_url', 'https://backend.otcmarkets.com/otcapi/company/profile/full/ZHCLF?symbol=ZHCLF', True)
-    TICKERS_FOLDER = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tickers')
-    DEFAULT_FIELDS_NUMBER = 16
+    TICKERS_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))), 'tickers')
+    DEFAULT_FIELDS_NUMBER = 15
 
     def __init__(self, ticker, debug):
         self._ticker = ticker
@@ -21,6 +21,7 @@ class TickerHistory(object):
         self._latest = self.get_latest()
 
     def __enter__(self):
+        os.makedirs(self.TICKERS_FOLDER)
         self._current_data = self.__fetch_data()
         return self
 
