@@ -16,8 +16,8 @@ class Site(object):
         self.is_otc = is_otc
 
     def get_ticker_url(self, ticker):
+        format_keys = self.get_format_keys(self.url)
         company_name = self.get_company_name(ticker)
-        format_keys = self.get_format_keys(self.url)\
 
         if 'ticker' in format_keys:
             return self.url.format(ticker=ticker)

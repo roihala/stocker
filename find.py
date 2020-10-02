@@ -1,12 +1,14 @@
 import argparse
 
 
-from src.find.Gui import run_gui
+from src.find.Gui.App import run_gui
 from src.find.search import search_stock, SITES
 
 
 def main():
     args = get_args()
+
+    args.ticker = args.ticker.upper()
 
     if args.console:
         search_stock(args.ticker, args.otc, args.exclude_sites, args.include_sites)
