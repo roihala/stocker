@@ -31,7 +31,7 @@ class TickerHistory(object):
     def __fetch_data(self):
         response = requests.get(self.BADGES_SITE.get_ticker_url(self._ticker))
 
-        if len(response.json().keys()) != self.DEFAULT_FIELDS_NUMBER:
+        if len(response.json().keys()) < self.DEFAULT_FIELDS_NUMBER:
             raise Exception('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.json().keys()))
 
         return response.json()
@@ -50,6 +50,12 @@ class TickerHistory(object):
             with open(self._ticker_path, 'r') as history:
                 return json.load(history)
 
+    def __get_latest_date(self):
+        if not self._history.keys():
+            return None
+
+        return max(self._history.keys())
+
     def get_latest(self):
         if not self._history.keys():
             return {}
@@ -64,4 +70,8 @@ class TickerHistory(object):
         if not self._latest:
             return {}
 
-        return {k: v for k, v in self._current_data.items() if v != self._latest[k]}
+        return {badge: (value, self._latest[badge])
+                for badge, value in self._current_data.items() if value != self._latest[badge]}
+
+    def get_current_data(self):
+        return self._current_data
