@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from src.search import search_stock
+from src.find.search import search_stock
 
 
 class MainApp(tk.Frame):

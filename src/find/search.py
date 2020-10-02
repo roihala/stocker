@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 
-from src.site import Site
+from src.find.site import Site
 
 
 START_WEBSITE_COMMAND = ["start", "chrome.exe"]
@@ -19,11 +19,12 @@ SITES = [
     Site("prnewswire", "https://www.prnewswire.com/search/all/?keyword={company_name}", is_otc=False),
     Site("bio", "https://www.bio.org/search?keywords={company_name}", is_otc=False),
     Site("twitter", "https://twitter.com/search?q=%24{ticker}&src=typed_query", is_otc=True),
-    Site("google", "https://www.google.com/search?q={company_name}&aqs=chrome..69i57j0l7.815j0j1&sourceid=chrome&ie=UTF-8", is_otc=False),
+    Site("google",
+         "https://www.google.com/search?q={company_name}&aqs=chrome..69i57j0l7.815j0j1&sourceid=chrome&ie=UTF-8",
+         is_otc=False),
 
     Site("wayback", "https://web.archive.org/web/*/https://www.trevena.com/", is_otc=True)
 ]
-
 
 
 def search_stock(ticker, is_otc, exclude_list, include_list):
