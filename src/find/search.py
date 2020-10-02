@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 
-from src.site import Site
+from src.find.site import Site
 
 
 START_WEBSITE_COMMAND = ["start", "chrome.exe"]
@@ -23,8 +23,6 @@ SITES = [
 
     Site("wayback", "https://web.archive.org/web/*/https://www.trevena.com/", is_otc=True)
 ]
-
-
 
 def search_stock(ticker, is_otc, exclude_list, include_list):
     for site in SITES:

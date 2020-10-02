@@ -1,13 +1,8 @@
 import argparse
-import os, sys
 
-current_directory = os.path.dirname(os.path.realpath(__file__))
-rootDir = os.path.abspath(os.path.join(current_directory, '..'))
 
-sys.path.append(os.path.abspath(os.path.join(current_directory, '..')))
-
-from src.Gui.App import run_gui
-from src.search import search_stock, SITES
+from src.find.Gui import run_gui
+from src.find.search import search_stock, SITES
 
 
 def main():

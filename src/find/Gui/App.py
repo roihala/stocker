@@ -1,4 +1,4 @@
-from src.Gui.MainApp import MainApp
+from src.find.Gui.MainApp import MainApp
 import tkinter as tk
 
 

@@ -34,13 +34,13 @@ class Site(object):
 
     @staticmethod
     def get_company_name(ticker):
-        result = requests.get(Site.TICKER_TRANSLATION_URL.format(ticker=ticker))
-        try:
-            # Getting the full name by yahoo's json structure.
-            full_name = result.json()['ResultSet']['Result'][0]["name"]
-
-        except IndexError:
+        if not Site.is_ticker_exist(ticker):
             raise Exception("There is no such ticker: {ticker}".format(ticker=ticker))
+
+        response = requests.get(Site.TICKER_TRANSLATION_URL.format(ticker=ticker))
+
+        # Getting the full name by yahoo's json structure.
+        full_name = response.json()['ResultSet']['Result'][0]["name"]
 
         # Removing any non-alphabetic characters and using the name as list.
         fixed_name = [Site.make_alpha(name_part) for name_part in full_name.split(' ')]
@@ -54,3 +54,16 @@ class Site(object):
     @staticmethod
     def make_alpha(word):
         return ''.join([letter for letter in word if letter.isalpha()])
+
+    @staticmethod
+    def is_ticker_exist(ticker):
+        response = requests.get(Site.TICKER_TRANSLATION_URL.format(ticker=ticker))
+
+        # Yahoo's json structure should contain a list with information.
+        result_list = response.json()['ResultSet']['Result']
+
+        if len(result_list) == 0:
+            return False
+
+        else:
+            return True
