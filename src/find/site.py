@@ -35,7 +35,7 @@ class Site(object):
     @staticmethod
     def get_company_name(ticker):
         if not Site.is_ticker_exist(ticker):
-            raise Exception("There is no such ticker: {ticker}".format(ticker=ticker))
+            raise InvalidTickerExcpetion("There is no such ticker: {ticker}".format(ticker=ticker))
 
         response = requests.get(Site.TICKER_TRANSLATION_URL.format(ticker=ticker))
 
@@ -67,3 +67,7 @@ class Site(object):
 
         else:
             return True
+
+
+class InvalidTickerExcpetion(Exception):
+    pass
