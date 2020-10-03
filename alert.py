@@ -1,12 +1,10 @@
 import argparse
 import logging
 import os
-import time
 
 import arrow
 import pandas
 import pause
-import pytz
 
 from src.alert.ticker_history import TickerHistory
 from src.find.site import Site, InvalidTickerExcpetion
