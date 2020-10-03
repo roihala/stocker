@@ -7,3 +7,4 @@ ticker_finder.exe
 .idea
 __pycache__
 tickers
+alert.log

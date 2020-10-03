@@ -1,33 +1,57 @@
 import argparse
+import logging
+import os
 import time
 
+import arrow
+import pandas
+import pause
+import pytz
+
 from src.alert.ticker_history import TickerHistory
-from src.find.site import Site
+from src.find.site import Site, InvalidTickerExcpetion
+
+LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
 
 
 def main():
+    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO)
+
     args = get_args()
 
-    args.ticker = args.ticker.upper()
+    tickers = extract_tickers(args.csv)
 
-    if not Site.is_ticker_exist(args.ticker):
-        raise Exception("There is no such ticker: {ticker}".format(ticker=args.ticker))
+    # arrow.floor allows us to ignore minutes and seconds
+    next_hour = arrow.now().floor('hour')
 
-    if args.debug:
-        args.ticker = 'DPUI'
+    while True:
+        next_hour = next_hour.shift(hours=1)
+        # pause.until(next_hour.timestamp)
 
-    with TickerHistory(args.ticker, args.debug) as ticker_history:
-        if args.debug:
-            print(ticker_history.is_changed())
-            print(ticker_history.__get_history())
-            print(ticker_history.get_changes())
+        for ticker in tickers:
+            try:
+                with TickerHistory(ticker) as ticker_history:
+                    if ticker_history.is_changed():
+                        logging.info('{ticker} has changes: {changes}'.
+                                     format(ticker=ticker, changes=ticker_history.get_changes()))
+            except InvalidTickerExcpetion:
+                logging.warning("There is no such ticker: {ticker}".format(ticker=ticker))
+
+        break
+
+
+def extract_tickers(csv_path):
+    try:
+        df = pandas.read_csv(csv_path)
+        return df.Symbol.apply(lambda ticker: ticker.upper())
+    except Exception:
+        raise Exception('Invalid csv file - validate the path and that the tickers are under a column named symbol')
 
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', dest='ticker', help='Stock ticker to look up for', required=True)
+    parser.add_argument('--csv', dest='csv', help='path to csv tickers file', required=True)
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
-    parser.add_argument('--debug', dest='debug', help='debug mode', default=False, action='store_true')
 
     return parser.parse_args()
 
