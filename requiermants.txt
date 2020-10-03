@@ -1,0 +1,6 @@
+arrow
+pandas
+pause
+tkinter
+urllib
+requests

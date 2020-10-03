@@ -5,7 +5,7 @@ import pathlib
 import arrow
 import requests
 
-from src.find.site import Site
+from src.find.site import Site, InvalidTickerExcpetion
 
 
 class TickerHistory(object):
@@ -17,7 +17,7 @@ class TickerHistory(object):
     def __init__(self, ticker):
         self._ticker = ticker
         self._ticker_path = os.path.join(self.TICKERS_FOLDER, self._ticker + '.json')
-        self._history = self.__get_history()
+        self._history = self.get_history()
         self._latest = self.get_latest()
 
     def __enter__(self):
@@ -32,7 +32,7 @@ class TickerHistory(object):
         response = requests.get(self.BADGES_SITE.get_ticker_url(self._ticker))
 
         if len(response.json().keys()) < self.DEFAULT_FIELDS_NUMBER:
-            raise Exception('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.json().keys()))
+            raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.json().keys()))
 
         return response.json()
 
@@ -43,7 +43,7 @@ class TickerHistory(object):
         with open(self._ticker_path, 'w') as history_file:
             return json.dump(updated, history_file)
 
-    def __get_history(self):
+    def get_history(self):
         if not os.path.exists(self._ticker_path):
             return {}
         else:
