@@ -15,7 +15,8 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
 
 
 def main():
-    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO)
+    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    l = logging.getLogger()
 
     args = get_args()
 
@@ -26,18 +27,17 @@ def main():
 
     while True:
         next_hour = next_hour.shift(hours=1)
-        # pause.until(next_hour.timestamp)
+        pause.until(next_hour.timestamp)
 
         for ticker in tickers:
             try:
                 with TickerHistory(ticker) as ticker_history:
+                    print('running on {ticker}'.format(ticker=ticker))
                     if ticker_history.is_changed():
-                        logging.info('{ticker} has changes: {changes}'.
-                                     format(ticker=ticker, changes=ticker_history.get_changes()))
+                        logging.info('{ticker} has changes: {changes} \n history: {history}'.format(
+                            ticker=ticker, changes=ticker_history.get_changes(), history=ticker_history.get_history()))
             except InvalidTickerExcpetion:
-                logging.warning("There is no such ticker: {ticker}".format(ticker=ticker))
-
-        break
+                logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
 
 
 def extract_tickers(csv_path):
