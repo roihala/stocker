@@ -1,6 +1,8 @@
 import json
 import os
 import pathlib
+import urllib
+from urllib.error import HTTPError
 
 import arrow
 import requests
@@ -22,19 +24,26 @@ class TickerHistory(object):
 
     def __enter__(self):
         pathlib.Path(self.TICKERS_FOLDER).mkdir(parents=True, exist_ok=True)
-        self._current_data = self.__fetch_data()
+        self._current_data = self.fetch_data()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.__update_history()
 
-    def __fetch_data(self):
-        response = requests.get(self.BADGES_SITE.get_ticker_url(self._ticker))
+    def fetch_data(self):
+        try:
+            site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+            response = json.loads(site.read().decode())
+        except HTTPError:
+            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, response.json().keys(),
+                                         len(response.keys()))
 
-        if len(response.json().keys()) < self.DEFAULT_FIELDS_NUMBER:
-            raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.json().keys()))
+        # response = requests.get(self.BADGES_SITE.get_ticker_url(self._ticker))
 
-        return response.json()
+        if len(response.keys()) < self.DEFAULT_FIELDS_NUMBER:
+            raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.keys()))
+
+        return response
 
     def __update_history(self):
         updated = self._history
