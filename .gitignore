@@ -8,3 +8,4 @@ ticker_finder.exe
 __pycache__
 tickers
 alert.log
+test_logs.log

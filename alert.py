@@ -13,29 +13,35 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
 
 
 def main():
-    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    l = logging.getLogger()
-
     args = get_args()
+    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
     tickers = extract_tickers(args.csv)
+    alert_tickers(tickers, args.debug)
 
+
+def alert_tickers(tickers_list, debug):
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
 
     while True:
-        next_hour = next_hour.shift(hours=1)
-        pause.until(next_hour.timestamp)
+        if not debug:
+            next_hour = next_hour.shift(hours=1)
+            pause.until(next_hour.timestamp)
 
-        for ticker in tickers:
+        for ticker in tickers_list:
             try:
                 with TickerHistory(ticker) as ticker_history:
-                    print('running on {ticker}'.format(ticker=ticker))
+                    if debug:
+                        print('running on {ticker}'.format(ticker=ticker))
                     if ticker_history.is_changed():
                         logging.info('{ticker} has changes: {changes} \n history: {history}'.format(
                             ticker=ticker, changes=ticker_history.get_changes(), history=ticker_history.get_history()))
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
+
+        if debug:
+            break
 
 
 def extract_tickers(csv_path):
@@ -50,6 +56,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv', dest='csv', help='path to csv tickers file', required=True)
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
+    parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
 
     return parser.parse_args()
 
