@@ -20,7 +20,7 @@ def main():
     alert_tickers(tickers, args.debug)
 
 
-def alert_tickers(tickers_list, debug):
+def alert_tickers(tickers_list, debug=False):
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
 
@@ -39,6 +39,8 @@ def alert_tickers(tickers_list, debug):
                             ticker=ticker, changes=ticker_history.get_changes(), history=ticker_history.get_history()))
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
+            except Exception as e:
+                logging.warning('Exception on {ticker}: {e}'.format(ticker=ticker, e=e))
 
         if debug:
             break
