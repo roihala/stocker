@@ -1,7 +1,7 @@
 import json
 import os
 import pathlib
-import urllib3
+import urllib
 from urllib.error import HTTPError
 
 import arrow
@@ -11,8 +11,8 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 
 class TickerHistory(object):
-    BADGES_SITE = Site('badges', 'http://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
-    PROFILE_SITE = Site('profile_url', 'http://backend.otcmarkets.com/otcapi/company/profile/full/ZHCLF?symbol=ZHCLF', True)
+    BADGES_SITE = Site('badges', 'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
+    PROFILE_SITE = Site('profile_url', 'https://backend.otcmarkets.com/otcapi/company/profile/full/ZHCLF?symbol=ZHCLF', True)
     TICKERS_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))), 'tickers')
     DEFAULT_FIELDS_NUMBER = 15
 
@@ -32,12 +32,8 @@ class TickerHistory(object):
 
     def fetch_data(self):
         try:
-            #site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
-            #response = json.loads(site.read().decode())
-            http = urllib3.PoolManager(maxsize=10)
-            r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
-            response = json.loads(r.data.decode('utf-8'))
-            print(response)
+            site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+            response = json.loads(site.read().decode())
         except HTTPError:
             raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, )
 
