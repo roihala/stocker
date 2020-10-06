@@ -35,10 +35,7 @@ class TickerHistory(object):
             site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
             response = json.loads(site.read().decode())
         except HTTPError:
-            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, response.json().keys(),
-                                         len(response.keys()))
-
-        # response = requests.get(self.BADGES_SITE.get_ticker_url(self._ticker))
+            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, )
 
         if len(response.keys()) < self.DEFAULT_FIELDS_NUMBER:
             raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.keys()))

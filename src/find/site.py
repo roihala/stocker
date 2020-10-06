@@ -26,7 +26,7 @@ class Site(object):
             return self.url.format(company_name=urllib.parse.quote(company_name))
 
         else:
-            raise Exception("Invalid site format")
+            raise Exception("Invalid site format: {url}".format(url=self.url))
 
     @staticmethod
     def get_format_keys(string):
