@@ -1,7 +1,7 @@
 import json
 import os
 import pathlib
-import urllib
+import urllib3
 from urllib.error import HTTPError
 
 import arrow
@@ -32,8 +32,12 @@ class TickerHistory(object):
 
     def fetch_data(self):
         try:
-            site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
-            response = json.loads(site.read().decode())
+            #site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+            #response = json.loads(site.read().decode())
+            http = urllib3.PoolManager(maxsize=10)
+            r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
+            response = json.loads(r.data.decode('utf-8'))
+
         except HTTPError:
             raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, )
 

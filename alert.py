@@ -27,7 +27,7 @@ def alert_tickers(tickers_list, debug=False):
     while True:
         if not debug:
             next_hour = next_hour.shift(hours=1)
-            pause.until(next_hour.timestamp)
+            #pause.until(next_hour.timestamp)
 
         for ticker in tickers_list:
             try:
