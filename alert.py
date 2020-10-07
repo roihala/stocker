@@ -5,11 +5,14 @@ import os
 import arrow
 import pandas
 import pause
+from pymongo import MongoClient
 
 from src.alert.ticker_history import TickerHistory
 from src.find.site import Site, InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
+DEFAULT_MONGO_PORT = 27017
+DEFAULT_MONGO_HOST = 'localhost'
 
 
 def main():
@@ -21,6 +24,8 @@ def main():
 
 
 def alert_tickers(tickers_list, debug=False):
+    mongo_db = MongoClient(DEFAULT_MONGO_HOST, DEFAULT_MONGO_PORT).stocker
+
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
 
@@ -31,12 +36,11 @@ def alert_tickers(tickers_list, debug=False):
 
         for ticker in tickers_list:
             try:
-                with TickerHistory(ticker) as ticker_history:
+                with TickerHistory(ticker, mongo_db) as ticker_history:
                     if debug:
                         print('running on {ticker}'.format(ticker=ticker))
                     if ticker_history.is_changed():
-                        logging.info('{ticker} has changes: {changes} \n history: {history}'.format(
-                            ticker=ticker, changes=ticker_history.get_changes(), history=ticker_history.get_history()))
+                        mongo_db.diffs.insert_one(ticker_history.get_changes())
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
             except Exception as e:
