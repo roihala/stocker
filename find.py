@@ -1,5 +1,5 @@
+#!/usr/bin/python3
 import argparse
-
 
 from src.find.Gui.App import run_gui
 from src.find.search import search_stock, SITES

@@ -1,14 +1,15 @@
+#!/usr/bin/python3
+
 import argparse
 import logging
 import os
 
 import arrow
 import pandas
-import pause
 from pymongo import MongoClient
 
 from src.alert.ticker_history import TickerHistory
-from src.find.site import Site, InvalidTickerExcpetion
+from src.find.site import InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
 DEFAULT_MONGO_PORT = 27017
