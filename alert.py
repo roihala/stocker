@@ -22,7 +22,12 @@ def main():
     args = get_args()
     logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
-    tickers = extract_tickers(args.csv)
+    tickers_file = args.tickers
+    
+    if not tickers_file:
+        tickers_file = DEFAULT_CSV_PATH
+
+    tickers = extract_tickers(tickers_file)
     alert_tickers(tickers, args.debug)
 
 
@@ -63,7 +68,7 @@ def extract_tickers(csv_path):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', dest='csv', help='path to custom csv tickers file')
+    parser.add_argument('--tickers_file', dest='tickers', help='path to custom csv-format tickers file')
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
 
