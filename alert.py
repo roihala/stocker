@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import argparse
 import logging
 import os
@@ -8,9 +10,10 @@ import pause
 from pymongo import MongoClient
 
 from src.alert.ticker_history import TickerHistory
-from src.find.site import Site, InvalidTickerExcpetion
+from src.find.site import InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
+DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), 'tickers.csv')
 DEFAULT_MONGO_PORT = 27017
 DEFAULT_MONGO_HOST = 'localhost'
 
@@ -32,7 +35,7 @@ def alert_tickers(tickers_list, debug=False):
     while True:
         if not debug:
             next_hour = next_hour.shift(hours=1)
-            #pause.until(next_hour.timestamp)
+            pause.until(next_hour.timestamp)
 
         for ticker in tickers_list:
             try:
@@ -60,7 +63,7 @@ def extract_tickers(csv_path):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', dest='csv', help='path to csv tickers file', required=True)
+    parser.add_argument('--csv', dest='csv', help='path to custom csv tickers file')
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
 
