@@ -20,6 +20,7 @@ class TickerHistory(object):
         self._mongo_db = mongo_db
         self._ticker = ticker
         self._sorted_history = self.get_sorted_history()
+        self._latest = self._sorted_history[0]
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -41,24 +42,44 @@ class TickerHistory(object):
         return response
 
     def __update_db(self):
-        self.__add_keys(self._current_data)
+        self.__add_ticker_and_date(self._current_data)
         self._mongo_db.symbols.insert_one(self._current_data)
 
-    def __add_keys(self, data):
+    def __add_ticker_and_date(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().timestamp})
 
     def get_sorted_history(self):
         return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
 
-    def get_latest(self):
-        return self._sorted_history[0]
-
     def is_changed(self):
         return bool(self.get_changes())
 
     def get_changes(self):
+        """
+        This function returns the changes that occurred in a ticker's data.
+
+        :return: A dict in the format of:
+        {
+            "ticker_name": The name of the ticker,
+            "date": The current date,
+            "changed_keys": A list of the keys that have changed,
+            "old_values": A list of the "old" values,
+            "new_values": A list of the "new" values)
+        }
+
+        """
         if self._sorted_history.count() == 0:
             return {}
 
-        return {key: {"new": value, "old": self.get_latest()[key]}
-                for key, value in self._current_data.items() if value != self.get_latest()[key]}
+        # Finding the keys that has changes, either from current->latest or latest->current
+        changed_keys = [key for key in set(self._latest.keys() + self._current_data.keys())
+                        if self._latest[key] != self._current_data.keys()]
+
+        # Filtering here because the list of the keys could contain keys that doesn't exist in one of the dicts.
+        return {
+            "ticker_name": self._ticker,
+            "date": arrow.utcnow().timestamp,
+            "changed_keys": changed_keys,
+            "old_values": list(filter(None, [self._latest.get(key) for key in changed_keys])),
+            "new_values": list(filter(None, [self._current_data.get(key) for key in changed_keys]))
+        }
