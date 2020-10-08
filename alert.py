@@ -13,6 +13,7 @@ from src.find.site import Site, InvalidTickerExcpetion
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
 DEFAULT_MONGO_PORT = 27017
 DEFAULT_MONGO_HOST = 'localhost'
+DB_NAME = 'stocker'
 
 
 def main():
@@ -23,8 +24,14 @@ def main():
     alert_tickers(tickers, args.debug)
 
 
-def alert_tickers(tickers_list, debug=False):
-    mongo_db = MongoClient(DEFAULT_MONGO_HOST, DEFAULT_MONGO_PORT).stocker
+def alert_tickers(args, debug=False):
+    mongo_db = MongoClient('mongodb://{user}:{pwd}@{host}:{port}/{db}'.format(
+        user=args.user,
+        pwd=args.pwd,
+        host=DEFAULT_MONGO_HOST,
+        port=DEFAULT_MONGO_PORT,
+        db=DB_NAME
+    )).stocker
 
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
@@ -34,7 +41,7 @@ def alert_tickers(tickers_list, debug=False):
             next_hour = next_hour.shift(hours=1)
             pause.until(next_hour.timestamp)
 
-        for ticker in tickers_list:
+        for ticker in args.tickers_list:
             try:
                 with TickerHistory(ticker, mongo_db) as ticker_history:
                     if debug:
@@ -63,7 +70,8 @@ def get_args():
     parser.add_argument('--csv', dest='csv', help='path to csv tickers file', required=True)
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
-
+    parser.add_argument('--user', dest='user', help='username for MongoDB')
+    parser.add_argument('--pass', dest='pwd', help='password for MongoDB')
     return parser.parse_args()
 
 
