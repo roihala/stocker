@@ -60,7 +60,13 @@ def alert_tickers(args, debug=False):
 
 def extract_tickers(args):
     try:
-        df = pandas.read_csv(args.csv)
+
+        if args.csv:
+            file_path = args.csv
+        else:
+            file_path = DEFAULT_CSV_PATH
+
+        df = pandas.read_csv(file_path)
         return df.Symbol.apply(lambda ticker: ticker.upper())
     except Exception:
         raise Exception('Invalid csv file - validate the path and that the tickers are under a column named symbol')
