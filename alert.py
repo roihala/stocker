@@ -35,13 +35,14 @@ def alert_tickers(args, debug=False):
 
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
+    tickers_list = extract_tickers(args)
 
     while True:
         if not debug:
             next_hour = next_hour.shift(hours=1)
             pause.until(next_hour.timestamp)
 
-        for ticker in extract_tickers(args):
+        for ticker in tickers_list:
             try:
                 with TickerHistory(ticker, mongo_db) as ticker_history:
                     if debug:
