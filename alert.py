@@ -67,7 +67,7 @@ def extract_tickers(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', dest='csv', help='path to csv tickers file', required=True)
+    parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
     parser.add_argument('--user', dest='user', help='username for MongoDB')
