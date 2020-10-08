@@ -80,11 +80,10 @@ class TickerHistory(object):
         changed_keys = [key for key in set(self._latest.keys() + self._current_data.keys())
                         if self._latest[key] != self._current_data.keys()]
 
-        # Filtering here because the list of the keys could contain keys that doesn't exist in one of the dicts.
         return {
             "ticker_name": self._ticker,
             "date": arrow.utcnow().timestamp,
             "changed_keys": changed_keys,
-            "old_values": list(filter(None, [self._latest.get(key) for key in changed_keys])),
-            "new_values": list(filter(None, [self._current_data.get(key) for key in changed_keys]))
+            "old_values": [self._latest.get(key) for key in changed_keys],
+            "new_values": [self._current_data.get(key) for key in changed_keys]
         }
