@@ -25,13 +25,16 @@ def main():
 
 
 def alert_tickers(args, debug=False):
-    mongo_db = MongoClient('mongodb://{user}:{pwd}@{host}:{port}/{db}'.format(
-        user=args.user,
-        pwd=args.pwd,
-        host=DEFAULT_MONGO_HOST,
-        port=DEFAULT_MONGO_PORT,
-        db=DB_NAME
-    )).stocker
+    if args.user and args.pwd:
+        mongo_db = MongoClient('mongodb://{user}:{pwd}@{host}:{port}/{db}'.format(
+            user=args.user,
+            pwd=args.pwd,
+            host=DEFAULT_MONGO_HOST,
+            port=DEFAULT_MONGO_PORT,
+            db=DB_NAME
+        )).stocker
+    else:
+        mongo_db = MongoClient(DEFAULT_MONGO_HOST, DEFAULT_MONGO_PORT).stocker
 
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
