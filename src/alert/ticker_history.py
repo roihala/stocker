@@ -82,7 +82,7 @@ class TickerHistory(object):
             return {}
 
         # Finding the keys that has changes, either from current->latest or latest->current
-        changed_keys = [key for key in set(self._latest.keys() + self._current_data.keys())
+        changed_keys = [key for key in set(list(self._latest.keys()) + list(self._current_data.keys()))
                         if self._latest[key] != self._current_data.keys()]
 
         return {
