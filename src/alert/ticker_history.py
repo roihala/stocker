@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import pathlib
@@ -15,18 +16,16 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 
 class TickerHistory(object):
-    BADGES_SITE = Site('badges', 'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
-    PROFILE_SITE = Site('profile_url', 'https://backend.otcmarkets.com/otcapi/company/profile/full/ZHCLF?symbol=ZHCLF', True)
+    BADGES_SITE = Site('badges',
+                       'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
+    PROFILE_SITE = Site('profile_url', 'https://backend.otcmarkets.com/otcapi/company/profile/full/ZHCLF?symbol=ZHCLF',
+                        True)
     DEFAULT_FIELDS_NUMBER = 15
 
     def __init__(self, ticker, mongo_db: Database):
         self._mongo_db = mongo_db
         self._ticker = ticker
         self._sorted_history = self.get_sorted_history()
-        if self._sorted_history.count() > 0:
-            self._latest = self._sorted_history[0]
-        else:
-            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -47,16 +46,25 @@ class TickerHistory(object):
             raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
 
         if len(response.keys()) < self.DEFAULT_FIELDS_NUMBER:
-            raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.keys()))
+            raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(),
+                                         len(response.keys()))
 
         return response
 
     def __update_db(self):
-        self.__add_ticker_and_date(self._current_data)
+        self.__add_unique_keys(self._current_data)
         self._mongo_db.symbols.insert_one(self._current_data)
 
-    def __add_ticker_and_date(self, data):
+    def __add_unique_keys(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
+
+    @staticmethod
+    def __drop_unique_keys(data):
+        data_copy = copy.deepcopy(data)
+        data_copy.pop("date")
+        data_copy.pop("_id")
+        data_copy.pop("ticker")
+        return data_copy
 
     def get_sorted_history(self):
         return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
@@ -78,17 +86,23 @@ class TickerHistory(object):
         }
 
         """
-        if not self._latest:
+        if self._sorted_history.count() == 0:
             return {}
 
-        # Finding the keys that has changes, either from current->latest or latest->current
-        changed_keys = [key for key in set(list(self._latest.keys()) + list(self._current_data.keys()))
-                        if self._latest[key] != self._current_data.keys()]
+        latest = self.__drop_unique_keys(self._sorted_history[0])
 
-        return {
-            "ticker": self._ticker,
-            "date": arrow.utcnow().format(),
-            "changed_keys": changed_keys,
-            "old": [self._latest.get(key) for key in changed_keys],
-            "new": [self._current_data.get(key) for key in changed_keys]
-        }
+        # Finding the keys that has changes, either from current->latest or latest->current
+        changed_keys = [key for key in set(list(latest.keys()) + list(self._current_data.keys()))
+                        if latest.get(key) != self._current_data.get(key)]
+
+        if changed_keys:
+            return {
+                "ticker": self._ticker,
+                "date": arrow.utcnow().format(),
+                "changed_keys": changed_keys,
+                "old": [latest.get(key) for key in changed_keys],
+                "new": [self._current_data.get(key) for key in changed_keys]
+            }
+
+        else:
+            return {}

@@ -43,7 +43,8 @@ def alert_tickers(args, debug=False):
                     if debug:
                         print('running on {ticker}'.format(ticker=ticker))
                     if ticker_history.is_changed():
-                        mongo_db.diffs.insert_one(ticker_history.get_changes())
+                        print(ticker_history.get_changes())
+                        # mongo_db.diffs.insert_one(ticker_history.get_changes())
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
             except pymongo.errors.OperationFailure as e:
