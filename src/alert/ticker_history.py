@@ -1,6 +1,8 @@
 import json
 import os
 import pathlib
+import urllib
+
 import urllib3
 from urllib.error import HTTPError
 
@@ -21,7 +23,10 @@ class TickerHistory(object):
         self._mongo_db = mongo_db
         self._ticker = ticker
         self._sorted_history = self.get_sorted_history()
-        self._latest = self._sorted_history[0]
+        if self._sorted_history.count() > 0:
+            self._latest = self._sorted_history[0]
+        else:
+            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -32,14 +37,14 @@ class TickerHistory(object):
 
     def fetch_data(self):
         try:
-            #site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
-            #response = json.loads(site.read().decode())
-            http = urllib3.PoolManager(maxsize=10)
-            r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
-            response = json.loads(r.data.decode('utf-8'))
+            site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+            response = json.loads(site.read().decode())
+            # http = urllib3.PoolManager(maxsize=10)
+            # r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
+            # response = json.loads(r.data.decode('utf-8'))
 
         except HTTPError:
-            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, )
+            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
 
         if len(response.keys()) < self.DEFAULT_FIELDS_NUMBER:
             raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.keys()))
@@ -51,7 +56,7 @@ class TickerHistory(object):
         self._mongo_db.symbols.insert_one(self._current_data)
 
     def __add_ticker_and_date(self, data):
-        data.update({"ticker": self._ticker, "date": arrow.utcnow().timestamp})
+        data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
     def get_sorted_history(self):
         return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
@@ -73,16 +78,16 @@ class TickerHistory(object):
         }
 
         """
-        if self._sorted_history.count() == 0:
+        if not self._latest:
             return {}
 
         # Finding the keys that has changes, either from current->latest or latest->current
-        changed_keys = [key for key in set(self._latest.keys() + self._current_data.keys())
+        changed_keys = [key for key in set(list(self._latest.keys()) + list(self._current_data.keys()))
                         if self._latest[key] != self._current_data.keys()]
 
         return {
             "ticker": self._ticker,
-            "date": arrow.utcnow().timestamp,
+            "date": arrow.utcnow().format(),
             "changed_keys": changed_keys,
             "old": [self._latest.get(key) for key in changed_keys],
             "new": [self._current_data.get(key) for key in changed_keys]

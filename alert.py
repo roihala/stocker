@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import pymongo
 
 import arrow
 import pandas
@@ -25,16 +26,7 @@ def main():
 
 
 def alert_tickers(args, debug=False):
-    if args.user and args.pwd:
-        mongo_db = MongoClient('mongodb://{user}:{pwd}@{host}:{port}/{db}'.format(
-            user=args.user,
-            pwd=args.pwd,
-            host=DEFAULT_MONGO_HOST,
-            port=DEFAULT_MONGO_PORT,
-            db=DB_NAME
-        )).stocker
-    else:
-        mongo_db = MongoClient(DEFAULT_MONGO_HOST, DEFAULT_MONGO_PORT).stocker
+    mongo_db = init_mongo(args.uri)
 
     # arrow.floor allows us to ignore minutes and seconds
     next_hour = arrow.now().floor('hour')
@@ -54,11 +46,30 @@ def alert_tickers(args, debug=False):
                         mongo_db.diffs.insert_one(ticker_history.get_changes())
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
+            except pymongo.errors.OperationFailure as e:
+                raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
             except Exception as e:
                 logging.warning('Exception on {ticker}: {e}'.format(ticker=ticker, e=e))
 
         if debug:
             break
+
+
+def init_mongo(mongo_uri=None):
+    try:
+        # Using selection timeout in order to check connectivity
+        if mongo_uri:
+            mongo_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1)
+        else:
+            mongo_client = MongoClient(DEFAULT_MONGO_HOST, DEFAULT_MONGO_PORT, serverSelectionTimeoutMS=1)
+
+        # Forcing a connection to mongo
+        mongo_client.server_info()
+
+        return mongo_client.stocker
+
+    except pymongo.errors.ServerSelectionTimeoutError:
+        raise Exception("Couldn't connect to MongoDB, check your credentials")
 
 
 def extract_tickers(args):
@@ -80,8 +91,7 @@ def get_args():
     parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
     parser.add_argument('--change', dest='change', help='Whether a changed occur in the ticker parameters', default='')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
-    parser.add_argument('--user', dest='user', help='username for MongoDB')
-    parser.add_argument('--pass', dest='pwd', help='password for MongoDB')
+    parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...')
     return parser.parse_args()
 
 
