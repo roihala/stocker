@@ -39,7 +39,7 @@ class TickerHistory(object):
             response = json.loads(r.data.decode('utf-8'))
 
         except HTTPError:
-            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker, )
+            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
 
         if len(response.keys()) < self.DEFAULT_FIELDS_NUMBER:
             raise InvalidTickerExcpetion('Incomplete data for ticker: ', self._ticker, response.json().keys(), len(response.keys()))
@@ -51,7 +51,7 @@ class TickerHistory(object):
         self._mongo_db.symbols.insert_one(self._current_data)
 
     def __add_ticker_and_date(self, data):
-        data.update({"ticker": self._ticker, "date": arrow.utcnow().timestamp})
+        data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
     def get_sorted_history(self):
         return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
@@ -82,7 +82,7 @@ class TickerHistory(object):
 
         return {
             "ticker": self._ticker,
-            "date": arrow.utcnow().timestamp,
+            "date": arrow.utcnow().format(),
             "changed_keys": changed_keys,
             "old": [self._latest.get(key) for key in changed_keys],
             "new": [self._current_data.get(key) for key in changed_keys]
