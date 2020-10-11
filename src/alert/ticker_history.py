@@ -81,9 +81,9 @@ class TickerHistory(object):
                         if self._latest[key] != self._current_data.keys()]
 
         return {
-            "ticker_name": self._ticker,
+            "ticker": self._ticker,
             "date": arrow.utcnow().timestamp,
             "changed_keys": changed_keys,
-            "old_values": [self._latest.get(key) for key in changed_keys],
-            "new_values": [self._current_data.get(key) for key in changed_keys]
+            "old": [self._latest.get(key) for key in changed_keys],
+            "new": [self._current_data.get(key) for key in changed_keys]
         }
