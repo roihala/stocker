@@ -1,6 +1,8 @@
 import json
 import os
 import pathlib
+import urllib
+
 import urllib3
 from urllib.error import HTTPError
 
@@ -21,7 +23,10 @@ class TickerHistory(object):
         self._mongo_db = mongo_db
         self._ticker = ticker
         self._sorted_history = self.get_sorted_history()
-        self._latest = self._sorted_history[0]
+        if self._sorted_history.count() > 0:
+            self._latest = self._sorted_history[0]
+        else:
+            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -32,11 +37,11 @@ class TickerHistory(object):
 
     def fetch_data(self):
         try:
-            #site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
-            #response = json.loads(site.read().decode())
-            http = urllib3.PoolManager(maxsize=10)
-            r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
-            response = json.loads(r.data.decode('utf-8'))
+            site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+            response = json.loads(site.read().decode())
+            # http = urllib3.PoolManager(maxsize=10)
+            # r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
+            # response = json.loads(r.data.decode('utf-8'))
 
         except HTTPError:
             raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
@@ -73,7 +78,7 @@ class TickerHistory(object):
         }
 
         """
-        if self._sorted_history.count() == 0:
+        if not self._latest:
             return {}
 
         # Finding the keys that has changes, either from current->latest or latest->current
