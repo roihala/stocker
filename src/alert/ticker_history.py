@@ -26,6 +26,10 @@ class TickerHistory(object):
         self._mongo_db = mongo_db
         self._ticker = ticker
         self._sorted_history = self.get_sorted_history()
+        if self._sorted_history.count() > 0:
+            self._latest = self._sorted_history[0]
+        else:
+            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -78,11 +82,11 @@ class TickerHistory(object):
 
         :return: A dict in the format of:
         {
-            "ticker_name": The name of the ticker,
+            "ticker": The ticker,
             "date": The current date,
-            "changed_keys": A list of the keys that have changed,
-            "old_values": A list of the "old" values,
-            "new_values": A list of the "new" values)
+            "changed_key": The key that have changed
+            "old": The "old" value,
+            "new": The "new" value
         }
 
         """
@@ -95,14 +99,13 @@ class TickerHistory(object):
         changed_keys = [key for key in set(list(latest.keys()) + list(self._current_data.keys()))
                         if latest.get(key) != self._current_data.get(key)]
 
-        if changed_keys:
-            return {
-                "ticker": self._ticker,
-                "date": arrow.utcnow().format(),
-                "changed_keys": changed_keys,
-                "old": [latest.get(key) for key in changed_keys],
-                "new": [self._current_data.get(key) for key in changed_keys]
-            }
+        return [self.__get_diff(latest, changed_key) for changed_key in changed_keys]
 
-        else:
-            return {}
+    def __get_diff(self, latest, key):
+        return {
+            "ticker": self._ticker,
+            "date": arrow.utcnow().format(),
+            "changed_key": key,
+            "old": latest.get(key),
+            "new": self._current_data.get(key)
+        }
