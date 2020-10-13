@@ -1,18 +1,14 @@
-import copy
 import json
-import os
 import pandas
-import pathlib
 import urllib
-from collections import Iterable
 
 import urllib3
 from urllib.error import HTTPError
 
 import arrow
 import pymongo
+from arrow import ParserError
 from pymongo.database import Database
-from pymongo.errors import OperationFailure
 
 from src.find.site import Site, InvalidTickerExcpetion
 
@@ -60,14 +56,8 @@ class TickerHistory(object):
     def __add_unique_keys(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
-    def get_sorted_history(self, duplicates=True):
-        df = pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
-
-        if not duplicates:
-            df.drop_duplicates(subset=df.columns.difference(['date']))
-            return df.drop_duplicates(subset=df.columns.difference(['date']))
-        else:
-            return df
+    def get_sorted_history(self):
+        return pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
 
     def is_changed(self):
         return bool(self.get_changes())
@@ -86,10 +76,11 @@ class TickerHistory(object):
         }
 
         """
-        if self._sorted_history.count() == 0:
+        if self._sorted_history.empty:
             return {}
 
-        latest = self._sorted_history[0].drop('date')
+        # print(self._sorted_history.head(n=1)
+        latest = self.__get_latest()
 
         # Finding the keys that has changes, either from current->latest or latest->current
         changed_keys = [key for key in set(list(latest.keys()) + list(self._current_data.keys()))
@@ -105,3 +96,14 @@ class TickerHistory(object):
             "old": latest.get(key),
             "new": self._current_data.get(key)
         }
+
+    def __get_latest(self):
+        # Index dict indexes by rows, therefore returning the row of index 0
+        return self._sorted_history.head(n=1).drop(['date', 'ticker'], 'columns').to_dict('index')[0]
+
+    @staticmethod
+    def timestamp_to_datestring(value):
+        try:
+            return arrow.get(value).format()
+        except (ParserError, TypeError):
+            return value
