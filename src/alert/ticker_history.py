@@ -1,8 +1,10 @@
 import copy
 import json
 import os
+import pandas
 import pathlib
 import urllib
+from collections import Iterable
 
 import urllib3
 from urllib.error import HTTPError
@@ -24,12 +26,8 @@ class TickerHistory(object):
 
     def __init__(self, ticker, mongo_db: Database):
         self._mongo_db = mongo_db
-        self._ticker = ticker
+        self._ticker = ticker.upper()
         self._sorted_history = self.get_sorted_history()
-        if self._sorted_history.count() > 0:
-            self._latest = self._sorted_history[0]
-        else:
-            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -62,16 +60,14 @@ class TickerHistory(object):
     def __add_unique_keys(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
-    @staticmethod
-    def __drop_unique_keys(data):
-        data_copy = copy.deepcopy(data)
-        data_copy.pop("date")
-        data_copy.pop("_id")
-        data_copy.pop("ticker")
-        return data_copy
+    def get_sorted_history(self, duplicates=True):
+        df = pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
 
-    def get_sorted_history(self):
-        return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
+        if not duplicates:
+            df.drop_duplicates(subset=df.columns.difference(['date']))
+            return df.drop_duplicates(subset=df.columns.difference(['date']))
+        else:
+            return df
 
     def is_changed(self):
         return bool(self.get_changes())
@@ -93,7 +89,7 @@ class TickerHistory(object):
         if self._sorted_history.count() == 0:
             return {}
 
-        latest = self.__drop_unique_keys(self._sorted_history[0])
+        latest = self._sorted_history[0].drop('date')
 
         # Finding the keys that has changes, either from current->latest or latest->current
         changed_keys = [key for key in set(list(latest.keys()) + list(self._current_data.keys()))

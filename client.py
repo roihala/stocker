@@ -16,12 +16,14 @@ DEFAULT_CLIENT_URI = 'mongodb://admin:admin123@51.91.11.169:27017/stocker'
 def main():
     args = get_args()
     logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    pandas.set_option('display.expand_frame_repr', False)
+
     mongo_db = init_mongo(DEFAULT_CLIENT_URI)
 
     if args.history:
-        df = pandas.DataFrame(TickerHistory(args.history, mongo_db).get_sorted_history())
-        df = df.drop(["_id", "date"], "columns")
-        print(df.columns)
+        history = TickerHistory(args.history, mongo_db).get_sorted_history(duplicates=True)
+        history["date"] = history["date"].apply(__timestamp_to_datestring)
+        print(history)
 
     else:
         print_diffs(mongo_db)
@@ -33,6 +35,8 @@ def print_diffs(mongo_db):
     # Pretify timestamps
     df["old"] = df["old"].apply(__timestamp_to_datestring)
     df["new"] = df["new"].apply(__timestamp_to_datestring)
+
+    print(df)
 
 
 def __timestamp_to_datestring(value):
