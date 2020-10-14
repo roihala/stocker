@@ -38,7 +38,7 @@ def print_diffs(mongo_db):
     df["old"] = df["old"].apply(TickerHistory.timestamp_to_datestring)
     df["new"] = df["new"].apply(TickerHistory.timestamp_to_datestring)
 
-    print(df)
+    print(df.to_string())
 
 
 
