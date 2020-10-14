@@ -1,7 +1,5 @@
-import copy
 import json
-import os
-import pathlib
+import pandas
 import urllib
 
 import urllib3
@@ -9,8 +7,8 @@ from urllib.error import HTTPError
 
 import arrow
 import pymongo
+from arrow import ParserError
 from pymongo.database import Database
-from pymongo.errors import OperationFailure
 
 from src.find.site import Site, InvalidTickerExcpetion
 
@@ -24,12 +22,8 @@ class TickerHistory(object):
 
     def __init__(self, ticker, mongo_db: Database):
         self._mongo_db = mongo_db
-        self._ticker = ticker
+        self._ticker = ticker.upper()
         self._sorted_history = self.get_sorted_history()
-        if self._sorted_history.count() > 0:
-            self._latest = self._sorted_history[0]
-        else:
-            self._latest = {}
 
     def __enter__(self):
         self._current_data = self.fetch_data()
@@ -62,16 +56,8 @@ class TickerHistory(object):
     def __add_unique_keys(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
-    @staticmethod
-    def __drop_unique_keys(data):
-        data_copy = copy.deepcopy(data)
-        data_copy.pop("date")
-        data_copy.pop("_id")
-        data_copy.pop("ticker")
-        return data_copy
-
     def get_sorted_history(self):
-        return self._mongo_db.symbols.find({"ticker": self._ticker}).sort('date', pymongo.DESCENDING)
+        return pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
 
     def is_changed(self):
         return bool(self.get_changes())
@@ -90,10 +76,11 @@ class TickerHistory(object):
         }
 
         """
-        if self._sorted_history.count() == 0:
+        if self._sorted_history.empty:
             return {}
 
-        latest = self.__drop_unique_keys(self._sorted_history[0])
+        # print(self._sorted_history.head(n=1)
+        latest = self.__get_latest()
 
         # Finding the keys that has changes, either from current->latest or latest->current
         changed_keys = [key for key in set(list(latest.keys()) + list(self._current_data.keys()))
@@ -109,3 +96,14 @@ class TickerHistory(object):
             "old": latest.get(key),
             "new": self._current_data.get(key)
         }
+
+    def __get_latest(self):
+        # Index dict indexes by rows, therefore returning the row of index 0
+        return self._sorted_history.head(n=1).drop(['date', 'ticker'], 'columns').to_dict('index')[0]
+
+    @staticmethod
+    def timestamp_to_datestring(value):
+        try:
+            return arrow.get(value).format()
+        except (ParserError, TypeError):
+            return value

@@ -43,6 +43,8 @@ def alert_tickers(args, debug=False):
                     if debug:
                         print('running on {ticker}'.format(ticker=ticker))
                     if ticker_history.is_changed():
+                        changes = ticker_history.get_changes()
+                        logging.info("found changes in {ticker}: {changes}".format(ticker=ticker, changes=changes))
                         [mongo_db.diffs.insert_one(change) for change in ticker_history.get_changes()]
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
