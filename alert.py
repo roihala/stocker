@@ -3,9 +3,7 @@ import logging
 import os
 import pymongo
 
-import arrow
 import pandas
-import pause
 from pymongo import MongoClient
 
 from src.alert.ticker_history import TickerHistory
