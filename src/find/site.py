@@ -3,12 +3,15 @@ import urllib
 
 import requests
 
+# from src.alert.ticker_history import TickerHistory
+
 
 class Site(object):
     TICKER_FORMAT = 'ticker'
     COMPANY_NAME_FORMAT = 'company_name'
 
     TICKER_TRANSLATION_URL = "http://d.yimg.com/autoc.finance.yahoo.com/autoc?query={ticker}&region=1&lang=en"
+    TICKER_PROFILE_URL = 'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}'
 
     def __init__(self, name, url, is_otc):
         self.name = name
@@ -17,16 +20,30 @@ class Site(object):
 
     def get_ticker_url(self, ticker):
         format_keys = self.get_format_keys(self.url)
-        company_name = self.get_company_name(ticker)
 
         if 'ticker' in format_keys:
             return self.url.format(ticker=ticker)
 
         elif 'company_name' in format_keys:
-            return self.url.format(company_name=urllib.parse.quote(company_name))
+            return self.url.format(company_name=urllib.parse.quote(self.get_company_name(ticker)))
+
+        elif 'company_site' in format_keys:
+
+            return self.url.format(company_site=self.get_company_site(ticker))
 
         else:
             raise Exception("Invalid site format: {url}".format(url=self.url))
+
+    def get_company_site(self, ticker):
+        if not self.is_otc:
+            raise Exception("Site.get_company_site: Unimplemented for non OTC markets")
+
+        response = requests.get(self.TICKER_PROFILE_URL.format(ticker=ticker))
+
+        try:
+            return response.json()['website']
+        except KeyError:
+            raise Exception("Couldn't get the website of {ticker}".format(ticker=ticker))
 
     @staticmethod
     def get_format_keys(string):
