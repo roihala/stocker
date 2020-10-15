@@ -41,7 +41,6 @@ def print_diffs(mongo_db):
     print(df.to_string())
 
 
-
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--history', dest='history', help='Print the saved history of a ticker')

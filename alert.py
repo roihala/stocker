@@ -27,34 +27,23 @@ def main():
 
 def alert_tickers(args, debug=False):
     mongo_db = init_mongo(args.uri)
-
-    # arrow.floor allows us to ignore minutes and seconds
-    next_hour = arrow.now().floor('hour')
     tickers_list = extract_tickers(args)
 
-    while True:
-        if not debug:
-            next_hour = next_hour.shift(hours=1)
-            pause.until(next_hour.timestamp)
-
-        for ticker in tickers_list:
-            try:
-                with TickerHistory(ticker, mongo_db) as ticker_history:
-                    if debug:
-                        print('running on {ticker}'.format(ticker=ticker))
-                    if ticker_history.is_changed():
-                        changes = ticker_history.get_changes()
-                        logging.info("found changes in {ticker}: {changes}".format(ticker=ticker, changes=changes))
-                        [mongo_db.diffs.insert_one(change) for change in ticker_history.get_changes()]
-            except InvalidTickerExcpetion:
-                logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
-            except pymongo.errors.OperationFailure as e:
-                raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
-            except Exception as e:
-                logging.warning('Exception on {ticker}: {e}'.format(ticker=ticker, e=e))
-
-        if debug:
-            break
+    for ticker in tickers_list:
+        try:
+            with TickerHistory(ticker, mongo_db) as ticker_history:
+                if debug:
+                    print('running on {ticker}'.format(ticker=ticker))
+                if ticker_history.is_changed():
+                    changes = ticker_history.get_changes()
+                    logging.info("found changes in {ticker}: {changes}".format(ticker=ticker, changes=changes))
+                    [mongo_db.diffs.insert_one(change) for change in ticker_history.get_changes()]
+        except InvalidTickerExcpetion:
+            logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
+        except pymongo.errors.OperationFailure as e:
+            raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
+        except Exception as e:
+            logging.warning('Exception on {ticker}: {e}'.format(ticker=ticker, e=e))
 
 
 def init_mongo(mongo_uri=None):
