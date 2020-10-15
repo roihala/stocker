@@ -25,7 +25,7 @@ def main():
         if history.empty:
             raise Exception("No history for {ticker}".format(ticker=args.history))
         history["date"] = history["date"].apply(TickerHistory.timestamp_to_datestring)
-        print(history)
+        print(history.to_string())
 
     else:
         print_diffs(mongo_db)
