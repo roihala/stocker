@@ -32,8 +32,7 @@ def alert_tickers(args, debug=False):
     for ticker in tickers_list:
         try:
             with TickerHistory(ticker, mongo_db) as ticker_history:
-                if debug:
-                    print('running on {ticker}'.format(ticker=ticker))
+                print('running on {ticker}'.format(ticker=ticker))
                 if ticker_history.is_changed():
                     changes = ticker_history.get_changes()
                     logging.info("found changes in {ticker}: {changes}".format(ticker=ticker, changes=changes))
