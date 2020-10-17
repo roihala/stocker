@@ -56,8 +56,14 @@ class TickerHistory(object):
     def __add_unique_keys(self, data):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
-    def get_sorted_history(self):
-        return pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
+    def get_sorted_history(self, duplicates=True):
+        history = pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
+        if duplicates:
+            return history
+        else:
+            # Filtering all consecutive duplicates
+            cols = history.columns.difference(['date'])
+            return history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
 
     def is_changed(self):
         return bool(self.get_changes())

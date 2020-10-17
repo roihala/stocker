@@ -21,12 +21,16 @@ def main():
     mongo_db = init_mongo(DEFAULT_CLIENT_URI)
 
     if args.history:
-        history = TickerHistory(args.history, mongo_db).get_sorted_history()
-        if history.empty:
-            raise Exception("No history for {ticker}".format(ticker=args.history))
-        history["date"] = history["date"].apply(TickerHistory.timestamp_to_datestring)
-        print(history.to_string())
+        history = TickerHistory(args.history, mongo_db).get_sorted_history(duplicates=False)
 
+        if history.empty:
+            print("No history for {ticker}".format(ticker=args.history))
+            return
+
+        # Prettify timestamps
+        history["date"] = history["date"].apply(TickerHistory.timestamp_to_datestring)
+
+        print(history.to_string())
     else:
         print_diffs(mongo_db)
 
@@ -34,7 +38,7 @@ def main():
 def print_diffs(mongo_db):
     df = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
 
-    # Pretify timestamps
+    # Prettify timestamps
     df["old"] = df["old"].apply(TickerHistory.timestamp_to_datestring)
     df["new"] = df["new"].apply(TickerHistory.timestamp_to_datestring)
 
