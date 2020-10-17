@@ -1,16 +1,33 @@
+import arrow
+import json
+import pandas
+import urllib
+import urllib3
+from urllib.error import HTTPError
+import arrow
+import pymongo
+from arrow import ParserError
+from pymongo.database import Database
+from arrow import ParserError
 import argparse
 import logging
 import os
-
-import arrow
 import pandas
-from arrow import ParserError
-
-from alert import init_mongo
+import sys
+from pymongo import MongoClient
+from src.alert.alert import init_mongo
 from src.alert.ticker_history import TickerHistory
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
 DEFAULT_CLIENT_URI = 'mongodb://admin:admin123@51.91.11.169:27017/stocker'
+
+
+
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 
 def main():
