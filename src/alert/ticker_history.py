@@ -57,7 +57,7 @@ class TickerHistory(object):
         data.update({"ticker": self._ticker, "date": arrow.utcnow().format()})
 
     def get_sorted_history(self, duplicates=True):
-        history = pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.DESCENDING))
+        history = pandas.DataFrame(self._mongo_db.symbols.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
         if duplicates:
             return history
         else:
