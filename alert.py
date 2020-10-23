@@ -70,7 +70,7 @@ class Alert(object):
 
                     if changes:
                         # Insert the new diffs to mongo
-                        # [self._mongo_db.diffs.insert_one(change) for change in changes]
+                        [self._mongo_db.diffs.insert_one(change) for change in changes]
 
                         # Alert every registered user
                         [self.__telegram_alert(change) for change in changes]
