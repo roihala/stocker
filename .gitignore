@@ -9,3 +9,7 @@ __pycache__
 tickers
 alert.log
 test_logs.log
+stocker_alerts_bot.log
+alert_task.log
+hooks-log.log
+*.png

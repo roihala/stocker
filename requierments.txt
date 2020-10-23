@@ -5,3 +5,5 @@ tk
 requests
 pymongo
 arrow
+telegram
+python-telegram-bot
