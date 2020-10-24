@@ -3,8 +3,6 @@ import urllib
 
 import requests
 
-# from src.alert.ticker_history import TickerHistory
-
 
 class Site(object):
     TICKER_FORMAT = 'ticker'
