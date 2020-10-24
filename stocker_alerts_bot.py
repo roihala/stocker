@@ -10,7 +10,6 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 
 from alert import Alert
 from client import get_history, get_diffs
-from src.alert.ticker_history import TickerHistory
 from src.find.site import InvalidTickerExcpetion
 
 PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
