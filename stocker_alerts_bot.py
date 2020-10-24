@@ -9,13 +9,14 @@ import telegram
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 
 from alert import Alert
+from client import get_history, get_diffs
 from src.alert.ticker_history import TickerHistory
 from src.find.site import InvalidTickerExcpetion
 
 PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
-HISTORY_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{ticker}.png')
+TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{symbol}.png')
 
 
 def start(update, context):
@@ -23,8 +24,10 @@ def start(update, context):
         '''   
 Stocker alerts bot currently supports the following commands:
         
-/history - Get the saved history of a certain stock, note that duplications will be removed
-/register - Register to get alerts on modifications straight to your telegram account''',
+/register - Register to get alerts on modifications straight to your telegram account.
+/deregister - Do this to stop getting alerts from stocker. *not recommended*
+/history - Get the saved history of a certain stock, note that duplications will be removed.
+/alerts - Get every alert that stocker has ever detected.''',
         parse_mode=telegram.ParseMode.MARKDOWN)
 
 
@@ -50,6 +53,24 @@ def register(update, context):
         logging.exception(e.__traceback__)
 
 
+def deregister(update, context):
+    user = update.message.from_user
+    try:
+        # Using private attr because of bad API
+
+        context._dispatcher.mongo_db.telegram_users.delete_one({'user_name': user.name})
+        context._dispatcher.mongo_db.telegram_users.delete_one({'chat_id': user.id})
+
+        logging.info("{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
+
+        update.message.reply_text('{user_name} Deregistered successfully'.format(user_name=user.name))
+
+    except Exception as e:
+        update.message.reply_text(
+            '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
+        logging.exception(e.__traceback__)
+
+
 def history(update, context):
     user = update.message.from_user
 
@@ -57,7 +78,7 @@ def history(update, context):
         update.message.reply_text('Insert ticker')
         return PRINT_HISTORY
     else:
-        update.message.reply_text('You need to be registered to use this. Check /register for more info')
+        update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
         return ConversationHandler.END
 
 
@@ -76,37 +97,26 @@ def history_request(update, context):
         update.message.reply_text('No history for {ticker}'.format(ticker=ticker))
         return ConversationHandler.END
 
-    history_image_path = HISTORY_IMAGE_PATH_FORMAT.format(ticker=ticker)
-
-    # Converting to image because dataframe isn't shown well in telegram
-    dfi.export(history_df, history_image_path)
-
-    with open(history_image_path, 'rb') as image:
-        update.message.reply_document(image)
-
-    os.remove(history_image_path)
+    __df_reply(update, history_df, ticker)
 
     return ConversationHandler.END
 
 
-def get_history(mongo_db, ticker):
-    history_df = TickerHistory(ticker, mongo_db).get_sorted_history(duplicates=False)
-
-    if history_df.empty:
-        raise InvalidTickerExcpetion("No history for {ticker}".format(ticker=ticker))
-
-    # Prettify timestamps
-    history_df["date"] = history_df["date"].apply(TickerHistory.timestamp_to_datestring)
-    history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(
-        TickerHistory.timestamp_to_datestring)
-
-    return history_filters(history_df)
+def alerts(update, context):
+    alerts_df = get_diffs(context._dispatcher.mongo_db)
+    __df_reply(update, alerts_df, 'diffs')
 
 
-def history_filters(history_df):
-    # Filtering columns that doesn't have even one truth value
-    any_columns = history_df.any()
-    return history_df[any_columns[any_columns].index]
+def __df_reply(update, df, symbol):
+    image_path = TEMP_IMAGE_PATH_FORMAT.format(symbol=symbol)
+
+    # Converting to image because dataframe isn't shown well in telegram
+    dfi.export(df, image_path, max_rows=-1)
+
+    with open(image_path, 'rb') as image:
+        update.message.reply_document(image)
+
+    os.remove(image_path)
 
 
 def __is_registered(mongo_db, user_name, chat_id):
@@ -135,8 +145,10 @@ def main(args):
 
     dp.add_handler(conv_handler)
 
-    dp.add_handler(CommandHandler('register', register))
     dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CommandHandler('register', register))
+    dp.add_handler(CommandHandler('deregister', deregister))
+    dp.add_handler(CommandHandler('alerts', alerts))
 
     # Start the Bot
     updater.start_polling()

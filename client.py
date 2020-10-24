@@ -6,7 +6,7 @@ import pandas
 
 from alert import Alert
 from src.alert.ticker_history import TickerHistory
-from stocker_alerts_bot import get_history
+from src.find.site import InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
 
@@ -22,6 +22,26 @@ def main():
         print(get_history(mongo_db, args.history).to_string())
     else:
         print(get_diffs(mongo_db).to_string())
+
+
+def get_history(mongo_db, ticker):
+    history_df = TickerHistory(ticker, mongo_db).get_sorted_history(duplicates=False)
+
+    if history_df.empty:
+        raise InvalidTickerExcpetion("No history for {ticker}".format(ticker=ticker))
+
+    # Prettify timestamps
+    history_df["date"] = history_df["date"].apply(TickerHistory.timestamp_to_datestring)
+    history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(
+        TickerHistory.timestamp_to_datestring)
+
+    return history_filters(history_df)
+
+
+def history_filters(history_df):
+    # Filtering columns that doesn't have even one truth value
+    any_columns = history_df.any()
+    return history_df[any_columns[any_columns].index]
 
 
 def get_diffs(mongo_db):
