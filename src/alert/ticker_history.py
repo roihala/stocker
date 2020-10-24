@@ -2,7 +2,6 @@ import json
 import pandas
 import urllib
 
-import urllib3
 from urllib.error import HTTPError
 
 import arrow
@@ -35,10 +34,8 @@ class TickerHistory(object):
     def fetch_data(self):
         try:
             site = urllib.request.urlopen(self.BADGES_SITE.get_ticker_url(self._ticker))
+
             response = json.loads(site.read().decode())
-            # http = urllib3.PoolManager(maxsize=10)
-            # r = http.request('GET', self.BADGES_SITE.get_ticker_url(self._ticker))
-            # response = json.loads(r.data.decode('utf-8'))
 
         except HTTPError:
             raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
@@ -62,11 +59,8 @@ class TickerHistory(object):
             return history
         else:
             # Filtering all consecutive duplicates
-            cols = history.columns.difference(['date'])
+            cols = history.columns.difference(['date', 'verifiedDate'])
             return history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
-
-    def is_changed(self):
-        return bool(self.get_changes())
 
     def get_changes(self):
         """
@@ -104,8 +98,8 @@ class TickerHistory(object):
         }
 
     def __get_latest(self):
-        # Index dict indexes by rows, therefore returning the row of index 0
-        return self._sorted_history.head(n=1).drop(['date', 'ticker'], 'columns').to_dict('index')[0]
+        # to_dict indexes by rows, therefore getting the row of the last index
+        return self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')[len(self._sorted_history.index) -1]
 
     @staticmethod
     def timestamp_to_datestring(value):
