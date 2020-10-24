@@ -123,8 +123,7 @@ def __is_registered(mongo_db, user_name, chat_id):
 
 
 def main(args):
-    # logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
     updater = Updater(args.token, use_context=True)
 
