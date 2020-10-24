@@ -13,4 +13,5 @@ go1.11.4.linux-amd64.tar.gz
 stocker_alerts_bot.log
 alert-task.log
 hooks-log.log
+telegram-task.log
 *.png
