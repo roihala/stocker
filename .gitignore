@@ -9,7 +9,8 @@ __pycache__
 tickers
 alert.log
 test_logs.log
+go1.11.4.linux-amd64.tar.gz
 stocker_alerts_bot.log
-alert_task.log
+alert-task.log
 hooks-log.log
 *.png
