@@ -58,6 +58,10 @@ class TickerHistory(object):
         if duplicates:
             return history
         else:
+            # Workaround for unmatching schema
+            if 'verifiedDate' not in history:
+                history['verifiedDate'] = None
+
             # Filtering all consecutive duplicates
             cols = history.columns.difference(['date', 'verifiedDate'])
             return history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
