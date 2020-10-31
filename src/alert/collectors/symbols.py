@@ -5,7 +5,7 @@ from src.find.site import Site
 class Symbols(SiteCollector):
     @property
     def site(self):
-        return Site(self._collection,
+        return Site(self.collection,
                     'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
 
     def _filter_diff(self, diff) -> bool:

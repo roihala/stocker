@@ -15,11 +15,11 @@ class SiteCollector(CollectorBase, ABC):
 
     def fetch_data(self) -> dict:
         try:
-            site = urllib.request.urlopen(self.site.get_ticker_url(self._ticker))
+            site = urllib.request.urlopen(self.site.get_ticker_url(self.ticker))
 
             response = json.loads(site.read().decode())
 
         except HTTPError:
-            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self._ticker)
+            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self.ticker)
 
         return response

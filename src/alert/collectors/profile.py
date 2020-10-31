@@ -5,7 +5,7 @@ from src.find.site import Site
 class Profile(SiteCollector):
     @property
     def site(self):
-        return Site(self._collection,
+        return Site(self.collection,
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 

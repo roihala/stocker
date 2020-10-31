@@ -10,9 +10,9 @@ from abc import ABC, abstractmethod
 
 class CollectorBase(ABC):
     def __init__(self, mongo_db: Database, collection, ticker, date=None, debug=False):
+        self.ticker = ticker.upper()
+        self.collection = mongo_db.get_collection(collection)
         self._mongo_db = mongo_db
-        self._collection = mongo_db.get_collection(collection)
-        self._ticker = ticker.upper()
         self._sorted_history = self.get_sorted_history()
         self._latest = self.__get_latest()
         self._date = date if date else arrow.utcnow()
@@ -32,15 +32,15 @@ class CollectorBase(ABC):
 
         # Updating DB with the new data
         entry = deepcopy(self._current_data)
-        entry.update({"ticker": self._ticker, "date": self._date.format()})
+        entry.update({"ticker": self.ticker, "date": self._date.format()})
         if not self._debug:
-            self._collection.insert_one(entry)
+            self.collection.insert_one(entry)
         else:
-            print(self._current_data)
+            print(entry)
 
     def get_sorted_history(self, duplicates=False):
         history = pandas.DataFrame(
-            self._collection.find({"ticker": self._ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
+            self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
         if duplicates:
             return history
         else:
@@ -79,7 +79,7 @@ class CollectorBase(ABC):
 
     def __get_diff(self, latest, key):
         return {
-            "ticker": self._ticker,
+            "ticker": self.ticker,
             "date": self._date.format(),
             "changed_key": key,
             "old": latest.get(key),

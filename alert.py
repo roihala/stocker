@@ -65,37 +65,40 @@ class Alert(object):
             raise ValueError("Couldn't connect to telegram, check your credentials")
 
     def collect_all(self):
-        for name, obj in self.COLLECTORS.items():
-            self.collect(obj, name)
-
-    def collect(self, collector_obj, collection):
         for ticker in self._tickers_list:
-            try:
-                # Using date as a key for matching entries between collections
-                date = arrow.utcnow()
-                logging.info(' running on {collection}, {ticker}'.format(ticker=ticker, collection=collection))
+            # Using date as a key for matching entries between collections
+            date = arrow.utcnow()
 
-                collector = collector_obj(self._mongo_db, collection, ticker, date, self._debug)
+            for collection, obj in self.COLLECTORS.items():
+                collector = obj(self._mongo_db, collection, ticker, date, self._debug)
+                self.collect(collector)
 
-                collector.collect()
+    def collect(self, collector: CollectorBase):
+        try:
+            logging.info(' running on {collection}, {ticker}'.format(ticker=collector.ticker, collection=collector.collection))
 
-                diffs = collector.get_diffs()
-                logging.info('changes: {changes}'.format(changes=diffs))
+            collector.collect()
 
-                if diffs:
+            diffs = collector.get_diffs()
+            logging.info('changes: {changes}'.format(changes=diffs))
 
-                    # Insert the new diffs to mongo
-                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+            if diffs:
 
-                    # Alert every registered user
-                    [self.__telegram_alert(diff) for diff in diffs]
+                # Insert the new diffs to mongo
+                [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
 
-            except InvalidTickerExcpetion:
-                logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
-            except pymongo.errors.OperationFailure as e:
-                raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
-            except Exception as e:
-                logging.warning('Exception on {ticker}: {e}'.format(ticker=ticker, e=e))
+                # Alert every registered user
+                [self.__telegram_alert(diff) for diff in diffs]
+
+        except InvalidTickerExcpetion:
+            logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=collector.ticker))
+        except pymongo.errors.OperationFailure as e:
+            raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
+        except Exception as e:
+            logging.warning('Exception on {ticker}: {e}'.format(ticker=collector.ticker, e=e))
+
+    def t(self, ticker):
+        pass
 
     def __telegram_alert(self, change):
         # User-friendly message
