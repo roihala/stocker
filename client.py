@@ -5,7 +5,7 @@ import os
 import pandas
 
 from alert import Alert
-from src.alert.ticker_history import TickerHistory
+from src.alert.collector_base import CollectorBase
 from src.find.site import InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
@@ -25,15 +25,15 @@ def main():
 
 
 def get_history(mongo_db, ticker):
-    history_df = TickerHistory(ticker, mongo_db).get_sorted_history(duplicates=False)
+    history_df = CollectorBase(ticker, mongo_db).get_sorted_history()
 
     if history_df.empty:
         raise InvalidTickerExcpetion("No history for {ticker}".format(ticker=ticker))
 
     # Prettify timestamps
-    history_df["date"] = history_df["date"].apply(TickerHistory.timestamp_to_datestring)
+    history_df["date"] = history_df["date"].apply(CollectorBase.timestamp_to_datestring)
     if 'verifiedDate' in history_df:
-        history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(TickerHistory.timestamp_to_datestring)
+        history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(CollectorBase.timestamp_to_datestring)
 
     return history_filters(history_df)
 
@@ -49,8 +49,8 @@ def get_diffs(mongo_db):
     df = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
 
     # Prettify timestamps
-    df["old"] = df["old"].apply(TickerHistory.timestamp_to_datestring)
-    df["new"] = df["new"].apply(TickerHistory.timestamp_to_datestring)
+    df["old"] = df["old"].apply(CollectorBase.timestamp_to_datestring)
+    df["new"] = df["new"].apply(CollectorBase.timestamp_to_datestring)
 
     return df
 

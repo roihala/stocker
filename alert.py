@@ -2,14 +2,15 @@
 import argparse
 import logging
 import os
-
+import arrow
 import pymongo
-
 import pandas
 import telegram
 from pymongo import MongoClient
 
-from src.alert.ticker_history import TickerHistory
+from src.alert.collector_base import CollectorBase
+from src.alert.collectors.profile import Profile
+from src.alert.collectors.symbols import Symbols
 from src.find.site import InvalidTickerExcpetion
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
@@ -18,6 +19,8 @@ DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), 'tickers.csv')
 
 class Alert(object):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
+    COLLECTORS = {'symbols': Symbols,
+                  'profile': Profile}
 
     def __init__(self, args):
         logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -25,6 +28,7 @@ class Alert(object):
         self._mongo_db = self.init_mongo(args.uri)
         self._tickers_list = self.extract_tickers(args)
         self._telegram_bot = self.init_telegram(args.token)
+        self._debug = args.debug
 
     @staticmethod
     def init_mongo(mongo_uri):
@@ -60,21 +64,31 @@ class Alert(object):
         except telegram.error.Unauthorized:
             raise ValueError("Couldn't connect to telegram, check your credentials")
 
-    def alert(self):
+    def collect_all(self):
+        for name, obj in self.COLLECTORS.items():
+            self.collect(obj, name)
+
+    def collect(self, collector_obj, collection):
         for ticker in self._tickers_list:
             try:
-                with TickerHistory(ticker, self._mongo_db) as ticker_history:
-                    logging.info('running on {ticker}'.format(ticker=ticker))
+                # Using date as a key for matching entries between collections
+                date = arrow.utcnow()
+                logging.info(' running on {collection}, {ticker}'.format(ticker=ticker, collection=collection))
 
-                    changes = ticker_history.get_changes()
-                    logging.info('changes: {changes}'.format(changes=changes))
+                collector = collector_obj(self._mongo_db, collection, ticker, date, self._debug)
 
-                    if changes:
-                        # Insert the new diffs to mongo
-                        [self._mongo_db.diffs.insert_one(change) for change in changes]
+                collector.collect()
 
-                        # Alert every registered user
-                        [self.__telegram_alert(change) for change in changes]
+                diffs = collector.get_diffs()
+                logging.info('changes: {changes}'.format(changes=diffs))
+
+                if diffs:
+
+                    # Insert the new diffs to mongo
+                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+
+                    # Alert every registered user
+                    [self.__telegram_alert(diff) for diff in diffs]
 
             except InvalidTickerExcpetion:
                 logging.warning('Suspecting invalid ticker {ticker}'.format(ticker=ticker))
@@ -98,7 +112,7 @@ class Alert(object):
 
 
 def main():
-    Alert(get_args()).alert()
+    Alert(get_args()).collect_all()
 
 
 def get_args():
