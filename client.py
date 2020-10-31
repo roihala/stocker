@@ -32,8 +32,8 @@ def get_history(mongo_db, ticker):
 
     # Prettify timestamps
     history_df["date"] = history_df["date"].apply(TickerHistory.timestamp_to_datestring)
-    history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(
-        TickerHistory.timestamp_to_datestring)
+    if 'verifiedDate' in history_df:
+        history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(TickerHistory.timestamp_to_datestring)
 
     return history_filters(history_df)
 
