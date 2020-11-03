@@ -23,12 +23,17 @@ class Alert(object):
                   'profile': Profile}
 
     def __init__(self, args):
-        logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-
         self._mongo_db = self.init_mongo(args.uri)
         self._tickers_list = self.extract_tickers(args)
         self._telegram_bot = self.init_telegram(args.token)
         self._debug = args.debug
+
+        # Verbose mode is printing logs
+        if args.verbose:
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+        else:
+            logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO,
+                                format='%(asctime)s %(levelname)s %(message)s')
 
     @staticmethod
     def init_mongo(mongo_uri):
@@ -75,7 +80,7 @@ class Alert(object):
 
     def collect(self, collector: CollectorBase):
         try:
-            logging.info(' running on {collection}, {ticker}'.format(ticker=collector.ticker, collection=collector.collection))
+            logging.info(' running on {collection}, {ticker}'.format(ticker=collector.ticker, collection=collector.name))
 
             collector.collect()
 
@@ -95,10 +100,7 @@ class Alert(object):
         except pymongo.errors.OperationFailure as e:
             raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
         except Exception as e:
-            logging.warning('Exception on {ticker}: {e}'.format(ticker=collector.ticker, e=e))
-
-    def t(self, ticker):
-        pass
+            logging.exception(e, exc_info=True)
 
     def __telegram_alert(self, change):
         # User-friendly message
@@ -122,6 +124,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
+    parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
     parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
     parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
 

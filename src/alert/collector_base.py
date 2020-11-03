@@ -9,9 +9,10 @@ from abc import ABC, abstractmethod
 
 
 class CollectorBase(ABC):
-    def __init__(self, mongo_db: Database, collection, ticker, date=None, debug=False):
+    def __init__(self, mongo_db: Database, name, ticker, date=None, debug=False):
         self.ticker = ticker.upper()
-        self.collection = mongo_db.get_collection(collection)
+        self.name = name
+        self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
         self._sorted_history = self.get_sorted_history()
         self._latest = self.__get_latest()
@@ -72,17 +73,17 @@ class CollectorBase(ABC):
         changed_keys = [key for key in set(list(self._latest.keys()) + list(self._current_data.keys()))
                         if self._latest.get(key) != self._current_data.get(key)]
 
-        diffs = [self.__get_diff(self._latest, changed_key) for changed_key in changed_keys]
+        diffs = [self.__get_diff(changed_key) for changed_key in changed_keys]
 
         # Applying filters
         return list(filter(self._filter_diff, diffs))
 
-    def __get_diff(self, latest, key):
+    def __get_diff(self, key):
         return {
             "ticker": self.ticker,
             "date": self._date.format(),
             "changed_key": key,
-            "old": latest.get(key),
+            "old": self._latest.get(key),
             "new": self._current_data.get(key)
         }
 
