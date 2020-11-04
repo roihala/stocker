@@ -1,8 +1,11 @@
-from copy import deepcopy
-from typing import List
 import pandas
 import arrow
 import pymongo
+import logging
+
+from dictdiffer import diff as differ
+from copy import deepcopy
+from typing import List
 from arrow import ParserError
 from pymongo.database import Database
 from abc import ABC, abstractmethod
@@ -37,7 +40,7 @@ class CollectorBase(ABC):
         if not self._debug:
             self.collection.insert_one(entry)
         else:
-            print(entry)
+            logging.info('collection.insert_one: {entry}'.format(entry=entry))
 
     def get_sorted_history(self, duplicates=False):
         history = pandas.DataFrame(
@@ -69,22 +72,36 @@ class CollectorBase(ABC):
         if self._latest is None:
             return []
 
-        # Finding the keys that has changes, either from current->latest or latest->current
-        changed_keys = [key for key in set(list(self._latest.keys()) + list(self._current_data.keys()))
-                        if self._latest.get(key) != self._current_data.get(key)]
-
-        diffs = [self.__get_diff(changed_key) for changed_key in changed_keys]
+        diffs = self.__parse_diffs(differ(self._latest, self._current_data))
 
         # Applying filters
         return list(filter(self._filter_diff, diffs))
 
-    def __get_diff(self, key):
+    def __parse_diffs(self, diffs):
+        parsed_diffs = []
+
+        for diff_type, key, values in diffs:
+            if diff_type == 'change':
+                # The first value is old, the second is new
+                parsed_diffs.append(self.__build_diff(values[0], values[1], key, diff_type))
+            elif diff_type == 'remove':
+                # The removed value is in the list where the first cell is the index - therefore taking the "1" = value.
+                parsed_diffs.append(self.__build_diff(values[0][1], None, key, diff_type))
+            elif diff_type == 'add':
+                # The removed value is in the list where the first cell is the index - therefore taking the "1" = value.
+                parsed_diffs.append(self.__build_diff(None, values[0][1], key, diff_type))
+
+        return parsed_diffs
+
+    def __build_diff(self, old, new, key, diff_type):
+        key = key if not isinstance(key, list) else '.'.join((str(part) for part in key))
         return {
             "ticker": self.ticker,
             "date": self._date.format(),
             "changed_key": key,
-            "old": self._latest.get(key),
-            "new": self._current_data.get(key)
+            "old": old,
+            "new": new,
+            "diff_type": diff_type
         }
 
     def __get_latest(self):

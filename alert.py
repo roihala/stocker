@@ -85,9 +85,10 @@ class Alert(object):
             collector.collect()
 
             diffs = collector.get_diffs()
+
             logging.info('changes: {changes}'.format(changes=diffs))
 
-            if diffs:
+            if diffs and not self._debug:
 
                 # Insert the new diffs to mongo
                 [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
