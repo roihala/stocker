@@ -8,7 +8,11 @@ class Symbols(SiteCollector):
         return Site(self.collection,
                     'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
 
-    def _filter_diff(self, diff) -> bool:
+    def _edit_diff(self, diff):
+        diff = super()._edit_diff(diff)
+        if not diff:
+            return diff
+
         if diff['changed_key'] == 'verifiedDate':
-            return False
-        return True
+            return None
+        return diff

@@ -1,11 +1,11 @@
-import json_flatten
-
 from src.alert.site_collector import SiteCollector
 from src.find.site import Site
 
 
 class Profile(SiteCollector):
-    SEPERATOR = '&'
+    DROP_KEYS = ['securities', 'isProfileVerified']
+    FILTER_KEYS = ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
+                   'latestFilingUrl', 'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling']
 
     @property
     def site(self):
@@ -13,5 +13,18 @@ class Profile(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
-    def _filter_diff(self, diff) -> bool:
-        return True
+    def fetch_data(self):
+        data = super().fetch_data()
+        # Those keys are either irrelevant or used in other collectors
+        [data.pop(key, None) for key in self.DROP_KEYS]
+        return data
+
+    def _edit_diff(self, diff):
+        diff = super()._edit_diff(diff)
+        if not diff:
+            return diff
+
+        if diff['changed_key'] in self.FILTER_KEYS:
+            return None
+
+        return diff
