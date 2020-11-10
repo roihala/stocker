@@ -13,6 +13,13 @@ from abc import ABC, abstractmethod
 
 class CollectorBase(ABC):
     def __init__(self, mongo_db: Database, name, ticker, date=None, debug=False):
+        """
+        :param mongo_db: mongo db connection
+        :param name: collection name
+        :param ticker: current ticker
+        :param date: date key
+        :param debug: is debug?
+        """
         self.ticker = ticker.upper()
         self.name = name
         self.collection = mongo_db.get_collection(self.name)
@@ -28,8 +35,26 @@ class CollectorBase(ABC):
         pass
 
     @abstractmethod
-    def _filter_diff(self, diff) -> bool:
-        pass
+    def _edit_diff(self, diff) -> dict:
+        """
+        This function is for editing or deleting an existing diff.
+        It will be called with every diff that has been found while maintaining the diff structure of:
+
+        {
+            "ticker": The ticker,
+            "date": The current date,
+            "changed_key": The key that have changed
+            "old": The "old" value,
+            "new": The "new" value,
+            "diff_type": The type of the diff, could be add, remove, etc...
+            "source": Which collection did it come from?
+        }
+
+        :return: The edited diff, None to delete the diff
+        """
+        if diff['changed_key'] == '':
+            return None
+        return diff
 
     def collect(self):
         self._current_data = self.fetch_data()
@@ -62,7 +87,9 @@ class CollectorBase(ABC):
             "date": The current date,
             "changed_key": The key that have changed
             "old": The "old" value,
-            "new": The "new" value
+            "new": The "new" value,
+            "diff_type": The type of the diff, could be add, remove, etc...
+            "source": Which collection did it come from?
         }
 
         """
@@ -75,7 +102,7 @@ class CollectorBase(ABC):
         diffs = self.__parse_diffs(differ(self._latest, self._current_data))
 
         # Applying filters
-        return list(filter(self._filter_diff, diffs))
+        return list(filter(None, [self._edit_diff(diff) for diff in diffs]))
 
     def __parse_diffs(self, diffs):
         parsed_diffs = []
@@ -101,7 +128,8 @@ class CollectorBase(ABC):
             "changed_key": key,
             "old": old,
             "new": new,
-            "diff_type": diff_type
+            "diff_type": diff_type,
+            "source": self.name
         }
 
     def __get_latest(self):
