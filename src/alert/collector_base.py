@@ -24,7 +24,7 @@ class CollectorBase(ABC):
         self.name = name
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
-        self._sorted_history = self.get_sorted_history()
+        self._sorted_history = self.get_sorted_history(apply_filters=False)
         self._latest = self.__get_latest()
         self._date = date if date else arrow.utcnow()
         self._current_data = None
@@ -67,15 +67,27 @@ class CollectorBase(ABC):
         else:
             logging.info('collection.insert_one: {entry}'.format(entry=entry))
 
-    def get_sorted_history(self, duplicates=False):
+    def get_sorted_history(self, apply_filters=True):
         history = pandas.DataFrame(
             self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
-        if duplicates:
-            return history
-        else:
+
+        if apply_filters:
             # Filtering all consecutive duplicates
             cols = history.columns.difference(['date', 'verifiedDate'])
-            return history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
+            history = history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
+
+            # Handling unhashable types
+            for index, col in history.applymap(lambda x: isinstance(x, dict) or isinstance(x, list)).all().items():
+                if col:
+                    history[index] = history[index].astype('str').value_counts()
+
+            # Dropping columns where every row has the same value
+            nunique = history.apply(pandas.Series.nunique)
+            cols_to_drop = nunique[nunique == 1].index
+
+            history = history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+
+        return history
 
     def get_diffs(self) -> List[dict]:
         """
@@ -121,6 +133,7 @@ class CollectorBase(ABC):
         return parsed_diffs
 
     def __build_diff(self, old, new, key, diff_type):
+        # joining by '.' if a key is a list of keys (differ's nested changes approach)
         key = key if not isinstance(key, list) else '.'.join((str(part) for part in key))
         return {
             "ticker": self.ticker,

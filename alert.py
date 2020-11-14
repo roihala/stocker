@@ -31,7 +31,6 @@ class Alert(object):
         self._telegram_bot = self.init_telegram(args.token)
         self._debug = args.debug
         self._verbose = args.verbose
-        self._debug_write = args.debug_write
 
         # Verbose mode is printing logs
         if args.verbose:
@@ -96,9 +95,8 @@ class Alert(object):
             logging.info('changes: {changes}'.format(changes=diffs))
 
             if diffs:
-                if self._debug_write:
-                    # Insert the new diffs to mongo
-                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+                # Insert the new diffs to mongo
+                [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
 
                 # Alert every registered user
                 [self.__telegram_alert(diff) for diff in diffs]
@@ -144,7 +142,6 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
     parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
-    parser.add_argument('--debug-write', dest='debug_write', help='Write to db?', default=False, action='store_true')
     parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
     parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
     parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)

@@ -16,3 +16,13 @@ class Symbols(SiteCollector):
         if diff['changed_key'] == 'verifiedDate':
             return None
         return diff
+
+    def get_sorted_history(self, apply_filters=True):
+        history = super().get_sorted_history(apply_filters)
+
+        if apply_filters and not history.empty:
+            if 'verifiedDate' in history:
+                history["verifiedDate"] = history["verifiedDate"].dropna().apply(
+                    self.timestamp_to_datestring)
+
+        return history
