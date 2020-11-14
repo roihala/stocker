@@ -4,7 +4,7 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 class Securities(SiteCollector):
     FILTER_KEYS = ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
-                   'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate', 'restrictedShares', 'unrestrictedShares',
+                   'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate',
                    'dtcShares', 'tierStartDate', 'tierId', 'numOfRecordShareholdersDate', 'tierName', 'categoryName',
                    'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
                    'publicFloatAsOfDate', 'notes', 'isNoInfo', 'currentCapitalChangePayDate',

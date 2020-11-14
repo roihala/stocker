@@ -6,9 +6,8 @@ class Profile(SiteCollector):
     DROP_KEYS = ['securities', 'isProfileVerified', 'isCaveatEmptor', 'isShell', 'isBankrupt', 'unableToContact',
                  'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate']
     FILTER_KEYS = ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
-                   'latestFilingUrl', 'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
-                   'profileVerifiedAsOfDate', 'id', 'stateOfIncorporation', 'countryOfIncorporation',
-                   'numberOfEmployeesAsOf', 'reportingStandard']
+                   'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
+                   'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard']
 
     @property
     def site(self):
