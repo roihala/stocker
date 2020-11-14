@@ -1,5 +1,3 @@
-import logging
-
 from src.alert.site_collector import SiteCollector
 from src.find.site import Site, InvalidTickerExcpetion
 
@@ -7,7 +5,10 @@ from src.find.site import Site, InvalidTickerExcpetion
 class Securities(SiteCollector):
     FILTER_KEYS = ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
                    'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate', 'restrictedShares', 'unrestrictedShares',
-                   'dtcShares']
+                   'dtcShares', 'tierStartDate', 'tierId', 'numOfRecordShareholdersDate', 'tierName', 'categoryName',
+                   'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
+                   'publicFloatAsOfDate', 'notes', 'isNoInfo', 'currentCapitalChangePayDate',
+                   'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate']
 
     @property
     def site(self):
