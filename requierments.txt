@@ -8,3 +8,4 @@ arrow
 telegram
 python-telegram-bot
 dataframe-image
+dictdiffer

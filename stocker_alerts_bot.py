@@ -25,7 +25,7 @@ Stocker alerts bot currently supports the following commands:
         
 /register - Register to get alerts on modifications straight to your telegram account.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*
-/history - Get the saved history of a certain stock, note that duplications will be removed.
+/history - Get the saved history of a certain stock, note that columns with no changes will be removed.
 /alerts - Get every alert that stocker has ever detected.''',
         parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -74,7 +74,7 @@ def history(update, context):
     user = update.message.from_user
 
     if __is_registered(context._dispatcher.mongo_db, user.name, user.id):
-        update.message.reply_text('Insert ticker')
+        update.message.reply_text('Insert a valid OTC ticker, note that columns with no changes will be removed')
         return PRINT_HISTORY
     else:
         update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
@@ -110,7 +110,7 @@ def __df_reply(update, df, symbol):
     image_path = TEMP_IMAGE_PATH_FORMAT.format(symbol=symbol)
 
     # Converting to image because dataframe isn't shown well in telegram
-    dfi.export(df, image_path, max_rows=-1)
+    dfi.export(df, image_path, max_rows=100)
 
     with open(image_path, 'rb') as image:
         update.message.reply_document(image)
@@ -123,7 +123,10 @@ def __is_registered(mongo_db, user_name, chat_id):
 
 
 def main(args):
-    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    else:
+        logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
     updater = Updater(args.token, use_context=True)
 
@@ -162,6 +165,7 @@ def get_args():
     parser.add_argument('--history', dest='history', help='Print the saved history of a ticker')
     parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
     parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
+    parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
     return parser.parse_args()
 
 
