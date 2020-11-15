@@ -6,8 +6,8 @@ import urllib
 
 import arrow
 
-from alert import alert_tickers, extract_tickers
-from src.alert.collector_base import CollectorBase
+from collect import alert_tickers, extract_tickers
+from src.collect.collector_base import CollectorBase
 from src.find.site import InvalidTickerExcpetion
 
 TWO_HUNDRED_TICKERS = ['ACLD', 'ADTC', 'AGDY', 'AGRS', 'SPQS', 'MGPC', 'AMLC', 'ARTM', 'AVOT', 'AGTT', 'ANTI', 'MRPI', 'TMEB', 'AMNL', 'GSPI', 'BPMI', 'BISA', 'BONTQ', 'BRER', 'CACH', 'CLCL', 'CBEX', 'CGIPQ', 'CRMK', 'DLPX', 'CIND', 'CBRI', 'CRLI', 'CLSI', 'CGAM', 'CDNO', 'CFCC', 'CYBD', 'OZON', 'SWWI', 'TRUA', 'DBRM', 'DION', 'AMTCQ', 'ENZH', 'FOYJ', 'FRCH', 'EOSI', 'GBEI', 'GFCJ', 'HERC', 'HCLC', 'ARWD', 'HMGN', 'SGLA', 'ESINQ', 'IGNE', 'WGEI', 'DEMO', 'ISTC', 'ILDO', 'EQUI', 'JACO', 'PCGR', 'LPPI', 'LCAR', 'PFND', 'LPTI', 'PMEA', 'MZEIQ', 'MPIN', 'MTRT', 'HNTM', 'NUTTQ', 'DESTQ', 'OPMC', 'PGAI', 'PMDL', 'PSBC', 'PTSC', 'NADA', 'PDNLA', 'PNBC', 'PSWR', 'RGUS', 'KIDBQ', 'SDAD', 'SHWK', 'SEIL', 'LDSI', 'SLSR', 'SGTN', 'STDE', 'TMMI', 'TALC', 'SIMC', 'FUNN', 'TCGN', 'CVST', 'TROG', 'USRC', 'UMCN', 'GNCC', 'UTRX', 'WGNR', 'INOW', 'PRLO', 'HABC', 'NFTI', 'PLNTQ', 'OMRX', 'MEGH', 'GSAC', 'SINX', 'EKWX', 'CZNB', 'WIRX', 'AACS', 'CHAG', 'MVAC', 'ULGX', 'ASNB', 'WAXS', 'MPEG', 'SLUP', 'SHGP', 'GRLF', 'EQTL', 'CNDL', 'MNSF', 'USEI', 'DPLS', 'IRNC', 'ITNF', 'PGUZ', 'BOTX', 'WWRL', 'SUNC', 'SKVY', 'MRPS', 'ADLI', 'GLEC', 'PSCO', 'AVXT', 'PRVU', 'GPTX', 'CLTY', 'EXSO', 'SEYE', 'IDIG', 'SGBI', 'QTXB', 'ENHT', 'BRCOQ', 'HWVI', 'ACCR', 'PHLI', 'FFPM', 'FPPP', 'BZWR', 'MHTX', 'SIII', 'AWSI', 'HUMT', 'TMOL', 'QPRC', 'CTBK', 'PFTI', 'GWIO', 'LFPI', 'APGI', 'CHWE', 'QENC', 'QNXC', 'ADNY', 'NOUV', 'IPLY', 'NLAB', 'IBSS', 'BSYI', 'TLLEQ', 'BLDV', 'IENT', 'BRTE', 'TRBX', 'CXCQ', 'CNVT', 'CYBA', 'KRFG', 'FUTS', 'ITLK', 'AWWC', 'SCTN', 'SYHO', 'GNLKQ', 'SGRZ', 'MCBP', 'ALIF', 'GSFD', 'XNNHQ', 'CHIF', 'ZULU', 'OSIN', 'ASPZ', 'USAM']

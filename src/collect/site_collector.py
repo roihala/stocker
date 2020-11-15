@@ -3,7 +3,7 @@ import urllib
 from abc import ABC, abstractmethod
 from urllib.error import HTTPError
 
-from src.alert.collector_base import CollectorBase
+from src.collect.collector_base import CollectorBase
 from src.find.site import InvalidTickerExcpetion
 
 

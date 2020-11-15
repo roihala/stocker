@@ -8,7 +8,7 @@ import dataframe_image as dfi
 import telegram
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 
-from alert import Alert
+from collect import Collect
 from client import get_history, get_diffs
 from src.find.site import InvalidTickerExcpetion
 
@@ -133,7 +133,7 @@ def main(args):
     dp = updater.dispatcher
 
     # Bad APIs make bad workarounds
-    setattr(dp, 'mongo_db', Alert.init_mongo(args.uri))
+    setattr(dp, 'mongo_db', Collect.init_mongo(args.uri))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('history', history)],

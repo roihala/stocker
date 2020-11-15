@@ -9,3 +9,4 @@ telegram
 python-telegram-bot
 dataframe-image
 dictdiffer
+psutil

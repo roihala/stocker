@@ -4,8 +4,8 @@ import os
 
 import pandas
 
-from alert import Alert
-from src.alert.collector_base import CollectorBase
+from collect import Collect
+from src.collect.collector_base import CollectorBase
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
 
@@ -20,7 +20,7 @@ def main():
 
     pandas.set_option('display.expand_frame_repr', False)
 
-    mongo_db = Alert.init_mongo(args.uri)
+    mongo_db = Collect.init_mongo(args.uri)
 
     if args.history:
         print(get_history(mongo_db, args.history).to_string())
@@ -31,7 +31,7 @@ def main():
 def get_history(mongo_db, ticker):
     history = pandas.DataFrame()
 
-    for collection_name, collector in Alert.COLLECTORS.items():
+    for collection_name, collector in Collect.COLLECTORS.items():
         collector = collector(mongo_db, collection_name, ticker)
         current = collector.get_sorted_history()
 
