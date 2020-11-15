@@ -1,4 +1,4 @@
-from src.alert.site_collector import SiteCollector
+from src.collect.site_collector import SiteCollector
 from src.find.site import Site
 
 

@@ -8,16 +8,16 @@ import pandas
 import telegram
 from pymongo import MongoClient
 
-from src.alert.collector_base import CollectorBase
-from src.alert.collectors.profile import Profile
-from src.alert.collectors.securities import Securities
-from src.alert.collectors.symbols import Symbols
+from src.collect.collector_base import CollectorBase
+from src.collect.collectors.profile import Profile
+from src.collect.collectors.securities import Securities
+from src.collect.collectors.symbols import Symbols
 
-LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'alert.log')
+LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'collect.log')
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), 'tickers.csv')
 
 
-class Alert(object):
+class Collect(object):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
@@ -130,12 +130,12 @@ class Alert(object):
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
             except telegram.error.BadRequest:
-                logging.warning("Can't alert to {user} - invalid chat id: {chat_id}".format(
+                logging.warning("Can't collect to {user} - invalid chat id: {chat_id}".format(
                     user=user.get('user_name'), chat_id=user.get('chat_id')))
 
 
 def main():
-    Alert(get_args()).collect_all()
+    Collect(get_args()).collect_all()
 
 
 def get_args():
