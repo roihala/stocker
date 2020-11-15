@@ -5,15 +5,19 @@ import os
 import pandas
 
 from alert import Alert
-from src.alert.ticker_history import TickerHistory
-from src.find.site import InvalidTickerExcpetion
+from src.alert.collector_base import CollectorBase
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
 
 
 def main():
     args = get_args()
-    logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    else:
+        logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO,
+                            format='%(asctime)s %(levelname)s %(message)s')
+
     pandas.set_option('display.expand_frame_repr', False)
 
     mongo_db = Alert.init_mongo(args.uri)
@@ -25,23 +29,21 @@ def main():
 
 
 def get_history(mongo_db, ticker):
-    history_df = TickerHistory(ticker, mongo_db).get_sorted_history(duplicates=False)
+    history = pandas.DataFrame()
 
-    if history_df.empty:
-        raise InvalidTickerExcpetion("No history for {ticker}".format(ticker=ticker))
+    for collection_name, collector in Alert.COLLECTORS.items():
+        collector = collector(mongo_db, collection_name, ticker)
+        current = collector.get_sorted_history()
 
-    # Prettify timestamps
-    history_df["date"] = history_df["date"].apply(TickerHistory.timestamp_to_datestring)
-    history_df["verifiedDate"] = history_df["verifiedDate"].dropna().apply(
-        TickerHistory.timestamp_to_datestring)
+        if current.empty:
+            continue
+        elif history.empty:
+            history = current.set_index('date')
+        else:
+            history = history.join(current.set_index('date'),
+                                   lsuffix='_Unknown', rsuffix='_' + collection_name, how='outer').dropna()
 
-    return history_filters(history_df)
-
-
-def history_filters(history_df):
-    # Filtering columns that doesn't have even one truth value
-    any_columns = history_df.any()
-    return history_df[any_columns[any_columns].index]
+    return history
 
 
 def get_diffs(mongo_db):
@@ -49,8 +51,8 @@ def get_diffs(mongo_db):
     df = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
 
     # Prettify timestamps
-    df["old"] = df["old"].apply(TickerHistory.timestamp_to_datestring)
-    df["new"] = df["new"].apply(TickerHistory.timestamp_to_datestring)
+    df["old"] = df["old"].apply(CollectorBase.timestamp_to_datestring)
+    df["new"] = df["new"].apply(CollectorBase.timestamp_to_datestring)
 
     return df
 
@@ -60,6 +62,7 @@ def get_args():
     parser.add_argument('--history', dest='history', help='Print the saved history of a ticker')
     parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
     parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
+    parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
     return parser.parse_args()
 
 
