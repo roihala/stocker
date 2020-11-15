@@ -25,7 +25,7 @@ Stocker alerts bot currently supports the following commands:
         
 /register - Register to get alerts on modifications straight to your telegram account.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*
-/history - Get the saved history of a certain stock, note that duplications will be removed.
+/history - Get the saved history of a certain stock, note that columns with no changes will be removed.
 /alerts - Get every alert that stocker has ever detected.''',
         parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -74,7 +74,7 @@ def history(update, context):
     user = update.message.from_user
 
     if __is_registered(context._dispatcher.mongo_db, user.name, user.id):
-        update.message.reply_text('Insert ticker')
+        update.message.reply_text('Insert a valid OTC ticker, note that columns with no changes will be removed')
         return PRINT_HISTORY
     else:
         update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
