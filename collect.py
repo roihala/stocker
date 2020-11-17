@@ -12,7 +12,7 @@ from src.collect.collector_base import CollectorBase
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.collect.collectors.symbols import Symbols
-
+from src.collect.collectors.prices import Prices
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'collect.log')
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), 'tickers.csv')
 
@@ -23,6 +23,7 @@ class Collect(object):
 
     COLLECTORS = {'symbols': Symbols,
                   'profile': Profile,
+                  'price': Prices,
                   'securities': Securities}
 
     def __init__(self, args):
