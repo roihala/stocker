@@ -9,7 +9,8 @@ class Securities(SiteCollector):
                    'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
                    'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
                    'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
-                   'hasLevel2']
+                   'hasLevel2', 'isUnsolicited', 'isLevel2Entitled', 'primaryVenue', 'venue',
+                   'tierGroupid', 'tierGroup', 'state', 'address2']
 
     @property
     def site(self):
