@@ -27,7 +27,7 @@ class Collect(object):
 
     def __init__(self, args):
         self._mongo_db = self.init_mongo(args.uri)
-        self._tickers_list = self.extract_tickers(args)
+        self._tickers_list = self.extract_tickers(args.csv)
         self._telegram_bot = self.init_telegram(args.token)
         self._debug = args.debug
         self._verbose = args.verbose
@@ -54,10 +54,10 @@ class Collect(object):
             raise ValueError("Couldn't connect to MongoDB, check your credentials")
 
     @staticmethod
-    def extract_tickers(args):
+    def extract_tickers(csv):
         try:
-            if args.csv:
-                file_path = args.csv
+            if csv:
+                file_path = csv
             else:
                 file_path = DEFAULT_CSV_PATH
 
