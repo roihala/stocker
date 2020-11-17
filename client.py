@@ -11,7 +11,9 @@ from src.collect.collectors.securities import Securities
 from src.find.site import Site
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'client.log')
-LOW_FLOATERS_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters.csv')
+LOW_FLOATERS_001_1B_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_1B.csv')
+LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_500M.csv')
+LOW_FLOATERS_003_250M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters003_250M.csv')
 
 
 def main():
@@ -29,8 +31,8 @@ def main():
     if args.history:
         print(get_history(mongo_db, args.history, args.filters).to_string())
     elif args.low_floaters:
-        print('low floaters file can be found in:', LOW_FLOATERS_PATH)
         get_low_floaters(mongo_db)
+        print('low floaters file can be found in:', LOW_FLOATERS_PATH)
     else:
         print(get_diffs(mongo_db).to_string())
 
@@ -54,18 +56,30 @@ def get_history(mongo_db, ticker, apply_filters):
 
 
 def get_low_floaters(mongo_db):
-    tickers_df = pandas.DataFrame(columns=['Symbol'])
+    tickers_001_1B = pandas.DataFrame(columns=['Symbol'])
+    tickers_001_500M = pandas.DataFrame(columns=['Symbol'])
+    tickers_003_250M = pandas.DataFrame(columns=['Symbol'])
 
     for ticker in Collect.extract_tickers(None):
         try:
             history = Securities(mongo_db, 'securities', ticker).get_sorted_history(False)
-            public_float = int(history.tail(1)['publicFloat'].values[0])
-            if public_float <= 1000000000 and get_last_price(ticker) <= 0.001:
-                tickers_df = tickers_df.append({'Symbol': ticker}, ignore_index=True)
+            outstanding = int(history.tail(1)['outstandingShares'].values[0])
+            last_price = get_last_price(ticker)
+            if last_price <= 0.001 and outstanding <= 1000000000:
+                tickers_001_1B = tickers_001_1B.append({'Symbol': ticker}, ignore_index=True)
+            if last_price <= 0.001 and outstanding <= 500000000:
+                tickers_001_500M = tickers_001_500M.append({'Symbol': ticker}, ignore_index=True)
+            if last_price <= 0.003 and outstanding <= 250000000:
+                tickers_003_250M = tickers_003_250M.append({'Symbol': ticker}, ignore_index=True)
         except Exception as e:
             logging.exception(e, exc_info=True)
-    with open(LOW_FLOATERS_PATH, 'w') as tmp:
-        tickers_df.to_csv(tmp)
+
+    with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
+        tickers_001_1B.to_csv(tmp)
+    with open(LOW_FLOATERS_001_500M_PATH, 'w') as tmp:
+        tickers_001_500M.to_csv(tmp)
+    with open(LOW_FLOATERS_003_250M_PATH, 'w') as tmp:
+        tickers_003_250M.to_csv(tmp)
 
 
 def get_last_price(ticker):
