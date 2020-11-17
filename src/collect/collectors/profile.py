@@ -7,7 +7,8 @@ class Profile(SiteCollector):
                  'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate']
     FILTER_KEYS = ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
                    'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
-                   'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard']
+                   'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard', 'latestFilingType',
+                   'latestFilingUrl']
 
     @property
     def site(self):
