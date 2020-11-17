@@ -7,8 +7,9 @@ class Securities(SiteCollector):
                    'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate',
                    'dtcShares', 'tierStartDate', 'tierId', 'numOfRecordShareholdersDate', 'tierName', 'categoryName',
                    'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
-                   'publicFloatAsOfDate', 'notes', 'isNoInfo', 'currentCapitalChangePayDate',
-                   'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate']
+                   'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
+                   'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
+                   'hasLevel2']
 
     @property
     def site(self):
@@ -29,7 +30,8 @@ class Securities(SiteCollector):
             return diff
 
         if diff['changed_key'] in self.FILTER_KEYS or \
-                diff['changed_key'].startswith('showTrustedLogo'):
+                diff['changed_key'].startswith('showTrustedLogo') or \
+                diff['changed_key'].startswith('notes'):
             return None
 
         return diff

@@ -95,8 +95,9 @@ class Collect(object):
             logging.info('changes: {changes}'.format(changes=diffs))
 
             if diffs:
-                # Insert the new diffs to mongo
-                [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+                if not self._debug:
+                    # Insert the new diffs to mongo
+                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
 
                 # Alert every registered user
                 [self.__telegram_alert(diff) for diff in diffs]
@@ -129,9 +130,8 @@ class Collect(object):
                 self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
-            except telegram.error.BadRequest:
-                logging.warning("Can't collect to {user} - invalid chat id: {chat_id}".format(
-                    user=user.get('user_name'), chat_id=user.get('chat_id')))
+            except Exception as e:
+                logging.exception(e, exc_info=True)
 
 
 def main():
