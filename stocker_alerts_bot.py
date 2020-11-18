@@ -91,12 +91,17 @@ def history_request(update, context):
     ticker = update.message.text.upper()
 
     try:
-        history_df = get_history(context._dispatcher.mongo_db, ticker, None)
+        history_df = get_history(context._dispatcher.mongo_db, ticker, True)
     except InvalidTickerExcpetion:
         update.message.reply_text('No history for {ticker}'.format(ticker=ticker))
         return ConversationHandler.END
 
-    __df_reply(update, history_df, ticker)
+    try:
+        print(history_df)
+        __df_reply(update, history_df, ticker)
+    except Exception as e:
+        logging.exception(e, exc_info=True)
+        update.message.reply_text("Couldn't produce history for {ticker}".format(ticker=ticker))
 
     return ConversationHandler.END
 
@@ -110,7 +115,7 @@ def __df_reply(update, df, symbol):
     image_path = TEMP_IMAGE_PATH_FORMAT.format(symbol=symbol)
 
     # Converting to image because dataframe isn't shown well in telegram
-    dfi.export(df, image_path, max_rows=100)
+    dfi.export(df, image_path, max_rows=100, max_cols=100)
 
     with open(image_path, 'rb') as image:
         update.message.reply_document(image)
