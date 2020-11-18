@@ -31,8 +31,8 @@ def main():
     if args.history:
         print(get_history(mongo_db, args.history, args.filters).to_string())
     elif args.low_floaters:
-        get_low_floaters(mongo_db)
-        print('low floaters file can be found in:', LOW_FLOATERS_PATH)
+        get_low_floaters(mongo_db, args.csv)
+        print('low floaters lists are ready')
     else:
         print(get_diffs(mongo_db).to_string())
 
@@ -55,13 +55,14 @@ def get_history(mongo_db, ticker, apply_filters):
     return history
 
 
-def get_low_floaters(mongo_db):
+def get_low_floaters(mongo_db, csv):
     tickers_001_1B = pandas.DataFrame(columns=['Symbol'])
     tickers_001_500M = pandas.DataFrame(columns=['Symbol'])
     tickers_003_250M = pandas.DataFrame(columns=['Symbol'])
 
-    for ticker in Collect.extract_tickers(None):
+    for ticker in Collect.extract_tickers(csv):
         try:
+            logging.info('running on {ticker}'.format(ticker=ticker))
             history = Securities(mongo_db, 'securities', ticker).get_sorted_history(False)
             outstanding = int(history.tail(1)['outstandingShares'].values[0])
             last_price = get_last_price(ticker)
@@ -72,7 +73,7 @@ def get_low_floaters(mongo_db):
             if last_price <= 0.003 and outstanding <= 250000000:
                 tickers_003_250M = tickers_003_250M.append({'Symbol': ticker}, ignore_index=True)
         except Exception as e:
-            logging.exception(e, exc_info=True)
+            logging.exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
 
     with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
         tickers_001_1B.to_csv(tmp)
@@ -84,14 +85,11 @@ def get_low_floaters(mongo_db):
 
 def get_last_price(ticker):
     url = Site('prices',
-               "https://content1.edgar-online.com/cfeed/ext/charts.dll?81-0-0-0-0-A09301600-03NA000000{"
-               "ticker}&SF:1000-FREQ=6-STOK=nupMb60cogGHY+0j6buIfRuhv9GBqT4oy+o+Pb9XZ7yxwhApAuD2i7kfKWnQCb9e"
-               "-1605554241046",
+               'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                is_otc=True).get_ticker_url(ticker)
 
     response = requests.get(url)
-    xml_tree = ET.fromstring(response.content)
-    return float(xml_tree.find('security/securityInfo/securityDataSet/securityData').get('previousClose'))
+    return float(response.json().get('previousClose'))
 
 
 def get_diffs(mongo_db):
@@ -115,6 +113,7 @@ def get_args():
                         action='store_true')
     parser.add_argument('--filters', dest='filters', help='Do you want to apply filters on the history?',
                         default=True, action='store_false')
+    parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
 
     return parser.parse_args()
 
