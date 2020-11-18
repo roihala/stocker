@@ -31,3 +31,7 @@ class Profile(SiteCollector):
             return None
 
         return diff
+
+    def get_sorted_history(self, apply_filters=True):
+        history = super().get_sorted_history(apply_filters)
+        return history.drop(self.DROP_KEYS, axis='columns')
