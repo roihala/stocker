@@ -34,4 +34,8 @@ class Profile(SiteCollector):
 
     def get_sorted_history(self, apply_filters=True):
         history = super().get_sorted_history(apply_filters)
-        return history.drop(self.DROP_KEYS, axis='columns')
+        for key in self.DROP_KEYS:
+            if key in history:
+                history = history.drop(key, axis='columns')
+
+        return history
