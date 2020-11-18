@@ -16,3 +16,7 @@ hooks-log.log
 telegram-task.log
 *.png
 low_floaters.csv
+collect.log
+low_floaters001_1B.csv
+low_floaters001_500M.csv
+low_floaters003_250M.csv

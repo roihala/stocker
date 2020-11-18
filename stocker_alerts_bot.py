@@ -91,7 +91,7 @@ def history_request(update, context):
     ticker = update.message.text.upper()
 
     try:
-        history_df = get_history(context._dispatcher.mongo_db, ticker)
+        history_df = get_history(context._dispatcher.mongo_db, ticker, None)
     except InvalidTickerExcpetion:
         update.message.reply_text('No history for {ticker}'.format(ticker=ticker))
         return ConversationHandler.END
