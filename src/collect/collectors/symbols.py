@@ -3,6 +3,7 @@ from src.find.site import Site
 
 
 class Symbols(SiteCollector):
+    FILTER_KEYS = ['isPennyStockExempt', 'verifiedDate']
     @property
     def site(self):
         return Site(self.collection,
@@ -13,7 +14,7 @@ class Symbols(SiteCollector):
         if not diff:
             return diff
 
-        if diff['changed_key'] == 'verifiedDate':
+        if diff['changed_key'] in self.FILTER_KEYS:
             return None
         return diff
 
