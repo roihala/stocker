@@ -23,7 +23,7 @@ class Collect(object):
 
     COLLECTORS = {'symbols': Symbols,
                   'profile': Profile,
-                  'price': Prices,
+                  'prices': Prices,
                   'securities': Securities}
 
     def __init__(self, args):
