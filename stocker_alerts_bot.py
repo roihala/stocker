@@ -26,7 +26,7 @@ Stocker alerts bot currently supports the following commands:
 /register - Register to get alerts on modifications straight to your telegram account.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*
 /history - Get the saved history of a certain stock, note that columns with no changes will be removed.
-/alerts - Get every alert that stocker has ever detected.''',
+/alerts - Get every alert that stocker has detected for a specific ticker.''',
         parse_mode=telegram.ParseMode.MARKDOWN)
 
 
@@ -70,35 +70,31 @@ def deregister(update, context):
         logging.exception(e.__traceback__)
 
 
-def history(update, context):
+def alerts(update, context):
     user = update.message.from_user
 
     if __is_registered(context._dispatcher.mongo_db, user.name, user.id):
-        update.message.reply_text('Insert a valid OTC ticker, note that columns with no changes will be removed')
+        update.message.reply_text('Insert a valid OTC ticker')
         return PRINT_HISTORY
     else:
         update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
         return ConversationHandler.END
 
 
-def invalid_input(update, context):
+def invalid_ticker_format(update, context):
     update.message.reply_text('Invalid input, please insert 3-5 letters OTC registered ticker')
 
     return ConversationHandler.END
 
 
-def history_request(update, context):
+def alerts_request(update, context):
     ticker = update.message.text.upper()
 
     try:
-        history_df = get_history(context._dispatcher.mongo_db, ticker, True)
-    except InvalidTickerExcpetion:
-        update.message.reply_text('No history for {ticker}'.format(ticker=ticker))
-        return ConversationHandler.END
+        alerts_df = get_diffs(context._dispatcher.mongo_db, ticker)
+        # alerts_df = get_history(context._dispatcher.mongo_db, ticker, True)
+        __df_reply(update, alerts_df, ticker)
 
-    try:
-        print(history_df)
-        __df_reply(update, history_df, ticker)
     except Exception as e:
         logging.exception(e, exc_info=True)
         update.message.reply_text("Couldn't produce history for {ticker}".format(ticker=ticker))
@@ -106,9 +102,8 @@ def history_request(update, context):
     return ConversationHandler.END
 
 
-def alerts(update, context):
-    alerts_df = get_diffs(context._dispatcher.mongo_db)
-    __df_reply(update, alerts_df, 'diffs')
+def history(update, context):
+    update.message.reply_text('/history Does not work at the moment')
 
 
 def __df_reply(update, df, symbol):
@@ -141,10 +136,10 @@ def main(args):
     setattr(dp, 'mongo_db', Collect.init_mongo(args.uri))
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('history', history)],
+        entry_points=[CommandHandler('alerts', alerts)],
         states={
-            PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), history_request),
-                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), invalid_input)]
+            PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), alerts_request),
+                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), invalid_ticker_format)]
         },
         fallbacks=[],
     )
@@ -154,7 +149,7 @@ def main(args):
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CommandHandler('register', register))
     dp.add_handler(CommandHandler('deregister', deregister))
-    dp.add_handler(CommandHandler('alerts', alerts))
+    dp.add_handler(CommandHandler('history', history))
 
     # Start the Bot
     updater.start_polling()

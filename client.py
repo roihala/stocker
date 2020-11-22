@@ -3,7 +3,6 @@ import logging
 import os
 import requests
 import pandas
-import xml.etree.ElementTree as ET
 
 from collect import Collect
 from src.collect.collector_base import CollectorBase
@@ -92,15 +91,17 @@ def get_last_price(ticker):
     return float(response.json().get('previousClose'))
 
 
-def get_diffs(mongo_db):
+def get_diffs(mongo_db, ticker=None):
     # Pulling from diffs collection
-    df = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
+    alerts = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
+    if ticker:
+        alerts = alerts[alerts['ticker'] == ticker]
 
     # Prettify timestamps
-    df["old"] = df["old"].apply(CollectorBase.timestamp_to_datestring)
-    df["new"] = df["new"].apply(CollectorBase.timestamp_to_datestring)
+    alerts["old"] = alerts["old"].apply(CollectorBase.timestamp_to_datestring)
+    alerts["new"] = alerts["new"].apply(CollectorBase.timestamp_to_datestring)
 
-    return df
+    return alerts
 
 
 def get_args():

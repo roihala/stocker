@@ -62,6 +62,7 @@ class CollectorBase(ABC):
         # Updating DB with the new data
         entry = deepcopy(self._current_data)
         entry.update({"ticker": self.ticker, "date": self._date.format()})
+
         if not self._debug:
             self.collection.insert_one(entry)
         else:
@@ -72,22 +73,30 @@ class CollectorBase(ABC):
             self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
 
         if apply_filters:
-            # Filtering all consecutive duplicates
-            cols = history.columns.difference(['date', 'verifiedDate'])
-            history = history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
+            try:
+                return self.__apply_filters(history)
 
-            # Handling unhashable types
-            for index, col in history.applymap(lambda x: isinstance(x, dict) or isinstance(x, list)).all().items():
-                if col:
-                    history[index] = history[index].astype('str').value_counts()
-
-            # Dropping columns where every row has the same value
-            nunique = history.apply(pandas.Series.nunique)
-            cols_to_drop = nunique[nunique == 1].index
-
-            history = history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+            except Exception as e:
+                logging.exception(e, exc_info=True)
+                return history
 
         return history
+
+    def __apply_filters(self, history):
+        # Filtering all consecutive row duplicates where every column has the same value
+        cols = history.columns.difference(['date', 'verifiedDate'])
+        history = history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
+
+        # Handling unhashable types
+        for index, col in history.applymap(lambda x: isinstance(x, dict) or isinstance(x, list)).all().items():
+            if col:
+                history[index] = history[index].astype('str').value_counts()
+
+        # Dropping monogemic columns where every row has the same value
+        nunique = history.apply(pandas.Series.nunique)
+        cols_to_drop = nunique[nunique == 1].index
+
+        return history.drop(cols_to_drop, axis=1).dropna(axis='columns')
 
     def get_diffs(self) -> List[dict]:
         """
@@ -157,5 +166,5 @@ class CollectorBase(ABC):
     def timestamp_to_datestring(value):
         try:
             return arrow.get(value).format()
-        except (ParserError, TypeError):
+        except (ParserError, TypeError, ValueError):
             return value
