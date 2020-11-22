@@ -8,7 +8,8 @@ class Profile(SiteCollector):
     FILTER_KEYS = ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
                    'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
                    'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard', 'latestFilingType',
-                   'latestFilingUrl']
+                   'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName', 'venue',
+                   'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered', 'isAlternativeReporting']
 
     @property
     def site(self):
