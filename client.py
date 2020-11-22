@@ -101,6 +101,8 @@ def get_diffs(mongo_db, ticker=None):
     alerts["old"] = alerts["old"].apply(CollectorBase.timestamp_to_datestring)
     alerts["new"] = alerts["new"].apply(CollectorBase.timestamp_to_datestring)
 
+    alerts = alerts.drop(['diff_type', 'source'], axis='columns')
+
     return alerts
 
 
