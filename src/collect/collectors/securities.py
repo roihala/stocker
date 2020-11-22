@@ -9,8 +9,7 @@ class Securities(SiteCollector):
                    'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
                    'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
                    'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
-                   'hasLevel2', 'isUnsolicited', 'isLevel2Entitled', 'primaryVenue', 'venue',
-                   'tierGroupid', 'tierGroup', 'state', 'address2']
+                   'hasLevel2', 'isLevel2Entitled', 'primaryVenue', 'tierGroupId', 'isPiggyBacked']
 
     @property
     def site(self):
@@ -32,7 +31,8 @@ class Securities(SiteCollector):
 
         if diff['changed_key'] in self.FILTER_KEYS or \
                 diff['changed_key'].startswith('showTrustedLogo') or \
-                diff['changed_key'].startswith('notes'):
+                diff['changed_key'].startswith('notes') or \
+                diff['changed_key'].startswith('otcAward'):
             return None
 
         return diff
