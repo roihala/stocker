@@ -97,11 +97,16 @@ def get_diffs(mongo_db, ticker=None):
     if ticker:
         alerts = alerts[alerts['ticker'] == ticker]
 
-    # Prettify timestamps
-    alerts["old"] = alerts["old"].apply(CollectorBase.timestamp_to_datestring)
-    alerts["new"] = alerts["new"].apply(CollectorBase.timestamp_to_datestring)
+    # Dropping unnecessary columns
+    alerts = alerts.drop(['diff_type', 'source'], axis=1)
 
-    alerts = alerts.drop(['diff_type', 'source'], axis='columns')
+    # Prettify timestamps
+    alerts['new'] = alerts.apply(
+        lambda row: CollectorBase.timestamp_to_datestring(row['new']) if 'Date' in row['changed_key'] else row['new'],
+        axis=1)
+    alerts['old'] = alerts.apply(
+        lambda row: CollectorBase.timestamp_to_datestring(row['old']) if 'Date' in row['changed_key'] else row['old'],
+        axis=1)
 
     return alerts
 
@@ -112,7 +117,8 @@ def get_args():
     parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
     parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
     parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
-    parser.add_argument('--low_floaters', dest='low_floaters', help='Get a list of light low float stocks', default=False,
+    parser.add_argument('--low_floaters', dest='low_floaters', help='Get a list of light low float stocks',
+                        default=False,
                         action='store_true')
     parser.add_argument('--filters', dest='filters', help='Do you want to apply filters on the history?',
                         default=True, action='store_false')
