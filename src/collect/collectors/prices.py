@@ -15,13 +15,6 @@ class Prices(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                     True)
 
-    def fetch_data(self):
-        try:
-            data = super().fetch_data()
-            return data
-        except KeyError:
-            raise InvalidTickerExcpetion("Can't get the price from the profile")
-
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
         if not diff:
