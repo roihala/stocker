@@ -27,15 +27,10 @@ class Securities(SiteCollector):
         except KeyError:
             raise InvalidTickerExcpetion("Can't get the securities sector from the profile")
 
-    def _edit_diffs(self, diffs):
-        diffs = super()._edit_diffs(diffs)
-        return [diff for diff in diffs if not self.__filter_diff(diff)]
-
-    def __filter_diff(self, diff):
+    def _edit_diff(self, diff):
         if diff['changed_key'] in self.filter_keys or \
                 diff['changed_key'].startswith('showTrustedLogo') or \
                 diff['changed_key'].startswith('notes') or \
                 diff['changed_key'].startswith('otcAward'):
-            return True
-
-        return False
+            return None
+        return diff
