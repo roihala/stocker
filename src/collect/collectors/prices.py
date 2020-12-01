@@ -16,8 +16,4 @@ class Prices(SiteCollector):
                     True)
 
     def _edit_diff(self, diff):
-        diff = super()._edit_diff(diff)
-        if not diff:
-            return None
-
-        return diff
+        return None
