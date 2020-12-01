@@ -34,27 +34,10 @@ class CollectorBase(ABC):
     def fetch_data(self) -> dict:
         pass
 
-    @abstractmethod
-    def _edit_diff(self, diff) -> dict:
-        """
-        This function is for editing or deleting an existing diff.
-        It will be called with every diff that has been found while maintaining the diff structure of:
-
-        {
-            "ticker": The ticker,
-            "date": The current date,
-            "changed_key": The key that have changed
-            "old": The "old" value,
-            "new": The "new" value,
-            "diff_type": The type of the diff, could be add, remove, etc...
-            "source": Which collection did it come from?
-        }
-
-        :return: The edited diff, None to delete the diff
-        """
-        if diff['changed_key'] == '':
-            return None
-        return diff
+    @property
+    def filter_keys(self):
+        # List of keys to ignore
+        return []
 
     def collect(self):
         self._current_data = self.fetch_data()
@@ -115,7 +98,7 @@ class CollectorBase(ABC):
 
         """
         if self._current_data is None:
-            raise Exception('You should use collect() before using get_changes()')
+            raise Exception('You should use collect() before using get_diffs()')
 
         if self._latest is None:
             return []
@@ -123,7 +106,52 @@ class CollectorBase(ABC):
         diffs = self.__parse_diffs(differ(self._latest, self._current_data))
 
         # Applying filters
-        return list(filter(None, [self._edit_diff(diff) for diff in diffs]))
+        return self._edit_diffs(diffs)
+
+    def _edit_diffs(self, diffs) -> List[dict]:
+        """
+        This function is for editing the list of diffs right before they are alerted
+        The diffs will have the following structure:
+
+        {
+            "ticker": The ticker,
+            "date": The current date,
+            "changed_key": The key that have changed
+            "old": The "old" value,
+            "new": The "new" value,
+            "diff_type": The type of the diff, could be add, remove, etc...
+            "source": Which collection did it come from?
+        }
+        """
+        edited_diffs = []
+
+        for diff in diffs:
+            diff = self._edit_diff(diff)
+            if diff is not None and diff['changed_key'] not in self.filter_keys:
+                edited_diffs.append(diff)
+
+        return diffs
+
+    def _edit_diff(self, diff) -> dict:
+        """
+        This function is for editing or deleting an existing diff.
+        It will be called with every diff that has been found while maintaining the diff structure of:
+
+        {
+            "ticker": The ticker,
+            "date": The current date,
+            "changed_key": The key that have changed
+            "old": The "old" value,
+            "new": The "new" value,
+            "diff_type": The type of the diff, could be add, remove, etc...
+            "source": Which collection did it come from?
+        }
+
+        :return: The edited diff, None to delete the diff
+        """
+        if diff['changed_key'] == '':
+            return None
+        return diff
 
     def __parse_diffs(self, diffs):
         parsed_diffs = []

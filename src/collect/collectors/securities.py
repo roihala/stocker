@@ -3,13 +3,16 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 
 class Securities(SiteCollector):
-    FILTER_KEYS = ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
-                   'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate',
-                   'dtcShares', 'tierStartDate', 'tierId', 'numOfRecordShareholdersDate', 'tierName', 'categoryName',
-                   'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
-                   'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
-                   'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
-                   'hasLevel2', 'isLevel2Entitled', 'primaryVenue', 'tierGroupId', 'isPiggyBacked']
+    @property
+    def filter_keys(self):
+        return ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
+                'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate',
+                'dtcShares', 'tierStartDate', 'tierId', 'numOfRecordShareholdersDate', 'tierName', 'categoryName',
+                'categoryId', 'tierCode', 'shortInterest', 'shortInterestDate', 'shortInterestChange',
+                'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
+                'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
+                'hasLevel2', 'isLevel2Entitled', 'primaryVenue', 'tierGroupId', 'isPiggyBacked',
+                'notes', 'otcAward', 'showTrustedLogo']
 
     @property
     def site(self):
@@ -24,15 +27,15 @@ class Securities(SiteCollector):
         except KeyError:
             raise InvalidTickerExcpetion("Can't get the securities sector from the profile")
 
-    def _edit_diff(self, diff):
-        diff = super()._edit_diff(diff)
-        if not diff:
-            return diff
+    def _edit_diffs(self, diffs):
+        diffs = super()._edit_diffs(diffs)
+        return [diff for diff in diffs if not self.__filter_diff(diff)]
 
-        if diff['changed_key'] in self.FILTER_KEYS or \
+    def __filter_diff(self, diff):
+        if diff['changed_key'] in self.filter_keys or \
                 diff['changed_key'].startswith('showTrustedLogo') or \
                 diff['changed_key'].startswith('notes') or \
                 diff['changed_key'].startswith('otcAward'):
-            return None
+            return True
 
-        return diff
+        return False
