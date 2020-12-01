@@ -3,12 +3,6 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 
 class Prices(SiteCollector):
-    FILTER_KEYS = ['percentChange', 'tickCode', 'tickName', 'volumeFormatted', 'lastTradeTime', 'quoteTime',
-                   'quoteDateTime', 'insideTime', 'bidPrice', 'bidSize', 'askPrice', 'askSize', 'dailyHigh', 'dailyLow',
-                   'annualHigh', 'annualLow', 'previousClose', 'betaCoefficient', 'exchangeCode', 'exchangeName',
-                   'delay', 'isADR', 'realtime', 'pinkLinkRealtime', 'thirtyDaysAvgVol', 'showRealtimeAd', 'marketCap',
-                   'sharesOutstanding', 'adr']
-
     @property
     def site(self):
         return Site(self.collection,
