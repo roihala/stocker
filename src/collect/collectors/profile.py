@@ -10,7 +10,7 @@ class Profile(SiteCollector):
                    'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard', 'latestFilingType',
                    'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName', 'venue',
                    'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered', 'isAlternativeReporting']
-
+    asdfasdf
     @property
     def site(self):
         return Site(self.collection,
