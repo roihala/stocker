@@ -3,12 +3,13 @@ import arrow
 import pymongo
 import logging
 
-from dictdiffer import diff as differ
 from copy import deepcopy
 from typing import List
 from arrow import ParserError
 from pymongo.database import Database
 from abc import ABC, abstractmethod
+
+from src.collect.differ import Differ
 
 
 class CollectorBase(ABC):
@@ -29,6 +30,10 @@ class CollectorBase(ABC):
         self._date = date if date else arrow.utcnow()
         self._current_data = None
         self._debug = debug
+
+    @property
+    def hierarchy(self) -> dict:
+        return {}
 
     @abstractmethod
     def fetch_data(self) -> dict:
@@ -60,7 +65,7 @@ class CollectorBase(ABC):
                 return self.__apply_filters(history)
 
             except Exception as e:
-                logging.exception(e, exc_info=True)
+                logging.exception(e)
                 return history
 
         return history
@@ -103,10 +108,15 @@ class CollectorBase(ABC):
         if self._latest is None:
             return []
 
-        diffs = self.__parse_diffs(differ(self._latest, self._current_data))
-
-        # Applying filters
-        return self._edit_diffs(diffs)
+        try:
+            diffs = Differ().get_diffs(self._latest, self._current_data, self.hierarchy)
+            diffs = [self.__decorate_diff(diff) for diff in diffs]
+            # Applying filters
+            return self._edit_diffs(diffs)
+        except Exception as e:
+            logging.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=self._latest,
+                                                                                               current=self._current_data))
+            logging.exception(e)
 
     def _edit_diffs(self, diffs) -> List[dict]:
         """
@@ -127,10 +137,11 @@ class CollectorBase(ABC):
 
         for diff in diffs:
             diff = self._edit_diff(diff)
+            
             if diff is not None and diff['changed_key'] not in self.filter_keys:
                 edited_diffs.append(diff)
 
-        return diffs
+        return edited_diffs
 
     def _edit_diff(self, diff) -> dict:
         """
@@ -153,34 +164,18 @@ class CollectorBase(ABC):
             return None
         return diff
 
-    def __parse_diffs(self, diffs):
-        parsed_diffs = []
-
-        for diff_type, key, values in diffs:
-            if diff_type == 'change':
-                # The first value is old, the second is new
-                parsed_diffs.append(self.__build_diff(values[0], values[1], key, diff_type))
-            elif diff_type == 'remove':
-                # The removed value is in the list where the first cell is the index - therefore taking the "1" = value.
-                parsed_diffs.append(self.__build_diff(values[0][1], None, key, diff_type))
-            elif diff_type == 'add':
-                # The removed value is in the list where the first cell is the index - therefore taking the "1" = value.
-                parsed_diffs.append(self.__build_diff(None, values[0][1], key, diff_type))
-
-        return parsed_diffs
-
-    def __build_diff(self, old, new, key, diff_type):
+    def __decorate_diff(self, diff):
         # joining by '.' if a key is a list of keys (differ's nested changes approach)
-        key = key if not isinstance(key, list) else '.'.join((str(part) for part in key))
-        return {
+        key = diff['changed_key'] if not isinstance(diff['changed_key'], list) else \
+            '.'.join((str(part) for part in diff['changed_key']))
+
+        diff.update({
             "ticker": self.ticker,
             "date": self._date.format(),
             "changed_key": key,
-            "old": old,
-            "new": new,
-            "diff_type": diff_type,
             "source": self.name
-        }
+        })
+        return diff
 
     def __get_latest(self):
         if self._sorted_history.empty:

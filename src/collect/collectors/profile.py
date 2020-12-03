@@ -21,6 +21,22 @@ class Profile(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
+    @property
+    def hierarchy(self):
+        return {'officers': [list, dict, 'name'],
+                'premierDirectorList': [list, dict, 'name'],
+                'standardDirectorList': [list, dict, 'name'],
+                'auditors': [list, dict, 'name'],
+                'investorRelationFirms': [list, dict, 'name'],
+                'legalCounsels': [list, dict, 'name'],
+                'investmentBanks': [list, dict, 'name'],
+                'corporateBrokers': [list, dict, 'name'],
+                'notes': [list],
+                'otherSecurities': [list, dict, 'name'],
+                'otcAward': [list, dict, 'best50'],
+                'indexStatuses': [list, dict, 'indexName']
+                }
+
     def fetch_data(self):
         data = super().fetch_data()
         # Those keys are either irrelevant or used in other collectors

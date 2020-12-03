@@ -20,6 +20,10 @@ class Securities(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
+    @property
+    def hierarchy(self):
+        return {'transferAgents': [list, dict, 'name']}
+
     def fetch_data(self):
         try:
             data = super().fetch_data()
@@ -28,9 +32,11 @@ class Securities(SiteCollector):
             raise InvalidTickerExcpetion("Can't get the securities sector from the profile")
 
     def _edit_diff(self, diff):
-        if diff['changed_key'] in self.filter_keys or \
-                diff['changed_key'].startswith('showTrustedLogo') or \
-                diff['changed_key'].startswith('notes') or \
-                diff['changed_key'].startswith('otcAward'):
+        diff = super()._edit_diff(diff)
+        if not diff:
+            return diff
+
+        if diff['changed_key'].startswith('showTrustedLogo'):
             return None
+
         return diff
