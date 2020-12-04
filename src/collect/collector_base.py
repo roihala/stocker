@@ -109,6 +109,7 @@ class CollectorBase(ABC):
             return []
 
         try:
+
             diffs = Differ().get_diffs(self._latest, self._current_data, self.hierarchy)
             diffs = [self.__decorate_diff(diff) for diff in diffs]
             # Applying filters
@@ -182,8 +183,13 @@ class CollectorBase(ABC):
             return None
 
         # to_dict indexes by rows, therefore getting the highest index
-        history_dict = self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')
-        return history_dict[max(history_dict.keys())]
+        history_as_dicts = self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')
+        latest = history_as_dicts[max(history_as_dicts.keys())]
+
+        # Filtering all Nan values that mongo uses to fill schemas
+        latest = {key: value for key, value in latest.items() if not str(value).lower() == 'nan'}
+
+        return latest
 
     @staticmethod
     def timestamp_to_datestring(value):
