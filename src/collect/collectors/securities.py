@@ -12,7 +12,7 @@ class Securities(SiteCollector):
                 'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
                 'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
                 'hasLevel2', 'isLevel2Entitled', 'primaryVenue', 'tierGroupId', 'isPiggyBacked',
-                'notes', 'otcAward', 'showTrustedLogo']
+                'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName']
 
     @property
     def site(self):

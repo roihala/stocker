@@ -33,8 +33,7 @@ class Profile(SiteCollector):
                 'corporateBrokers': [list, dict, 'name'],
                 'notes': [list],
                 'otherSecurities': [list, dict, 'name'],
-                'otcAward': [list, dict, 'best50'],
-                'indexStatuses': [list, dict, 'indexName']
+                'otcAward': [list, dict, 'best50']
                 }
 
     def fetch_data(self):
