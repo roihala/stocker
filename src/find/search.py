@@ -7,6 +7,7 @@ START_WEBSITE_COMMAND = ["start", "chrome.exe"]
 
 SITES = [
     Site("otcmarkets", '"https://www.otcmarkets.com/stock/{ticker}/profile"', is_otc=True),
+    Site("dilution", '"https://imvicharts.ngrok.io/ticker/{ticker}/720"', is_otc=True),
     Site("filingre", '"https://www.filingre.com/stock/{ticker}"', is_otc=True),
     Site("investorshub", '"https://ih.advfn.com/stock-market/NASDAQ/{ticker}/stock-price"', is_otc=True),
     Site("globenewswire", '"https://www.globenewswire.com/Search/NewsSearch?keyword={company_name}"', is_otc=True),
