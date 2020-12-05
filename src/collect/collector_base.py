@@ -16,7 +16,6 @@ class CollectorBase(ABC):
     def __init__(self, mongo_db: Database, ticker, date=None, debug=False):
         """
         :param mongo_db: mongo db connection
-        :param name: collection name
         :param ticker: current ticker
         :param date: date key
         :param debug: is debug?

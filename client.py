@@ -65,7 +65,7 @@ def get_low_floaters(mongo_db, csv):
         try:
             logging.info('running on {ticker}'.format(ticker=ticker))
 
-            securities = Securities(mongo_db, 'securities', ticker).get_latest()
+            securities = Securities(mongo_db, ticker).get_latest()
             outstanding = int(securities['outstandingShares'])
             tier_code = securities['tierCode']
             last_price = get_last_price(ticker)
