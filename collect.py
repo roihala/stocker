@@ -21,10 +21,7 @@ class Collect(object):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
-    COLLECTORS = {'symbols': Symbols,
-                  'profile': Profile,
-                  'prices': Prices,
-                  'securities': Securities}
+    COLLECTORS = [Symbols, Profile, Prices, Securities]
 
     def __init__(self, args):
         self._mongo_db = self.init_mongo(args.uri)
@@ -80,8 +77,8 @@ class Collect(object):
             # Using date as a key for matching entries between collections
             date = arrow.utcnow()
 
-            for collection, obj in self.COLLECTORS.items():
-                collector = obj(self._mongo_db, collection, ticker, date, self._debug)
+            for collector_obj in self.COLLECTORS:
+                collector = collector_obj(self._mongo_db, ticker, date, self._debug)
                 self.collect(collector)
 
     def collect(self, collector: CollectorBase):

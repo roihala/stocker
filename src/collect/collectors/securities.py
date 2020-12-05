@@ -4,6 +4,10 @@ from src.find.site import Site, InvalidTickerExcpetion
 
 class Securities(SiteCollector):
     @property
+    def name(self) -> str:
+        return 'securities'
+
+    @property
     def filter_keys(self):
         return ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
                 'restrictedSharesAsOfDate', 'unrestrictedSharesAsOfDate',
