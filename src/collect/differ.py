@@ -44,18 +44,17 @@ class Differ(object):
 
             latest_value, current_value = latest.get(key), current.get(key)
 
-            if key not in current.keys():
-                self._diffs.append(Differ.__build_diff('remove', key, latest_value, None))
-            elif key not in latest.keys():
-                self._diffs.append(Differ.__build_diff('add', key, None, current_value))
             if latest_value != current_value:
                 # If the key is nested and nested_keys structure was provided
                 # If they are iterables and have the same type
                 if hierarchy is not None and key in hierarchy.keys() and \
                         issubclass(type(latest), type(current)) and Differ.__is_iterable(latest_value):
                     self.__handle_nested_keys([key], latest_value, current_value, iter(self._hierarchy[key]))
+
                 else:
-                    self._diffs.append(Differ.__build_diff('change', key, latest_value, current_value))
+                    diff_type = self.__get_diff_type(current=current_value, latest=latest_value)
+                    if diff_type:
+                        self._diffs.append(Differ.__build_diff(diff_type, key, latest_value, current_value))
 
         return self._diffs
 
@@ -81,7 +80,9 @@ class Differ(object):
                 self.__dig_mode(is_last_layer=True, keys=keys, latest=latest, current=current)
 
             else:
-                self._diffs.append(Differ.__build_diff('change', keys, latest, current))
+                diff_type = self.__get_diff_type(current, latest)
+                if diff_type:
+                    self._diffs.append(Differ.__build_diff(diff_type, keys, latest, current))
 
         except (KeyError, TypeError, Exception):
             # Whoops, wrong hierarchy
@@ -131,22 +132,28 @@ class Differ(object):
             raise DifferException('Differ\'s hierarchy only supports lists, dicts, and dict_keys right now')
 
     @staticmethod
-    def __get_current_or_latest(**kwargs):
-        if kwargs['current'] is None:
-            return 'latest'
-        elif kwargs['latest'] is None:
-            return 'current'
+    def __get_diff_type(current, latest):
+        no_current, no_latest = str(current) in ['None', 'nan', ''], str(latest) in ['None', 'nan', '']
+
+        if (no_current and no_latest) or (current == latest):
+            return None
+        elif no_current:
+            return 'remove'
+        elif no_latest:
+            return 'add'
         else:
-            raise DifferException('Dig mode must contain exactly one latest or current')
+            return 'change'
 
     def __dig_mode(self, layer=None, is_last_layer=False, **kwargs):
-        current_or_latest = self.__get_current_or_latest(**kwargs)
+        diff_type = self.__get_diff_type(current=kwargs['current'], latest=kwargs['latest'])
+
+        if diff_type in [None, 'change']:
+            raise DifferException('Dig mode must supports only add/remove')
+
+        current_or_latest = 'latest' if diff_type == 'remove' else 'current'
 
         if is_last_layer:
-            if current_or_latest == 'latest':
-                self._diffs.append(Differ.__build_diff('remove', **kwargs))
-            else:
-                self._diffs.append(Differ.__build_diff('add', **kwargs))
+            self._diffs.append(Differ.__build_diff(diff_type, **kwargs))
 
         elif issubclass(layer, dict):
             kwargs[current_or_latest] = kwargs[current_or_latest][kwargs['keys'][-1]]

@@ -26,7 +26,7 @@ class CollectorBase(ABC):
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
         self._sorted_history = self.get_sorted_history(apply_filters=False)
-        self._latest = self.__get_latest()
+        self._latest = self.get_latest()
         self._date = date if date else arrow.utcnow()
         self._current_data = None
         self._debug = debug
@@ -85,6 +85,14 @@ class CollectorBase(ABC):
         cols_to_drop = nunique[nunique == 1].index
 
         return history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+
+    def get_latest(self):
+        if self._sorted_history.empty:
+            return None
+
+        # to_dict indexes by rows, therefore getting the highest index
+        history_as_dicts = self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')
+        return history_as_dicts[max(history_as_dicts.keys())]
 
     def get_diffs(self) -> List[dict]:
         """
@@ -177,19 +185,6 @@ class CollectorBase(ABC):
             "source": self.name
         })
         return diff
-
-    def __get_latest(self):
-        if self._sorted_history.empty:
-            return None
-
-        # to_dict indexes by rows, therefore getting the highest index
-        history_as_dicts = self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')
-        latest = history_as_dicts[max(history_as_dicts.keys())]
-
-        # Filtering all Nan values that mongo uses to fill schemas
-        latest = {key: value for key, value in latest.items() if not str(value).lower() == 'nan'}
-
-        return latest
 
     @staticmethod
     def timestamp_to_datestring(value):
