@@ -6,18 +6,18 @@ import arrow
 import pymongo
 import pandas
 import telegram
-from pymongo import MongoClient
 
+from runnable import Runnable
 from src.collect.collector_base import CollectorBase
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.collect.collectors.symbols import Symbols
 from src.collect.collectors.prices import Prices
-LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'collect.log')
-DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), 'tickers.csv')
+
+DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
 
-class Collect(object):
+class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
@@ -26,54 +26,21 @@ class Collect(object):
                   'prices': Prices,
                   'securities': Securities}
 
-    def __init__(self, args):
-        self._mongo_db = self.init_mongo(args.uri)
-        self._tickers_list = self.extract_tickers(args.csv)
-        self._telegram_bot = self.init_telegram(args.token)
-        self._debug = args.debug
-        self._verbose = args.verbose
+    def __init__(self):
+        super().__init__()
+        self._tickers_list = self.extract_tickers(self.args.csv)
 
-        # Verbose mode is printing logs
-        if args.verbose:
-            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-        else:
-            logging.basicConfig(filename=LOGGER_PATH, level=logging.INFO,
-                                format='%(asctime)s %(levelname)s %(message)s')
+    @property
+    def log_name(self) -> str:
+        return 'collect.log'
 
-    @staticmethod
-    def init_mongo(mongo_uri):
-        try:
-            # Using selection timeout in order to check connectivity
-            mongo_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1)
+    def create_parser(self):
+        parser = super().create_parser()
+        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
+        return parser
 
-            # Forcing a connection to mongo
-            mongo_client.server_info()
-
-            return mongo_client.stocker
-
-        except pymongo.errors.ServerSelectionTimeoutError:
-            raise ValueError("Couldn't connect to MongoDB, check your credentials")
-
-    @staticmethod
-    def extract_tickers(csv):
-        try:
-            if csv:
-                file_path = csv
-            else:
-                file_path = DEFAULT_CSV_PATH
-
-            df = pandas.read_csv(file_path)
-            return df.Symbol.apply(lambda ticker: ticker.upper())
-        except Exception:
-            raise ValueError(
-                'Invalid csv file - validate the path and that the tickers are under a column named symbol')
-
-    @staticmethod
-    def init_telegram(token):
-        try:
-            return telegram.Bot(token)
-        except telegram.error.Unauthorized:
-            raise ValueError("Couldn't connect to telegram, check your credentials")
+    def run(self):
+        self.collect_all()
 
     def collect_all(self):
         for ticker in self._tickers_list:
@@ -132,22 +99,25 @@ class Collect(object):
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
             except Exception as e:
-                logging.exception(e, exc_info=True)
+                logging.exception(e)
+
+    @staticmethod
+    def extract_tickers(csv):
+        try:
+            if csv:
+                file_path = csv
+            else:
+                file_path = DEFAULT_CSV_PATH
+
+            df = pandas.read_csv(file_path)
+            return df.Symbol.apply(lambda ticker: ticker.upper())
+        except Exception:
+            raise ValueError(
+                'Invalid csv file - validate the path and that the tickers are under a column named symbol')
 
 
 def main():
-    Collect(get_args()).collect_all()
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
-    parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
-    parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
-    parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
-    parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
-
-    return parser.parse_args()
+    Collect().run()
 
 
 if __name__ == '__main__':
