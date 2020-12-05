@@ -13,7 +13,7 @@ from src.collect.differ import Differ
 
 
 class CollectorBase(ABC):
-    def __init__(self, mongo_db: Database, name, ticker, date=None, debug=False):
+    def __init__(self, mongo_db: Database, ticker, date=None, debug=False):
         """
         :param mongo_db: mongo db connection
         :param name: collection name
@@ -22,7 +22,6 @@ class CollectorBase(ABC):
         :param debug: is debug?
         """
         self.ticker = ticker.upper()
-        self.name = name
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
         self._sorted_history = self.get_sorted_history(apply_filters=False)
@@ -30,6 +29,12 @@ class CollectorBase(ABC):
         self._date = date if date else arrow.utcnow()
         self._current_data = None
         self._debug = debug
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        # Name of the matching collection in mongo
+        pass
 
     @property
     def hierarchy(self) -> dict:

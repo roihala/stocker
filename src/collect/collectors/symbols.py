@@ -4,6 +4,10 @@ from src.find.site import Site
 
 class Symbols(SiteCollector):
     @property
+    def name(self) -> str:
+        return 'symbols'
+
+    @property
     def filter_keys(self):
         return ['isPennyStockExempt', 'verifiedDate']
 

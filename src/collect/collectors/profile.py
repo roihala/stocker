@@ -7,6 +7,10 @@ class Profile(SiteCollector):
                  'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate']
 
     @property
+    def name(self) -> str:
+        return 'profile'
+
+    @property
     def filter_keys(self):
         return ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
                 'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',

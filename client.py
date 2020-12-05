@@ -40,8 +40,8 @@ def main():
 def get_history(mongo_db, ticker, apply_filters):
     history = pandas.DataFrame()
 
-    for collection_name, collector in Collect.COLLECTORS.items():
-        collector = collector(mongo_db, collection_name, ticker)
+    for collector_obj in Collect.COLLECTORS.items():
+        collector = collector_obj(mongo_db, ticker)
         current = collector.get_sorted_history(apply_filters)
 
         if current.empty:
@@ -50,7 +50,7 @@ def get_history(mongo_db, ticker, apply_filters):
             history = current.set_index('date')
         else:
             history = history.join(current.set_index('date'),
-                                   lsuffix='_Unknown', rsuffix='_' + collection_name, how='outer').dropna()
+                                   lsuffix='_Unknown', rsuffix='_' + collector.name, how='outer').dropna()
 
     return history
 
