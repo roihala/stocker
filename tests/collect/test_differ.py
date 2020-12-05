@@ -19,13 +19,15 @@ class TestAlertTime(unittest.TestCase):
                "country": "United States",
                "address1": "3210 21st Street", "website": "http://www.smcesolutions.com", "phone": "800-763-9598",
                "fax": "213-232-3207",
-               "email": "info@smcesolutions.com"}
+               "email": "info@smcesolutions.com",
+               "stam": 'klum'}
 
         expected = [{'changed_key': 'email', 'old': 'ron.hughes.operations@gmail.com', 'new': 'info@smcesolutions.com',
                      'diff_type': 'change'},
                     {'changed_key': 'website', 'old': 'http://www.smceinc.com', 'new': 'http://www.smcesolutions.com',
                      'diff_type': 'change'},
-                    {'changed_key': 'phone', 'old': '3608586370', 'new': '800-763-9598', 'diff_type': 'change'}]
+                    {'changed_key': 'phone', 'old': '3608586370', 'new': '800-763-9598', 'diff_type': 'change'},
+                    {'changed_key': 'stam', 'old': None, 'new': 'klum', 'diff_type': 'add'}]
 
         self.assertCountEqual(self.differ.get_diffs(old, new), expected)
 
@@ -52,8 +54,6 @@ class TestAlertTime(unittest.TestCase):
 
         expected_with_hierarchy = [
             {'changed_key': ['otcAward', 'best50'], 'old': True, 'new': False, 'diff_type': 'change'}]
-
-        # print('zehu', self.differ.get_diffs(old, new, {'otcAward': [dict, 'best50']}))
 
         self.assertCountEqual(self.differ.get_diffs(old, new, {'otcAward': [dict, 'best50']}), expected_with_hierarchy)
 
@@ -173,6 +173,31 @@ class TestAlertTime(unittest.TestCase):
         expected = [{'changed_key': 'phone', 'old': '3608586370', 'new': '800-763-9598', 'diff_type': 'change'}, {'changed_key': ['notes'], 'old': None, 'new': 'Formerly=Professional Recovery Systems, Ltd. until 8-99', 'diff_type': 'add'}, {'changed_key': ['descriptors', 'name'], 'old': 'a', 'new': 'd', 'diff_type': 'change'}, {'changed_key': ['descriptors', 'name'], 'old': None, 'new': 'e', 'diff_type': 'add'}, {'changed_key': 'email', 'old': 'ron.hughes.operations@gmail.com', 'new': 'info@smcesolutions.com', 'diff_type': 'change'}, {'changed_key': 'website', 'old': 'http://www.smceinc.com', 'new': 'http://www.smcesolutions.com', 'diff_type': 'change'}, {'changed_key': ['officers', 'name'], 'old': 'Rick Bjorklund', 'new': 'Ronald Hughes', 'diff_type': 'change'}, {'changed_key': ['officers', 'name'], 'old': 'Ronald Hughes-Halamish', 'new': None, 'diff_type': 'remove'}, {'changed_key': ['otcAward', 'best50'], 'old': True, 'new': False, 'diff_type': 'change'}]
 
         self.assertCountEqual(self.differ.get_diffs(old, new, hierarchy), expected)
+
+    def test_empty_strings(self):
+        old = {"id": 626691, "name": "SMC Entertainment Inc.",
+               "city": "San Francisco", "state": "CA", "zip": "94110     ", "countryId": "USA",
+               "country": "United States",
+               "address1": "nan", "website": "http://www.smceinc.com", "phone": "3608586370",
+               "fax": "nan",
+               "email": "aaa@gmail",
+               "otcAward": {"symbol": "SMCE", "best50": None}}
+        new = {"id": 626691, "name": "SMC Entertainment Inc.",
+               "city": "San Francisco", "state": "CA", "zip": "94110     ", "countryId": "USA",
+               "country": "United States",
+               "address1": None, "website": "http://www.smceinc.com", "phone": "3608586370",
+               "fax": "213-232-3207",
+               "email": None,
+               "otcAward": {"symbol": "SMCE", "best50": ''}}
+
+        # expected_with_hierarchy = [
+        #     {'changed_key': ['otcAward', 'best50'], 'old': True, 'new': False, 'diff_type': 'change'}]
+
+        expected = [
+            {'changed_key': 'email', 'old': 'aaa@gmail', 'new': None, 'diff_type': 'remove'},
+            {'changed_key': 'fax', 'old': 'nan', 'new': '213-232-3207', 'diff_type': 'add'}]
+
+        self.assertCountEqual(self.differ.get_diffs(old, new, {'otcAward': [dict, 'best50']}), expected)
 
 
 if __name__ == '__main__':
