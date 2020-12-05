@@ -14,6 +14,8 @@ from src.find.site import InvalidTickerExcpetion
 
 PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
 
+VALIDATE_PASSWORD, STAM = range(2)
+
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{symbol}.png')
 
@@ -31,13 +33,25 @@ Stocker alerts bot currently supports the following commands:
 
 
 def register(update, context):
-    user = update.message.from_user
-
     try:
-        # Using private attr because of bad API
+        update.message.reply_text('Insert password please')
+        return VALIDATE_PASSWORD
+    except Exception as e:
+        update.message.reply_text(
+            '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
+        logging.exception(e.__traceback__)
 
+
+def validate_password(update, context):
+    user = update.message.from_user
+    password = update.message.text
+
+    # Allowing users to register only with this specific password
+    if password == 'HakunaMatata':
         # replace_one will create one if no results found in filter
         replace_filter = {'user_name': user.name}
+
+        # Using private attr because of bad API
         context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
                                                                 {'user_name': user.name, 'chat_id': user.id},
                                                                 upsert=True)
@@ -45,18 +59,18 @@ def register(update, context):
         logging.info("{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
 
         update.message.reply_text('{user_name} Registered successfully'.format(user_name=user.name))
-
-    except Exception as e:
-        update.message.reply_text(
-            '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
-        logging.exception(e.__traceback__)
+    else:
+        logging.warning(
+            "{user_name} of {chat_id} have tried to register with password: {password}".format(user_name=user.name,
+                                                                                               chat_id=user.id,
+                                                                                               password=password))
+    return ConversationHandler.END
 
 
 def deregister(update, context):
     user = update.message.from_user
     try:
         # Using private attr because of bad API
-
         context._dispatcher.mongo_db.telegram_users.delete_one({'user_name': user.name})
         context._dispatcher.mongo_db.telegram_users.delete_one({'chat_id': user.id})
 
@@ -68,6 +82,8 @@ def deregister(update, context):
         update.message.reply_text(
             '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
         logging.exception(e.__traceback__)
+
+    return ConversationHandler.END
 
 
 def alerts(update, context):
@@ -135,19 +151,30 @@ def main(args):
     # Bad APIs make bad workarounds
     setattr(dp, 'mongo_db', Collect.init_mongo(args.uri))
 
-    conv_handler = ConversationHandler(
+    alerts_conv = ConversationHandler(
         entry_points=[CommandHandler('alerts', alerts)],
         states={
+            # Allowing 3-5 letters
             PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), alerts_request),
                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), invalid_ticker_format)]
         },
         fallbacks=[],
     )
 
-    dp.add_handler(conv_handler)
+    register_conv = ConversationHandler(
+        entry_points=[CommandHandler('register', register)],
+        states={
+            # Allowing letters and whitespaces
+            VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), validate_password)]
+        },
+        fallbacks=[],
+    )
+
+    dp.add_handler(register_conv)
+    dp.add_handler(alerts_conv)
 
     dp.add_handler(CommandHandler('start', start))
-    dp.add_handler(CommandHandler('register', register))
+    # dp.add_handler(CommandHandler('register', register))
     dp.add_handler(CommandHandler('deregister', deregister))
     dp.add_handler(CommandHandler('history', history))
 
