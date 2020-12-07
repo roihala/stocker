@@ -23,6 +23,10 @@ class Profile(SiteCollector):
 
     @property
     def hierarchy(self):
+        return {'tierDisplayName': ['Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB', 'OTCQX International']}
+
+    @property
+    def nested_keys(self):
         return {'officers': [list, dict, 'name'],
                 'premierDirectorList': [list, dict, 'name'],
                 'standardDirectorList': [list, dict, 'name'],

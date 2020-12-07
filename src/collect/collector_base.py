@@ -31,13 +31,25 @@ class CollectorBase(ABC):
         self._current_data = None
         self._debug = debug
 
-    @property
-    def hierarchy(self) -> dict:
-        return {}
-
     @abstractmethod
     def fetch_data(self) -> dict:
         pass
+
+    @property
+    def hierarchy(self) -> dict:
+        """
+        This property is a mapping between keys and a sorted list of their logical hierarchy.
+        by using this mapping we could filter diffs by locating changed values in hierarchy
+        """
+        return {}
+
+    @property
+    def nested_keys(self) -> dict:
+        """
+        This property is a mapping between nested keys and a sorted list of layers which will be provided to differ
+        in order to get changes from the last layer only
+        """
+        return {}
 
     @property
     def filter_keys(self):
@@ -118,8 +130,9 @@ class CollectorBase(ABC):
 
         try:
 
-            diffs = Differ().get_diffs(self._latest, self._current_data, self.hierarchy)
+            diffs = Differ().get_diffs(self._latest, self._current_data, self.nested_keys)
             diffs = [self.__decorate_diff(diff) for diff in diffs]
+
             # Applying filters
             return self._edit_diffs(diffs)
         except Exception as e:
@@ -169,8 +182,17 @@ class CollectorBase(ABC):
 
         :return: The edited diff, None to delete the diff
         """
-        if diff['changed_key'] == '':
+        key = diff['changed_key']
+
+        if key == '':
             return None
+        elif key in self.hierarchy.keys():
+            try:
+                if self.hierarchy[key].index(diff['new']) < self.hierarchy[key].index(diff['old']):
+                    return None
+            # If the key is not in hierarchy list
+            except ValueError as e:
+                logging.warning('Incorrect hierarchy for {ticker}. {error}'.format(ticker=self.ticker, error=e.args))
         return diff
 
     def __decorate_diff(self, diff):
