@@ -94,7 +94,7 @@ class Bot(Runnable):
         password = update.message.text
 
         # Allowing users to register only with this specific password
-        if password == 'HakunaMatata':
+        if password == 'KingofLion':
             # replace_one will create one if no results found in filter
             replace_filter = {'user_name': user.name}
 
