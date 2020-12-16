@@ -46,10 +46,22 @@ class Collect(Runnable):
         for ticker in self._tickers_list:
             # Using date as a key for matching entries between collections
             date = arrow.utcnow()
-
+            # mergeDiffs is initialized for each ticker
+            merge_diffs = []
             for collection, obj in self.COLLECTORS.items():
                 collector = obj(self._mongo_db, collection, ticker, date, self._debug)
-                self.collect(collector)
+                # merge all collectors from the same ticker
+                merge_diffs += self.collect(collector)
+
+            if merge_diffs:
+                logging.info('diffs: {diffs}'.format(diffs=merge_diffs))
+
+                if not self._debug:
+                    # Insert the new diffs to mongo
+                    [self._mongo_db.diffs.insert_one(diff) for diff in merge_diffs]
+
+                # Alert every registered user
+                [self.__telegram_alert(self, merge_diffs)]
 
     def collect(self, collector: CollectorBase):
         try:
@@ -57,31 +69,21 @@ class Collect(Runnable):
 
             diffs = collector.get_diffs()
 
-            if diffs:
-                logging.info('diffs: {diffs}'.format(diffs=diffs))
-
-                if not self._debug:
-                    # Insert the new diffs to mongo
-                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
-
-                # Alert every registered user
-                [self.__telegram_alert(diff) for diff in diffs]
+            return diffs
 
         except pymongo.errors.OperationFailure as e:
             raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
         except Exception as e:
             logging.exception(e, exc_info=True)
 
-    def __telegram_alert(self, change):
-        # User-friendly message
-        msg = '{alert_emoji} Detected change on {ticker}:\n' \
-              '*{key}* has changed:\n' \
-              ' {old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                                                               fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
-                                                                               ticker=change.get('ticker'),
-                                                                               key=change.get('changed_key'),
-                                                                               old=change.get('old'),
-                                                                               new=change.get('new'))
+    def __telegram_alert(self, diffs):
+
+        # gets the header of the message
+        msg = self.__header_message(diffs[0])
+
+        for diff in diffs:
+            # concatenate the key that has been changed to the header
+            msg += self.__concatenate_message(diff)
 
         if self._debug:
             self._telegram_bot.sendMessage(chat_id=1151317792, text=msg,
@@ -97,6 +99,19 @@ class Collect(Runnable):
 
             except Exception as e:
                 logging.exception(e)
+
+    def __header_message(self, change):
+        # return the header part of the message
+        return '{alert_emoji} Detected change on {ticker}:\n'
+
+    def __concatenate_message(self, change):
+        # return the relevant part that needs to be concatenated to the header message
+        return '*{key}* has changed:\n' \
+               ' {old} {fast_forward}{fast_forward}{fast_forward} {new} \n'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                               fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
+                                                                               key=change.get('changed_key'),
+                                                                               old=change.get('old'),
+                                                                               new=change.get('new'))
 
     @staticmethod
     def extract_tickers(csv):
