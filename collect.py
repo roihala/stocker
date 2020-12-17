@@ -46,7 +46,7 @@ class Collect(Runnable):
         for ticker in self._tickers_list:
             # Using date as a key for matching entries between collections
             date = arrow.utcnow()
-            # mergeDiffs is initialized for each ticker
+            # merge_diffs is initialized for each ticker
             merge_diffs = []
             for collection, obj in self.COLLECTORS.items():
                 collector = obj(self._mongo_db, collection, ticker, date, self._debug)
