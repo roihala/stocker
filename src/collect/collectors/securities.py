@@ -21,7 +21,7 @@ class Securities(SiteCollector):
                     True)
 
     @property
-    def hierarchy(self):
+    def nested_keys(self):
         return {'transferAgents': [list, dict, 'name']}
 
     def fetch_data(self):

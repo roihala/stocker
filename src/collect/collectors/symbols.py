@@ -12,6 +12,21 @@ class Symbols(SiteCollector):
         return Site(self.collection,
                     'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
 
+    @property
+    def hierarchy(self):
+        return {'verifiedProfile':  [False, True],
+                'isHotSector': [False, True],
+                'hasPromotion': [False, True],
+                'transferAgentVerified': [False, True],
+
+                'isShellRisk': [True, False],
+                'isDelinquent': [True, False],
+                'isDark': [True, False],
+                'isCaveatEmptor': [True, False],
+                'unableToContact': [True, False],
+                'isBankrupt': [True, False],
+                'hasControlDispute': [True, False]}
+
     def get_sorted_history(self, apply_filters=True):
         history = super().get_sorted_history(apply_filters)
 
