@@ -132,7 +132,12 @@ class Client(Runnable):
 
 
 def main():
-    Client().run()
+    logging.info('Starting Client')
+
+    try:
+        Client().run()
+    except Exception as e:
+        logging.exception(e)
 
 
 if __name__ == '__main__':
