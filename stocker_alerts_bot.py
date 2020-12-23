@@ -184,7 +184,11 @@ class Bot(Runnable):
 
 
 def main():
-    Bot().run()
+    logging.info('Starting Bot')
+    try:
+        Bot().run()
+    except Exception as e:
+        logging.exception(e)
 
 
 if __name__ == '__main__':

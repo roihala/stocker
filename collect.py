@@ -53,16 +53,13 @@ class Collect(Runnable):
 
     def collect(self, collector: CollectorBase):
         try:
-            logging.info(
-                ' running on {collection}, {ticker}'.format(ticker=collector.ticker, collection=collector.name))
-
             collector.collect()
 
             diffs = collector.get_diffs()
 
-            logging.info('changes: {changes}'.format(changes=diffs))
-
             if diffs:
+                logging.info('diffs: {diffs}'.format(diffs=diffs))
+
                 if not self._debug:
                     # Insert the new diffs to mongo
                     [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
@@ -117,7 +114,12 @@ class Collect(Runnable):
 
 
 def main():
-    Collect().run()
+    logging.info('Starting Collect')
+
+    try:
+        Collect().run()
+    except Exception as e:
+        logging.exception(e)
 
 
 if __name__ == '__main__':
