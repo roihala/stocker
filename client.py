@@ -132,8 +132,6 @@ class Client(Runnable):
 
 
 def main():
-    logging.info('Starting Client')
-
     try:
         Client().run()
     except Exception as e:

@@ -23,6 +23,7 @@ class Runnable(ABC):
         else:
             logging.basicConfig(filename=os.path.join(LOG_DIR, self.log_name), level=logging.INFO,
                                 format='%(asctime)s %(levelname)s %(message)s')
+        logging.info('running {cls}'.format(cls=self.__class__))
 
     @property
     @abstractmethod
