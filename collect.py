@@ -114,8 +114,6 @@ class Collect(Runnable):
 
 
 def main():
-    logging.info('Starting Collect')
-
     try:
         Collect().run()
     except Exception as e:

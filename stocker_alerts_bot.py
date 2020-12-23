@@ -184,7 +184,6 @@ class Bot(Runnable):
 
 
 def main():
-    logging.info('Starting Bot')
     try:
         Bot().run()
     except Exception as e:
