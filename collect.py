@@ -61,7 +61,7 @@ class Collect(Runnable):
                     [self._mongo_db.diffs.insert_one(diff) for diff in merge_diffs]
 
                 # Alert every registered user
-                [self.__telegram_alert(self, merge_diffs)]
+                [self.__telegram_alert(merge_diffs)]
 
     def collect(self, collector: CollectorBase):
         try:
