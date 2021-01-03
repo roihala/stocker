@@ -5,8 +5,8 @@ tk
 requests
 pymongo
 arrow
-telegram
 python-telegram-bot
 dataframe-image
 dictdiffer
 psutil
+apscheduler
