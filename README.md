@@ -3,7 +3,8 @@ Hello Worker,
  
 In order to deploy you need to following tools:
 
-1. gcloud cli - install + auth
+1. gcloud cli - install
+2. gcloud auth - `gcloud auth configure-docker`
 2. docker
 3. kubernetes
 
