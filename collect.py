@@ -21,6 +21,12 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
+logger = logging.getLogger("collector")
+handler = logging.StreamHandler()
+logger.setLevel(logging.INFO)
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logger.addHandler(handler)
+
 
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
@@ -73,9 +79,6 @@ class Collect(Runnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        print(ticker)
-        print(date)
-
         for collection, obj in self.COLLECTORS.items():
             collector = obj(self._mongo_db, collection, ticker, date, self._debug)
             self.collect(collector)
@@ -87,7 +90,7 @@ class Collect(Runnable):
             diffs = collector.get_diffs()
 
             if diffs:
-                logging.info('diffs: {diffs}'.format(diffs=diffs))
+                logger.info('diffs: {diffs}'.format(diffs=diffs))
 
                 if not self._debug:
                     # Insert the new diffs to mongo
@@ -99,7 +102,7 @@ class Collect(Runnable):
         except pymongo.errors.OperationFailure as e:
             raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
         except Exception as e:
-            logging.exception(e, exc_info=True)
+            logger.exception(e, exc_info=True)
 
     def __telegram_alert(self, change):
         # User-friendly message
@@ -125,7 +128,7 @@ class Collect(Runnable):
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
             except Exception as e:
-                logging.exception(e)
+                logger.exception(e)
 
     @staticmethod
     def extract_tickers(csv=DEFAULT_CSV_PATH):
@@ -141,7 +144,7 @@ def main():
     try:
         Collect().run()
     except Exception as e:
-        logging.exception(e)
+        logger.exception(e)
 
 
 if __name__ == '__main__':

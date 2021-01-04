@@ -12,3 +12,7 @@ update_deployment: get_gcp_cluster
 
 deploy: get_gcp_cluster
 	kubectl patch deployment stocker-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"
+
+delete_pod:
+	kubectl delete pods -l run=stocker-app || true
+
