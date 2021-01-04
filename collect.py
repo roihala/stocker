@@ -106,7 +106,7 @@ class Collect(Runnable):
 
     def __telegram_alert(self, change):
         # User-friendly message
-        msg = 'DEBUG {alert_emoji} Detected change on {ticker}:\n' \
+        msg = '{alert_emoji} Detected change on {ticker}:\n' \
               '*{key}* has changed:\n' \
               ' {old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                                                                fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
