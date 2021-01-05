@@ -6,6 +6,10 @@ import arrow
 import pymongo
 import pandas
 import telegram
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.triggers.combining import OrTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
@@ -13,8 +17,15 @@ from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.collect.collectors.symbols import Symbols
 from src.collect.collectors.prices import Prices
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
+
+logger = logging.getLogger("collector")
+handler = logging.StreamHandler()
+logger.setLevel(logging.INFO)
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logger.addHandler(handler)
 
 
 class Collect(Runnable):
@@ -27,8 +38,17 @@ class Collect(Runnable):
                   'securities': Securities}
 
     def __init__(self):
-        super().__init__()
-        self._tickers_list = self.extract_tickers(self.args.csv)
+
+        if os.getenv("ENV") == "production":
+            self._debug = False
+            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
+            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
+
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+            self._tickers_list = self.extract_tickers()
+        else:
+            super().__init__()
+            self._tickers_list = self.extract_tickers(self.args.csv)
 
     @property
     def log_name(self) -> str:
@@ -40,16 +60,28 @@ class Collect(Runnable):
         return parser
 
     def run(self):
-        self.collect_all()
+        scheduler = BlockingScheduler(executors={
+            'default': ThreadPoolExecutor(10000)
+        })
 
-    def collect_all(self):
+        trigger = OrTrigger([IntervalTrigger(minutes=10), DateTrigger()])
+
         for ticker in self._tickers_list:
-            # Using date as a key for matching entries between collections
-            date = arrow.utcnow()
+            scheduler.add_job(self.ticker_collect,
+                              args=[ticker],
+                              trigger=trigger,
+                              max_instances=1,
+                              misfire_grace_time=120)
 
-            for collection, obj in self.COLLECTORS.items():
-                collector = obj(self._mongo_db, collection, ticker, date, self._debug)
-                self.collect(collector)
+        scheduler.start()
+
+    def ticker_collect(self, ticker):
+        # Using date as a key for matching entries between collections
+        date = arrow.utcnow()
+
+        for collection, obj in self.COLLECTORS.items():
+            collector = obj(self._mongo_db, collection, ticker, date, self._debug)
+            self.collect(collector)
 
     def collect(self, collector: CollectorBase):
         try:
@@ -58,7 +90,7 @@ class Collect(Runnable):
             diffs = collector.get_diffs()
 
             if diffs:
-                logging.info('diffs: {diffs}'.format(diffs=diffs))
+                logger.info('diffs: {diffs}'.format(diffs=diffs))
 
                 if not self._debug:
                     # Insert the new diffs to mongo
@@ -70,7 +102,7 @@ class Collect(Runnable):
         except pymongo.errors.OperationFailure as e:
             raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
         except Exception as e:
-            logging.exception(e, exc_info=True)
+            logger.exception(e, exc_info=True)
 
     def __telegram_alert(self, change):
         # User-friendly message
@@ -96,17 +128,12 @@ class Collect(Runnable):
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
             except Exception as e:
-                logging.exception(e)
+                logger.exception(e)
 
     @staticmethod
-    def extract_tickers(csv):
+    def extract_tickers(csv=DEFAULT_CSV_PATH):
         try:
-            if csv:
-                file_path = csv
-            else:
-                file_path = DEFAULT_CSV_PATH
-
-            df = pandas.read_csv(file_path)
+            df = pandas.read_csv(csv)
             return df.Symbol.apply(lambda ticker: ticker.upper())
         except Exception:
             raise ValueError(
@@ -117,7 +144,7 @@ def main():
     try:
         Collect().run()
     except Exception as e:
-        logging.exception(e)
+        logger.exception(e)
 
 
 if __name__ == '__main__':
