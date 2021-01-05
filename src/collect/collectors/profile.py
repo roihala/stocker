@@ -13,8 +13,9 @@ class Profile(SiteCollector):
                 'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard', 'latestFilingType',
                 'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName', 'venue',
                 'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered', 'isAlternativeReporting',
-                'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes']
-
+                'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes', 'reportingStandardMin',
+                'auditStatus', 'auditedStatusDisplay']
+    
     @property
     def site(self):
         return Site(self.collection,

@@ -12,7 +12,8 @@ class Securities(SiteCollector):
                 'publicFloatAsOfDate', 'isNoInfo', 'currentCapitalChangePayDate',
                 'currentCapitalChangeExDate', 'currentCapitalChange', 'currentCapitalChangeRecordDate', 'cusip',
                 'hasLevel2', 'isLevel2Entitled', 'primaryVenue', 'tierGroupId', 'isPiggyBacked',
-                'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName']
+                'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName', 'foreignExchangeTier',
+                'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
     @property
     def site(self):
