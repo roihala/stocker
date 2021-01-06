@@ -62,7 +62,6 @@ class Collect(Runnable):
         if self._debug:
             for ticker in self._tickers_list:
                 self.ticker_collect(ticker)
-                break
             return
 
         scheduler = BlockingScheduler(executors={
@@ -87,7 +86,7 @@ class Collect(Runnable):
         for collection_name in Factory.COLLECTIONS.keys():
             try:
                 collector = Factory.colleectors_factory(collection_name, self._mongo_db, ticker, date, self._debug)
-                latest, current = collector.collect()
+                current, latest = collector.collect()
 
                 alerter = Factory.alerters_factory(collection_name, current, latest, ticker, date, self._debug)
                 diffs = alerter.get_diffs()

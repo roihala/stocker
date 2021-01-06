@@ -8,6 +8,3 @@ class Prices(SiteCollector):
         return Site(self.collection,
                     'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                     True)
-
-    def _edit_diff(self, diff):
-        return None
