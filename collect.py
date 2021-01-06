@@ -64,7 +64,7 @@ class Collect(Runnable):
             'default': ThreadPoolExecutor(10000)
         })
 
-        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=60), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=13), DateTrigger()])
 
         for ticker in self._tickers_list:
             scheduler.add_job(self.ticker_collect,
