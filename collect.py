@@ -85,7 +85,7 @@ class Collect(Runnable):
 
     def collect(self, collector: CollectorBase):
         try:
-            collector.collect()
+            data = collector.collect()
 
             diffs = collector.get_diffs()
 
@@ -93,7 +93,8 @@ class Collect(Runnable):
                 logger.info('diffs: {diffs}'.format(diffs=diffs))
 
                 if not self._debug:
-                    # Insert the new diffs to mongo
+                    # Save the new data and the diffs to mongo
+                    collector.collection.insert_one(data)
                     [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
 
                 # Alert every registered user
