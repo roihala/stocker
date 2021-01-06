@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import logging
 import os
 import arrow
@@ -12,7 +11,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from runnable import Runnable
-from src.collect.collector_base import CollectorBase
+from src.factory import Factory
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.collect.collectors.symbols import Symbols
@@ -60,6 +59,12 @@ class Collect(Runnable):
         return parser
 
     def run(self):
+        if self._debug:
+            for ticker in self._tickers_list:
+                self.ticker_collect(ticker)
+                break
+            return
+
         scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(10000)
         })
@@ -79,31 +84,28 @@ class Collect(Runnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        for collection, obj in self.COLLECTORS.items():
-            collector = obj(self._mongo_db, collection, ticker, date, self._debug)
-            self.collect(collector)
+        for collection_name in Factory.COLLECTIONS.keys():
+            try:
+                collector = Factory.colleectors_factory(collection_name, self._mongo_db, ticker, date, self._debug)
+                latest, current = collector.collect()
 
-    def collect(self, collector: CollectorBase):
-        try:
-            data = collector.collect()
+                alerter = Factory.alerters_factory(collection_name, current, latest, ticker, date, self._debug)
+                diffs = alerter.get_diffs()
 
-            diffs = collector.get_diffs()
+                if diffs:
+                    logger.info('diffs: {diffs}'.format(diffs=diffs))
 
-            if diffs:
-                logger.info('diffs: {diffs}'.format(diffs=diffs))
+                    if not self._debug:
+                        # Insert the new diffs to mongo
+                        [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
 
-                if not self._debug:
-                    # Save the new data and the diffs to mongo
-                    collector.collection.insert_one(data)
-                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+                    # Alert every registered user
+                    [self.__telegram_alert(diff) for diff in diffs]
 
-                # Alert every registered user
-                [self.__telegram_alert(diff) for diff in diffs]
-
-        except pymongo.errors.OperationFailure as e:
-            raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
-        except Exception as e:
-            logger.exception(e, exc_info=True)
+            except pymongo.errors.OperationFailure as e:
+                raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
+            except Exception as e:
+                logger.exception(e, exc_info=True)
 
     def __telegram_alert(self, change):
         # User-friendly message
@@ -132,8 +134,11 @@ class Collect(Runnable):
                 logger.exception(e)
 
     @staticmethod
-    def extract_tickers(csv=DEFAULT_CSV_PATH):
+    def extract_tickers(csv=None):
         try:
+            if not csv:
+                csv = DEFAULT_CSV_PATH
+
             df = pandas.read_csv(csv)
             return df.Symbol.apply(lambda ticker: ticker.upper())
         except Exception:
