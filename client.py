@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+import re
+
 import requests
 import pandas
 
@@ -8,6 +10,7 @@ from collect import Collect
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
 from src.collect.collectors.prices import Prices
+from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.find.site import Site
 
@@ -15,6 +18,7 @@ LOW_FLOATERS_001_1B_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters
 LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_500M.csv')
 LOW_FLOATERS_003_250M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters003_250M.csv')
 TICKERS_0006_3B_CURRENT_PATH = os.path.join(os.path.dirname(__file__), 'tickers_0006_3B_current.csv')
+EV_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'ev_tickers.csv')
 
 
 class Client(Runnable):
@@ -71,6 +75,7 @@ class Client(Runnable):
         tickers_001_500M = pandas.DataFrame(columns=['Symbol'])
         tickers_003_250M = pandas.DataFrame(columns=['Symbol'])
         tickers_0006_3B_current = pandas.DataFrame(columns=['Symbol'])
+        ev_tickers = pandas.DataFrame(columns=['Symbol'])
 
         for ticker in tickers_list:
             try:
@@ -79,6 +84,7 @@ class Client(Runnable):
                 securities = Securities(mongo_db, 'securities', ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
                 last_price = Prices(mongo_db, 'prices', ticker).get_latest()['previousClose']
+                description = Profile(mongo_db, 'profile', ticker).get_latest()['businessDesc']
 
                 if last_price <= 0.001 and outstanding <= 1000000000:
                     tickers_001_1B = tickers_001_1B.append({'Symbol': ticker}, ignore_index=True)
@@ -88,6 +94,8 @@ class Client(Runnable):
                     tickers_003_250M = tickers_003_250M.append({'Symbol': ticker}, ignore_index=True)
                 if last_price <= 0.0006 and outstanding >= 3000000000 and tier_code == 'PC':
                     tickers_0006_3B_current = tickers_0006_3B_current.append({'Symbol': ticker}, ignore_index=True)
+                if Client.is_substring(description, 'electric vehicle', 'golf car', 'lithium'):
+                    ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
 
             except Exception as e:
                 logging.exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
@@ -100,6 +108,8 @@ class Client(Runnable):
             tickers_003_250M.to_csv(tmp)
         with open(TICKERS_0006_3B_CURRENT_PATH, 'w') as tmp:
             tickers_0006_3B_current.to_csv(tmp)
+        with open(EV_TICKERS_PATH, 'w') as tmp:
+            ev_tickers.to_csv(tmp)
 
     @staticmethod
     def get_last_price(ticker):
@@ -109,6 +119,20 @@ class Client(Runnable):
 
         response = requests.get(url)
         return float(response.json().get('previousClose'))
+
+    @staticmethod
+    def is_substring(text, *args):
+        """
+        Looking for substrings in text while ignoring case
+
+        :param text: A text to look in
+        :param args: substrings to look for in text
+        :return:
+        """
+        for arg in args:
+            if re.search(arg, text, re.IGNORECASE):
+                return True
+        return False
 
     @staticmethod
     def get_diffs(mongo_db, ticker=None):
