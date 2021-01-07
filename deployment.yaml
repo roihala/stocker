@@ -19,6 +19,6 @@ spec:
             - name: ENV
               value: "production"
             - name: MONGO_URI
-              value: "mongodb://admin:admin123@51.91.11.169:27017/stocker"
+              value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
