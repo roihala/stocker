@@ -15,10 +15,10 @@ PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
 VALIDATE_PASSWORD, STAM = range(2)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
-TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{symbol}.png')
 
 
 class Bot(Runnable):
+    TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{name}.png')
 
     def __init__(self):
 
@@ -168,7 +168,7 @@ class Bot(Runnable):
         try:
             alerts_df = Client.get_diffs(context._dispatcher.mongo_db, ticker)
 
-            Bot.__df_reply(update, alerts_df, ticker)
+            Bot.send_df(alerts_df, ticker, update.message.reply_document)
 
         except Exception as e:
             logging.exception(e, exc_info=True)
@@ -181,14 +181,14 @@ class Bot(Runnable):
         update.message.reply_text('/history Does not work at the moment')
 
     @staticmethod
-    def __df_reply(update, df, symbol):
-        image_path = TEMP_IMAGE_PATH_FORMAT.format(symbol=symbol)
+    def send_df(df, name, func, **kwargs):
+        image_path = Bot.TEMP_IMAGE_PATH_FORMAT.format(name=name)
 
         # Converting to image because dataframe isn't shown well in telegram
         dfi.export(df, image_path, max_rows=100, max_cols=100)
 
         with open(image_path, 'rb') as image:
-            update.message.reply_document(image)
+            func(document=image, **kwargs)
 
         os.remove(image_path)
 
