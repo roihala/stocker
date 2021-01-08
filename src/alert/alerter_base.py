@@ -1,21 +1,19 @@
 import logging
+from functools import reduce
 from typing import List
 
 import arrow
 
 from src.collect.differ import Differ
-from src import factory
 
 
 class AlerterBase(object):
-    def __init__(self, current, latest, ticker, date=None, debug=None):
-        if current is None:
-            raise ValueError('Alerter should get current data')
+    FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
+    def __init__(self, mongo_db, ticker, date=None, debug=None):
+        self._mongo_db = mongo_db
         self.ticker = ticker
-        self.name = factory.Factory.resolve_name(self.__class__)
-        self._current_data = current
-        self._latest = latest
+        self.name = self.__class__.__name__.lower()
         self._date = date if date else arrow.utcnow()
         self._debug = debug
 
@@ -40,9 +38,19 @@ class AlerterBase(object):
         # List of keys to ignore
         return []
 
-    def get_diffs(self) -> List[dict]:
+    def get_alerts(self, latest, current):
+        diffs = self.get_diffs(latest, current)
+        if diffs and not self._debug:
+            logging.info('diffs: {diffs}'.format(diffs=diffs))
+
+            # Insert the new diffs to mongo
+            [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+
+        return reduce(lambda x, y: x + self.__translate_diff(y), diffs, '')
+
+    def get_diffs(self, latest, current) -> List[dict]:
         """
-        This function returns a list of the changes that occurred in a ticker's data.
+        This function returns a list of the changes that occurred in certain ticker's data.
 
         :return: A list of dicts in the format of:
         {
@@ -56,19 +64,19 @@ class AlerterBase(object):
         }
 
         """
-        if self._latest is None:
+        if not current or not latest:
             return []
 
         try:
 
-            diffs = Differ().get_diffs(self._latest, self._current_data, self.nested_keys)
+            diffs = Differ().get_diffs(latest, current, self.nested_keys)
             diffs = [self.__decorate_diff(diff) for diff in diffs]
 
             # Applying filters
             return self._edit_diffs(diffs)
         except Exception as e:
             logging.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=self._latest,
-                                                                                               current=self._current_data))
+                                                                                               current=self._current))
             logging.exception(e)
 
     def _edit_diffs(self, diffs) -> List[dict]:
@@ -125,6 +133,14 @@ class AlerterBase(object):
             except ValueError as e:
                 logging.warning('Incorrect hierarchy for {ticker}. {error}'.format(ticker=self.ticker, error=e.args))
         return diff
+
+    def __translate_diff(self, diff):
+        return '*{key}* has changed:\n' \
+               '{old} {fast_forward}{fast_forward}{fast_forward} {new}\n'.format(fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
+                                                                                 ticker=diff.get('ticker'),
+                                                                                 key=diff.get('changed_key'),
+                                                                                 old=diff.get('old'),
+                                                                                 new=diff.get('new'))
 
     def __decorate_diff(self, diff):
         # joining by '.' if a key is a list of keys (differ's nested changes approach)

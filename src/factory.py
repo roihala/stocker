@@ -34,9 +34,5 @@ class Factory(object):
                                                      .format(obj=obj, e=e))
 
     @staticmethod
-    def resolve_name(obj):
-        for name, collections in Factory.COLLECTIONS.items():
-            if obj in collections:
-                return name
-
-        raise ValueError("Can't resolve name for {obj}".format(obj=obj))
+    def get_alerters():
+        return [value[Factory.ALERTER_INDEX] for value in Factory.COLLECTIONS.values()]

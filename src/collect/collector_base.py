@@ -21,7 +21,7 @@ class CollectorBase(ABC):
         :param debug: is debug?
         """
         self.ticker = ticker.upper()
-        self.name = factory.Factory.resolve_name(self.__class__)
+        self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
         self._sorted_history = self.get_sorted_history(apply_filters=False)
@@ -34,17 +34,19 @@ class CollectorBase(ABC):
 
     def collect(self):
         current = self.fetch_data()
+        latest = self.get_latest()
 
-        # Updating DB with the new data
-        copy = deepcopy(current)
-        copy.update({"ticker": self.ticker, "date": self._date.format()})
+        if current != latest:
+            # Updating DB with the new data
+            copy = deepcopy(current)
+            copy.update({"ticker": self.ticker, "date": self._date.format()})
 
-        if not self._debug:
-            self.collection.insert_one(copy)
-        else:
-            logging.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
+            if not self._debug:
+                self.collection.insert_one(copy)
+            else:
+                logging.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
 
-        return current, self.get_latest()
+        return current, latest
 
     def get_sorted_history(self, apply_filters=True):
         history = pandas.DataFrame(

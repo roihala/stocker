@@ -12,6 +12,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from runnable import Runnable
 from src.factory import Factory
+from src.alert.daily_alerter import DailyAlerter
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.collect.collectors.symbols import Symbols
@@ -29,7 +30,6 @@ logger.addHandler(handler)
 
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-    FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
     COLLECTORS = {'symbols': Symbols,
                   'profile': Profile,
@@ -85,37 +85,26 @@ class Collect(Runnable):
 
         for collection_name in Factory.COLLECTIONS.keys():
             try:
-                collector = Factory.colleectors_factory(collection_name, self._mongo_db, ticker, date, self._debug)
+                collection_args = {'mongo_db': self._mongo_db, 'ticker': ticker, 'date': date, 'debug': self._debug}
+                collector = Factory.colleectors_factory(collection_name, **collection_args)
                 current, latest = collector.collect()
 
-                alerter = Factory.alerters_factory(collection_name, current, latest, ticker, date, self._debug)
-                diffs = alerter.get_diffs()
+                alerter = Factory.alerters_factory(collection_name, **collection_args)
+                alerts = alerter.get_alerts(latest=latest, current=current)
 
-                if diffs:
-                    logger.info('diffs: {diffs}'.format(diffs=diffs))
-
-                    if not self._debug:
-                        # Insert the new diffs to mongo
-                        [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
-
-                    # Alert every registered user
-                    [self.__telegram_alert(diff) for diff in diffs]
+                if alerts and not isinstance(alerter, DailyAlerter):
+                    self.__telegram_alert(ticker, alerts)
 
             except pymongo.errors.OperationFailure as e:
                 raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
             except Exception as e:
                 logger.exception(e, exc_info=True)
 
-    def __telegram_alert(self, change):
+    def __telegram_alert(self, ticker, alerts):
         # User-friendly message
-        msg = '{alert_emoji} Detected change on {ticker}:\n' \
-              '*{key}* has changed:\n' \
-              ' {old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                                                               fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
-                                                                               ticker=change.get('ticker'),
-                                                                               key=change.get('changed_key'),
-                                                                               old=change.get('old'),
-                                                                               new=change.get('new'))
+        msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                           ticker=ticker,
+                                                                           alert=alerts)
 
         if self._debug:
             self._telegram_bot.sendMessage(chat_id=1151317792, text=msg,

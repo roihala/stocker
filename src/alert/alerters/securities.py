@@ -1,7 +1,7 @@
-from src.alert.alerter_base import AlerterBase
+from src.alert.daily_alerter import DailyAlerter
 
 
-class Securities(AlerterBase):
+class Securities(DailyAlerter):
     @property
     def filter_keys(self):
         return ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
