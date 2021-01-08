@@ -19,6 +19,17 @@ TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{symbol}.png')
 
 
 class Bot(Runnable):
+
+    def __init__(self):
+
+        if os.getenv("ENV") == "production":
+            self._debug = False
+            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
+            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+        else:
+            super().__init__()
+
     @property
     def log_name(self) -> str:
         return 'stocker_alerts_bot.log'

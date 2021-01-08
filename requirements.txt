@@ -10,5 +10,4 @@ dataframe-image
 dictdiffer
 psutil
 apscheduler
-telegram
 dnspython
