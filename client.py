@@ -70,7 +70,7 @@ class Client(Runnable):
                     history = collector.get_sorted_history()
                     history = history[history['date'].isin(dates)]
 
-                    collection.remove({"ticker": ticker})
+                    collection.delete_many({"ticker": ticker})
                     collection.insert_many(history.to_dict('records'))
                 except Exception as e:
                     logging.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
