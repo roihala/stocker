@@ -56,21 +56,26 @@ class Client(Runnable):
     def filter_past(self):
         for ticker in self._tickers_list:
             for collection_name in Factory.COLLECTIONS.keys():
-                collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
-                collection = self._mongo_db.get_collection(collection_name)
+                try:
+                    collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+                    collection = self._mongo_db.get_collection(collection_name)
 
-                # get_sorted_history flattens nested keys in order to apply filters,
-                # we can't write this result because we don't want formatted data to be written to mongo.
-                filtered_history = collector.get_sorted_history(filter_rows=True)
+                    # get_sorted_history flattens nested keys in order to apply filters,
+                    # we can't write this result because we don't want formatted data to be written to mongo.
+                    filtered_history = collector.get_sorted_history(filter_rows=True)
 
-                dates = filtered_history['date']
+                    dates = filtered_history['date']
 
-                # Therefore using dates as indexes for the unchanged data.
-                history = collector.get_sorted_history()
-                history = history[history['date'].isin(dates)]
+                    # Therefore using dates as indexes for the unchanged data.
+                    history = collector.get_sorted_history()
+                    history = history[history['date'].isin(dates)]
 
-                collection.remove({"ticker": ticker})
-                collection.insert_many(history.to_dict('records'))
+                    collection.remove({"ticker": ticker})
+                    collection.insert_many(history.to_dict('records'))
+                except Exception as e:
+                    logger = logging.getLogger("collector")
+                    logger.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
+                    logger.exception(e)
 
     @staticmethod
     def get_history(mongo_db, ticker, apply_filters):
