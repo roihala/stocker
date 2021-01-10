@@ -53,10 +53,8 @@ class Client(Runnable):
         return parser
 
     def filter_past(self):
-        logger = logging.getLogger("collector")
-
         for ticker in self._tickers_list:
-            logger.info('filtering {ticker}'.format(ticker=ticker))
+            logging.info('filtering {ticker}'.format(ticker=ticker))
             for collection_name in Factory.COLLECTIONS.keys():
                 try:
                     collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
@@ -75,8 +73,8 @@ class Client(Runnable):
                     collection.remove({"ticker": ticker})
                     collection.insert_many(history.to_dict('records'))
                 except Exception as e:
-                    logger.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
-                    logger.exception(e)
+                    logging.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
+                    logging.exception(e)
 
     @staticmethod
     def get_history(mongo_db, ticker, apply_filters):
