@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 import re
@@ -9,9 +8,9 @@ import pandas
 from collect import Collect
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
-from src.collect.collectors.prices import Prices
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
+from src.factory import Factory
 from src.find.site import Site
 
 LOW_FLOATERS_001_1B_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_1B.csv')
@@ -36,6 +35,8 @@ class Client(Runnable):
         elif self.args.low_floaters:
             self.get_low_floaters(self._mongo_db, Collect.extract_tickers(self.args.csv))
             print('low floaters lists are ready')
+        elif self.args.filter_past:
+            self.filter_past()
         else:
             print(self.get_diffs(self._mongo_db).to_string())
 
@@ -44,12 +45,36 @@ class Client(Runnable):
 
         parser.add_argument('--history', dest='history', help='Print the saved history of a ticker')
         parser.add_argument('--low_floaters', dest='low_floaters', help='Get a list of light low float stocks',
-                            default=False,
-                            action='store_true')
+                            default=False,action='store_true')
+        parser.add_argument('--filter_past', dest='filter_past', help='Filter duplicate rows from mongo',
+                            default=False, action='store_true')
         parser.add_argument('--filters', dest='filters', help='Do you want to apply filters on the history?',
                             default=True, action='store_false')
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
         return parser
+
+    def filter_past(self):
+        for ticker in self._tickers_list:
+            logging.info('filtering {ticker}'.format(ticker=ticker))
+            for collection_name in Factory.COLLECTIONS.keys():
+                try:
+                    collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+                    collection = self._mongo_db.get_collection(collection_name)
+
+                    # get_sorted_history flattens nested keys in order to apply filters,
+                    # we can't write this result because we don't want formatted data to be written to mongo.
+                    filtered_history = collector.get_sorted_history(filter_rows=True)
+
+                    dates = filtered_history['date']
+
+                    # Therefore using dates as indexes for the unchanged data.
+                    history = collector.get_sorted_history()
+                    history = history[history['date'].isin(dates)]
+
+                    collection.delete_many({"ticker": ticker})
+                    collection.insert_many(history.to_dict('records'))
+                except Exception as e:
+                    logging.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
+                    logging.exception(e)
 
     @staticmethod
     def get_history(mongo_db, ticker, apply_filters):
@@ -83,7 +108,7 @@ class Client(Runnable):
 
                 securities = Securities(mongo_db, 'securities', ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
-                last_price = Prices(mongo_db, 'prices', ticker).get_latest()['previousClose']
+                last_price = Client.get_last_price(ticker)
                 description = Profile(mongo_db, 'profile', ticker).get_latest()['businessDesc']
 
                 if last_price <= 0.001 and outstanding <= 1000000000:

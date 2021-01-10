@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import logging
 import os
 import arrow
@@ -12,14 +11,10 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from runnable import Runnable
-from src.collect.collector_base import CollectorBase
-from src.collect.collectors.profile import Profile
-from src.collect.collectors.securities import Securities
-from src.collect.collectors.symbols import Symbols
-from src.collect.collectors.prices import Prices
+from src.factory import Factory
+from src.alert.daily_alerter import DailyAlerter
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
 logger = logging.getLogger("collector")
 handler = logging.StreamHandler()
@@ -30,12 +25,6 @@ logger.addHandler(handler)
 
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-    FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
-
-    COLLECTORS = {'symbols': Symbols,
-                  'profile': Profile,
-                  'prices': Prices,
-                  'securities': Securities}
 
     def __init__(self):
 
@@ -48,18 +37,17 @@ class Collect(Runnable):
             self._tickers_list = self.extract_tickers()
         else:
             super().__init__()
-            self._tickers_list = self.extract_tickers(self.args.csv)
 
     @property
     def log_name(self) -> str:
         return 'collect.log'
 
-    def create_parser(self):
-        parser = super().create_parser()
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
-        return parser
-
     def run(self):
+        if self._debug:
+            for ticker in self._tickers_list:
+                self.ticker_collect(ticker)
+            return
+
         scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(10000)
         })
@@ -79,42 +67,28 @@ class Collect(Runnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        for collection, obj in self.COLLECTORS.items():
-            collector = obj(self._mongo_db, collection, ticker, date, self._debug)
-            self.collect(collector)
+        for collection_name in Factory.COLLECTIONS.keys():
+            try:
+                collection_args = {'mongo_db': self._mongo_db, 'ticker': ticker, 'date': date, 'debug': self._debug}
+                collector = Factory.colleectors_factory(collection_name, **collection_args)
+                current, latest = collector.collect()
 
-    def collect(self, collector: CollectorBase):
-        try:
-            data = collector.collect()
+                alerter = Factory.alerters_factory(collection_name, **collection_args)
+                alerts = alerter.get_alerts(latest=latest, current=current)
 
-            diffs = collector.get_diffs()
+                if alerts and not isinstance(alerter, DailyAlerter):
+                    self.__telegram_alert(ticker, alerts)
 
-            if diffs:
-                logger.info('diffs: {diffs}'.format(diffs=diffs))
+            except pymongo.errors.OperationFailure as e:
+                raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
+            except Exception as e:
+                logger.exception(e, exc_info=True)
 
-                if not self._debug:
-                    # Save the new data and the diffs to mongo
-                    collector.collection.insert_one(data)
-                    [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
-
-                # Alert every registered user
-                [self.__telegram_alert(diff) for diff in diffs]
-
-        except pymongo.errors.OperationFailure as e:
-            raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
-        except Exception as e:
-            logger.exception(e, exc_info=True)
-
-    def __telegram_alert(self, change):
+    def __telegram_alert(self, ticker, alerts):
         # User-friendly message
-        msg = '{alert_emoji} Detected change on {ticker}:\n' \
-              '*{key}* has changed:\n' \
-              ' {old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                                                               fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
-                                                                               ticker=change.get('ticker'),
-                                                                               key=change.get('changed_key'),
-                                                                               old=change.get('old'),
-                                                                               new=change.get('new'))
+        msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                           ticker=ticker,
+                                                                           alert=alerts)
 
         if self._debug:
             self._telegram_bot.sendMessage(chat_id=1151317792, text=msg,
@@ -130,15 +104,6 @@ class Collect(Runnable):
 
             except Exception as e:
                 logger.exception(e)
-
-    @staticmethod
-    def extract_tickers(csv=DEFAULT_CSV_PATH):
-        try:
-            df = pandas.read_csv(csv)
-            return df.Symbol.apply(lambda ticker: ticker.upper())
-        except Exception:
-            raise ValueError(
-                'Invalid csv file - validate the path and that the tickers are under a column named symbol')
 
 
 def main():
