@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stocker-app
+  name: telegram-bot-app
 spec:
   selector:
     matchLabels:
-      run: stocker-app
+      run: telegram-bot-app
   replicas: 1
   template:
     metadata:
       labels:
-        run: stocker-app
+        run: telegram-bot-app
     spec:
       containers:
-        - name: stocker-app
-          image: eu.gcr.io/stocker-300519/stocker:latest
+        - name: telegram-bot-app
+          image: eu.gcr.io/stocker-300519/telegram-bot:latest
           env:
             - name: ENV
               value: "production"

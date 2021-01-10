@@ -60,13 +60,13 @@ class CollectorBase(ABC):
         self._current_data = self.fetch_data()
 
         # Updating DB with the new data
-        entry = deepcopy(self._current_data)
-        entry.update({"ticker": self.ticker, "date": self._date.format()})
+        copy = deepcopy(self._current_data)
+        copy.update({"ticker": self.ticker, "date": self._date.format()})
 
-        if not self._debug:
-            self.collection.insert_one(entry)
-        else:
-            logging.info('collection.insert_one: {entry}'.format(entry=entry))
+        if self._debug:
+            logging.info('{name} fetched data: {data}'.format(name=self.name, data=self._current_data))
+
+        return copy
 
     def get_sorted_history(self, apply_filters=True):
         history = pandas.DataFrame(

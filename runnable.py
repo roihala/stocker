@@ -47,7 +47,7 @@ class Runnable(ABC):
     def init_mongo(mongo_uri):
         try:
             # Using selection timeout in order to check connectivity
-            mongo_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1)
+            mongo_client = MongoClient(mongo_uri)
 
             # Forcing a connection to mongo
             mongo_client.server_info()
