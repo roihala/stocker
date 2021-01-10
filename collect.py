@@ -42,11 +42,6 @@ class Collect(Runnable):
     def log_name(self) -> str:
         return 'collect.log'
 
-    def create_parser(self):
-        parser = super().create_parser()
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
-        return parser
-
     def run(self):
         if self._debug:
             for ticker in self._tickers_list:

@@ -50,7 +50,6 @@ class Client(Runnable):
                             default=False, action='store_true')
         parser.add_argument('--filters', dest='filters', help='Do you want to apply filters on the history?',
                             default=True, action='store_false')
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
         return parser
 
     def filter_past(self):

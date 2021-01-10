@@ -22,6 +22,6 @@ class DailyAlerter(alerter_base.AlerterBase):
         diffs = diffs.set_index(['date'])
 
         # Getting all securities diffs since yesterday
-        today_diffs = diffs.loc[arrow.utcnow().shift(days=-40, hours=-1).date(): arrow.utcnow().date()]
+        today_diffs = diffs.loc[arrow.utcnow().shift(days=-1, minutes=-15).date(): arrow.utcnow().date()]
 
         return today_diffs
