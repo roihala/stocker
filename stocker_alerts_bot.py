@@ -35,7 +35,10 @@ class Bot(Runnable):
         return 'stocker_alerts_bot.log'
 
     def run(self):
-        updater = Updater(self.args.token)
+        if os.getenv('TELEGRAM_TOKEN') is not None:
+            updater = Updater(os.getenv('TELEGRAM_TOKEN'))
+        else:
+            updater = Updater(self.args.token)
 
         dp = updater.dispatcher
 
