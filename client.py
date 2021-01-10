@@ -8,7 +8,6 @@ import pandas
 from collect import Collect
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
-from src.collect.collectors.prices import Prices
 from src.collect.collectors.profile import Profile
 from src.collect.collectors.securities import Securities
 from src.factory import Factory
@@ -105,7 +104,7 @@ class Client(Runnable):
 
                 securities = Securities(mongo_db, 'securities', ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
-                last_price = Prices(mongo_db, 'prices', ticker).get_latest()['previousClose']
+                last_price = Client.get_last_price(ticker)
                 description = Profile(mongo_db, 'profile', ticker).get_latest()['businessDesc']
 
                 if last_price <= 0.001 and outstanding <= 1000000000:

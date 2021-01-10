@@ -13,7 +13,6 @@ class Factory(object):
     COLLECTIONS = {
         'symbols': (collectors.Symbols, alerters.Symbols),
         'profile': (collectors.Profile, alerters.Profile),
-        'prices': (collectors.Prices, alerters.Prices),
         'securities': (collectors.Securities, alerters.Securities)
     }
 

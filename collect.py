@@ -13,10 +13,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from runnable import Runnable
 from src.factory import Factory
 from src.alert.daily_alerter import DailyAlerter
-from src.collect.collectors.profile import Profile
-from src.collect.collectors.securities import Securities
-from src.collect.collectors.symbols import Symbols
-from src.collect.collectors.prices import Prices
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 
