@@ -1,4 +1,5 @@
 from copy import deepcopy
+from itertools import tee
 
 import pandas
 import arrow
@@ -24,9 +25,15 @@ class CollectorBase(ABC):
         self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
-        self._sorted_history = self.get_sorted_history(apply_filters=False)
         self._date = date if date else arrow.utcnow()
         self._debug = debug
+
+    @property
+    def drop_keys(self):
+        """
+        A list of keys to drop. Note that the keys won't even be saved to mongo
+        """
+        return []
 
     @abstractmethod
     def fetch_data(self) -> dict:
@@ -41,49 +48,98 @@ class CollectorBase(ABC):
             copy = deepcopy(current)
             copy.update({"ticker": self.ticker, "date": self._date.format()})
 
-            if not self._debug:
-                self.collection.insert_one(copy)
-            else:
+            if self._debug:
                 logging.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
+            else:
+                self.collection.insert_one(copy)
 
         return current, latest
 
-    def get_sorted_history(self, apply_filters=True):
-        history = pandas.DataFrame(
-            self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
+    def get_sorted_history(self, filter_rows=False, filter_cols=False):
+        """
+        Returning sorted history with the ability of filtering consecutive rows and column duplications
 
-        if apply_filters:
+        ** NOTE THAT NESTED KEYS WILL BE FLATTENED IN ORDER TO FILTER!
+
+        :param filter_rows: bool
+        :param filter_cols: bool
+        :return: df
+        """
+        history = pandas.DataFrame(
+            self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))\
+            .drop(self.drop_keys, axis='columns', errors='ignore')
+
+        # Setting date as index
+        history["date"] = history["date"].apply(
+            self.timestamp_to_datestring)
+        history = history.set_index(['date'])
+
+        if filter_rows or filter_cols:
             try:
-                return self.__apply_filters(history)
+                history = self.flatten(history)
+                history = self.__apply_filters(history, filter_rows, filter_cols)
 
             except Exception as e:
+                logging.exception(self.__class__)
                 logging.exception(e)
-                return history
+
+        # Resetting index
+        history.reset_index(inplace=True)
 
         return history
 
-    def __apply_filters(self, history):
-        # Filtering all consecutive row duplicates where every column has the same value
-        cols = history.columns.difference(['date', 'verifiedDate'])
-        history = history.loc[(history[cols].shift() != history[cols]).any(axis='columns')]
+    @classmethod
+    def flatten(cls, history):
+        nested_keys = factory.Factory.get_match(cls).get_nested_keys()
 
-        # Handling unhashable types
-        for index, col in history.applymap(lambda x: isinstance(x, dict) or isinstance(x, list)).all().items():
-            if col:
-                history[index] = history[index].astype('str').value_counts()
+        df_dict = history.to_dict()
 
-        # Dropping monogemic columns where every row has the same value
-        nunique = history.apply(pandas.Series.nunique)
-        cols_to_drop = nunique[nunique == 1].index
+        for column, layers in nested_keys.items():
+            if column in df_dict.keys():
+                df_dict[column] = {date: cls.__unfold(value, tee(iter(layers))[1]) for date, value in
+                                   df_dict[column].items()}
 
-        return history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+        history = pandas.DataFrame(df_dict)
+        history.index.name = 'date'
+
+        return history
+
+    @classmethod
+    def __unfold(cls, series, layers):
+        try:
+            layer = next(layers)
+
+            if issubclass(layer, list):
+                return tuple([cls.__unfold(value, tee(layers)[1]) for value in series])
+
+            elif issubclass(layer, dict):
+                key = next(layers)
+                return cls.__unfold(series[key], tee(layers)[1])
+        except StopIteration:
+            return series
+
+    @classmethod
+    def __apply_filters(cls, history, filter_rows, filter_cols):
+        if filter_rows:
+            # Filtering consecutive row duplicates where every column has the same value
+            history = history.loc[(history.shift() != history).any(axis='columns')]
+
+        if filter_cols:
+            # Dropping monogemic columns where every row has the same value
+            nunique = history.apply(pandas.Series.nunique)
+            cols_to_drop = nunique[nunique == 1].index
+            history = history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+
+        return history
 
     def get_latest(self):
-        if self._sorted_history.empty:
+        sorted_history = self.get_sorted_history()
+
+        if sorted_history.empty:
             return None
 
         # to_dict indexes by rows, therefore getting the highest index
-        history_as_dicts = self._sorted_history.tail(1).drop(['date', 'ticker'], 'columns').to_dict('index')
+        history_as_dicts = sorted_history.tail(1).drop(['date', 'ticker'], 'columns', errors='ignore').to_dict('index')
         return history_as_dicts[max(history_as_dicts.keys())]
 
     @staticmethod

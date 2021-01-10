@@ -19,7 +19,6 @@ from src.collect.collectors.symbols import Symbols
 from src.collect.collectors.prices import Prices
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
 logger = logging.getLogger("collector")
 handler = logging.StreamHandler()
@@ -30,11 +29,6 @@ logger.addHandler(handler)
 
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-
-    COLLECTORS = {'symbols': Symbols,
-                  'profile': Profile,
-                  'prices': Prices,
-                  'securities': Securities}
 
     def __init__(self):
 
@@ -47,7 +41,6 @@ class Collect(Runnable):
             self._tickers_list = self.extract_tickers()
         else:
             super().__init__()
-            self._tickers_list = self.extract_tickers(self.args.csv)
 
     @property
     def log_name(self) -> str:
@@ -120,18 +113,6 @@ class Collect(Runnable):
 
             except Exception as e:
                 logger.exception(e)
-
-    @staticmethod
-    def extract_tickers(csv=None):
-        try:
-            if not csv:
-                csv = DEFAULT_CSV_PATH
-
-            df = pandas.read_csv(csv)
-            return df.Symbol.apply(lambda ticker: ticker.upper())
-        except Exception:
-            raise ValueError(
-                'Invalid csv file - validate the path and that the tickers are under a column named symbol')
 
 
 def main():

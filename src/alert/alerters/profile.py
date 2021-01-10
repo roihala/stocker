@@ -18,8 +18,8 @@ class Profile(AlerterBase):
             'tierDisplayName': ['Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International']}
 
-    @property
-    def nested_keys(self):
+    @staticmethod
+    def get_nested_keys():
         return {'officers': [list, dict, 'name'],
                 'premierDirectorList': [list, dict, 'name'],
                 'standardDirectorList': [list, dict, 'name'],
@@ -30,5 +30,6 @@ class Profile(AlerterBase):
                 'corporateBrokers': [list, dict, 'name'],
                 'notes': [list],
                 'otherSecurities': [list, dict, 'name'],
-                'otcAward': [list, dict, 'best50']
+                'otcAward': [dict, 'best50'],
+                "indexStatuses": [list, dict, 'indexName'],
                 }

@@ -26,17 +26,17 @@ class AlerterBase(object):
         return {}
 
     @property
-    def nested_keys(self) -> dict:
+    def filter_keys(self):
+        # List of keys to ignore
+        return []
+
+    @staticmethod
+    def get_nested_keys() -> dict:
         """
         This property is a mapping between nested keys and a sorted list of layers which will be provided to differ
         in order to get changes from the last layer only
         """
         return {}
-
-    @property
-    def filter_keys(self):
-        # List of keys to ignore
-        return []
 
     def get_alerts(self, latest, current):
         diffs = self.get_diffs(latest, current)
@@ -68,15 +68,14 @@ class AlerterBase(object):
             return []
 
         try:
-
-            diffs = Differ().get_diffs(latest, current, self.nested_keys)
+            diffs = Differ().get_diffs(latest, current, self.get_nested_keys())
             diffs = [self.__decorate_diff(diff) for diff in diffs]
 
             # Applying filters
             return self._edit_diffs(diffs)
         except Exception as e:
-            logging.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=self._latest,
-                                                                                               current=self._current))
+            logging.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=latest,
+                                                                                               current=current))
             logging.exception(e)
 
     def _edit_diffs(self, diffs) -> List[dict]:
@@ -131,7 +130,8 @@ class AlerterBase(object):
                     return None
             # If the key is not in hierarchy list
             except ValueError as e:
-                logging.warning('Incorrect hierarchy for {ticker}. {error}'.format(ticker=self.ticker, error=e.args))
+                logging.warning('Incorrect hierarchy for {ticker}.'.format(ticker=self.ticker))
+                logging.exception(e)
         return diff
 
     def __translate_diff(self, diff):

@@ -36,3 +36,12 @@ class Factory(object):
     @staticmethod
     def get_alerters():
         return [value[Factory.ALERTER_INDEX] for value in Factory.COLLECTIONS.values()]
+
+    @staticmethod
+    def get_match(cls):
+        if issubclass(cls, CollectorBase):
+            return Factory.COLLECTIONS[cls.__name__.lower()][Factory.ALERTER_INDEX]
+        elif issubclass(cls, AlerterBase):
+            return Factory.COLLECTIONS[cls.__name__.lower()][Factory.COLLECTOR_INDEX]
+        else:
+            return None

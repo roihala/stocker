@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import pandas
 from abc import abstractmethod, ABC
 
 import pymongo
@@ -9,6 +10,7 @@ from pymongo import MongoClient
 
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
+DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
 
 class Runnable(ABC):
@@ -17,6 +19,7 @@ class Runnable(ABC):
         self._mongo_db = self.init_mongo(self.args.uri)
         self._telegram_bot = self.init_telegram(self.args.token)
         self._debug = self.args.debug
+        self._tickers_list = self.extract_tickers(self.args.csv)
 
         if self.args.verbose:
             logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -63,3 +66,15 @@ class Runnable(ABC):
             return telegram.Bot(token)
         except telegram.error.Unauthorized:
             raise ValueError("Couldn't connect to telegram, check your credentials")
+
+    @staticmethod
+    def extract_tickers(csv=None):
+        try:
+            if not csv:
+                csv = DEFAULT_CSV_PATH
+
+            df = pandas.read_csv(csv)
+            return df.Symbol.apply(lambda ticker: ticker.upper())
+        except Exception:
+            raise ValueError(
+                'Invalid csv file - validate the path and that the tickers are under a column named symbol')

@@ -14,8 +14,8 @@ class Securities(DailyAlerter):
                 'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName', 'foreignExchangeTier',
                 'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
-    @property
-    def nested_keys(self):
+    @staticmethod
+    def get_nested_keys():
         return {'transferAgents': [list, dict, 'name']}
 
     def _edit_diff(self, diff):
