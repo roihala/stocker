@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alerter-app
+spec:
+  selector:
+    matchLabels:
+      run: alerter-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: alerter-app
+    spec:
+      containers:
+        - name: alerter-app
+          image: eu.gcr.io/alerter-300519/alerter:latest
+          env:
+            - name: ENV
+              value: "production"
+            - name: MONGO_URI
+              value: "mongodb+srv://alerter:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+            - name: TELEGRAM_TOKEN
+              value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
