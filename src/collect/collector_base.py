@@ -78,7 +78,6 @@ class CollectorBase(ABC):
             try:
                 history = self.flatten(history)
                 history = self.__apply_filters(history, filter_rows, filter_cols)
-
             except Exception as e:
                 logging.exception(self.__class__)
                 logging.exception(e)
@@ -92,37 +91,41 @@ class CollectorBase(ABC):
     def flatten(cls, history):
         nested_keys = factory.Factory.get_match(cls).get_nested_keys()
 
-        df_dict = history.to_dict()
-
         for column, layers in nested_keys.items():
-            if column in df_dict.keys():
-                df_dict[column] = {date: cls.__unfold(value, tee(iter(layers))[1]) for date, value in
-                                   df_dict[column].items()}
+            if column in history.columns:
+                history[column] = pandas.Series(
+                    {date: cls.__unfold(value, tee(iter(layers))[1]) for date, value in
+                     history[column].dropna().to_dict().items()})
 
-        history = pandas.DataFrame(df_dict)
         history.index.name = 'date'
 
         return history
 
     @classmethod
-    def __unfold(cls, series, layers):
+    def __unfold(cls, iterable, layers):
         try:
             layer = next(layers)
 
             if issubclass(layer, list):
-                return tuple([cls.__unfold(value, tee(layers)[1]) for value in series])
+                return tuple([cls.__unfold(value, tee(layers)[1]) for value in iterable])
 
             elif issubclass(layer, dict):
                 key = next(layers)
-                return cls.__unfold(series[key], tee(layers)[1])
+                return cls.__unfold(iterable[key], tee(layers)[1])
         except StopIteration:
-            return series
+            return iterable
+        except Exception as e:
+            logging.warning("Couldn't unfold {iterable}".format(iterable=iterable))
+            logging.exception(e)
 
     @classmethod
     def __apply_filters(cls, history, filter_rows, filter_cols):
         if filter_rows:
+            shifted_history = history.apply(lambda x: pandas.Series(x.dropna().values), axis=1).fillna('')
+            shifted_history.columns = history.columns
+
             # Filtering consecutive row duplicates where every column has the same value
-            history = history.loc[(history.shift() != history).any(axis='columns')]
+            history = shifted_history.loc[(shifted_history.shift() != shifted_history).any(axis='columns')]
 
         if filter_cols:
             # Dropping monogemic columns where every row has the same value

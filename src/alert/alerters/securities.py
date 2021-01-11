@@ -16,7 +16,8 @@ class Securities(DailyAlerter):
 
     @staticmethod
     def get_nested_keys():
-        return {'transferAgents': [list, dict, 'name']}
+        return {'transferAgents': [list, dict, 'name'],
+                'notes': [list]}
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
