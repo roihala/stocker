@@ -14,6 +14,7 @@ from src.factory import Factory
 from src.alert.daily_alerter import DailyAlerter
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+from utils import disable_apscheduler_logs
 
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
@@ -27,6 +28,8 @@ class Collect(Runnable):
         scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(10000)
         })
+
+        disable_apscheduler_logs()
 
         trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=60), DateTrigger()])
 

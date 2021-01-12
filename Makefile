@@ -37,6 +37,8 @@ telegram_deploy: get_gcp_cluster
 telegram_delete_pod:
 	kubectl delete pods -l run=telegram-bot-app || true
 
+telegram_run_local:
+	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" telegram-bot
 
 
 alerter: alerter_build_push alerter_delete_pod

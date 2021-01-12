@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: alerter-app
-          image: eu.gcr.io/alerter-300519/alerter:latest
+          image: eu.gcr.io/stocker-300519/alerter:latest
           env:
             - name: ENV
               value: "production"

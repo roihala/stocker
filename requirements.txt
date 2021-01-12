@@ -11,4 +11,6 @@ dictdiffer
 psutil
 apscheduler
 dnspython
+lxml
+bs4
 telegram
