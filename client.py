@@ -31,7 +31,7 @@ class Client(Runnable):
 
     def run(self):
         if self.args.history:
-            print(self.get_history(self._mongo_db, self.args.history, self.args.filters).to_string())
+            print(self.get_history(self._mongo_db, self.args.history).to_string())
         elif self.args.low_floaters:
             self.get_low_floaters(self._mongo_db, Collect.extract_tickers(self.args.csv))
             print('low floaters lists are ready')
@@ -48,8 +48,6 @@ class Client(Runnable):
                             default=False,action='store_true')
         parser.add_argument('--filter_past', dest='filter_past', help='Filter duplicate rows from mongo',
                             default=False, action='store_true')
-        parser.add_argument('--filters', dest='filters', help='Do you want to apply filters on the history?',
-                            default=True, action='store_false')
         return parser
 
     def filter_past(self):
@@ -77,12 +75,12 @@ class Client(Runnable):
                     logging.exception(e)
 
     @staticmethod
-    def get_history(mongo_db, ticker, apply_filters):
+    def get_history(mongo_db, ticker):
         history = pandas.DataFrame()
 
-        for collection_name, collector in Collect.COLLECTORS.items():
-            collector = collector(mongo_db, collection_name, ticker)
-            current = collector.get_sorted_history(apply_filters)
+        for collection_name in Factory.COLLECTIONS.keys():
+            collector = Factory.colleectors_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
+            current = collector.get_sorted_history(filter_rows=True, filter_cols=True)
 
             if current.empty:
                 continue
@@ -90,7 +88,7 @@ class Client(Runnable):
                 history = current.set_index('date')
             else:
                 history = history.join(current.set_index('date'),
-                                       lsuffix='_Unknown', rsuffix='_' + collection_name, how='outer').dropna()
+                                       lsuffix='_Unknown', rsuffix='_' + collection_name, how='outer')
 
         return history
 

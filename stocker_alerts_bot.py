@@ -55,6 +55,16 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
+        dd_conv = ConversationHandler(
+            entry_points=[CommandHandler('dd', Bot.dd)],
+            states={
+                # Allowing 3-5 letters
+                PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.dd_request),
+                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+            },
+            fallbacks=[],
+        )
+
         register_conv = ConversationHandler(
             entry_points=[CommandHandler('register', Bot.register)],
             states={
@@ -66,10 +76,10 @@ class Bot(Runnable):
 
         dp.add_handler(register_conv)
         dp.add_handler(alerts_conv)
+        dp.add_handler(dd_conv)
 
         dp.add_handler(CommandHandler('start', Bot.start))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
-        dp.add_handler(CommandHandler('history', Bot.history))
 
         # Start the Bot
         updater.start_polling()
@@ -172,13 +182,35 @@ class Bot(Runnable):
 
         except Exception as e:
             logging.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce history for {ticker}".format(ticker=ticker))
+            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END
 
     @staticmethod
-    def history(update, context):
-        update.message.reply_text('/history Does not work at the moment')
+    def dd_request(update, context):
+        ticker = update.message.text.upper()
+
+        try:
+            dd_df = Client.get_history(context._dispatcher.mongo_db, ticker)
+
+            Bot.send_df(dd_df, ticker, update.message.reply_document)
+
+        except Exception as e:
+            logging.exception(e, exc_info=True)
+            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
+
+        return ConversationHandler.END
+
+    @staticmethod
+    def dd(update, context):
+        user = update.message.from_user
+
+        if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
+            update.message.reply_text('Insert a valid OTC ticker')
+            return PRINT_HISTORY
+        else:
+            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            return ConversationHandler.END
 
     @staticmethod
     def send_df(df, name, func, **kwargs):
