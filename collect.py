@@ -31,7 +31,7 @@ class Collect(Runnable):
 
         disable_apscheduler_logs()
 
-        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=60), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=300), DateTrigger()])
 
         for ticker in self._tickers_list:
             scheduler.add_job(self.ticker_collect,
