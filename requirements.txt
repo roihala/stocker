@@ -11,3 +11,4 @@ dictdiffer
 psutil
 apscheduler
 dnspython
+telegram

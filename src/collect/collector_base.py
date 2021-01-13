@@ -12,6 +12,8 @@ from abc import ABC, abstractmethod
 
 from src import factory
 
+logger = logging.getLogger('Collect')
+
 
 class CollectorBase(ABC):
     def __init__(self, mongo_db: Database, ticker, date=None, debug=False):
@@ -49,7 +51,7 @@ class CollectorBase(ABC):
             copy.update({"ticker": self.ticker, "date": self._date.format()})
 
             if self._debug:
-                logging.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
+                logger.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
             else:
                 self.collection.insert_one(copy)
 
@@ -79,8 +81,8 @@ class CollectorBase(ABC):
                 history = self.flatten(history)
                 history = self.__apply_filters(history, filter_rows, filter_cols)
             except Exception as e:
-                logging.exception(self.__class__)
-                logging.exception(e)
+                logger.exception(self.__class__)
+                logger.exception(e)
 
         # Resetting index
         history.reset_index(inplace=True)
@@ -115,8 +117,8 @@ class CollectorBase(ABC):
         except StopIteration:
             return iterable
         except Exception as e:
-            logging.warning("Couldn't unfold {iterable}".format(iterable=iterable))
-            logging.exception(e)
+            logger.warning("Couldn't unfold {iterable}".format(iterable=iterable))
+            logger.exception(e)
 
     @classmethod
     def __apply_filters(cls, history, filter_rows, filter_cols):

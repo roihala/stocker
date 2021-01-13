@@ -6,6 +6,8 @@ import arrow
 
 from src.collect.differ import Differ
 
+logger = logging.getLogger('Collect')
+
 
 class AlerterBase(object):
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
@@ -41,7 +43,7 @@ class AlerterBase(object):
     def get_alerts(self, latest, current):
         diffs = self.get_diffs(latest, current)
         if diffs and not self._debug:
-            logging.info('diffs: {diffs}'.format(diffs=diffs))
+            logger.info('diffs: {diffs}'.format(diffs=diffs))
 
             # Insert the new diffs to mongo
             [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
@@ -74,9 +76,9 @@ class AlerterBase(object):
             # Applying filters
             return self._edit_diffs(diffs)
         except Exception as e:
-            logging.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=latest,
+            logger.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=latest,
                                                                                                current=current))
-            logging.exception(e)
+            logger.exception(e)
 
     def _edit_diffs(self, diffs) -> List[dict]:
         """
@@ -130,8 +132,8 @@ class AlerterBase(object):
                     return None
             # If the key is not in hierarchy list
             except ValueError as e:
-                logging.warning('Incorrect hierarchy for {ticker}.'.format(ticker=self.ticker))
-                logging.exception(e)
+                logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=self.ticker))
+                logger.exception(e)
         return diff
 
     def __translate_diff(self, diff):

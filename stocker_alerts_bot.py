@@ -20,20 +20,6 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 class Bot(Runnable):
     TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{name}.png')
 
-    def __init__(self):
-
-        if os.getenv("ENV") == "production":
-            self._debug = False
-            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
-            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
-            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-        else:
-            super().__init__()
-
-    @property
-    def log_name(self) -> str:
-        return 'stocker_alerts_bot.log'
-
     def run(self):
         if os.getenv('TELEGRAM_TOKEN') is not None:
             updater = Updater(os.getenv('TELEGRAM_TOKEN'))
@@ -44,6 +30,7 @@ class Bot(Runnable):
 
         # Bad APIs make bad workarounds
         setattr(dp, 'mongo_db', self._mongo_db)
+        setattr(dp, 'logger', self.logger)
 
         alerts_conv = ConversationHandler(
             entry_points=[CommandHandler('alerts', Bot.alerts)],
@@ -109,8 +96,8 @@ class Bot(Runnable):
             return VALIDATE_PASSWORD
         except Exception as e:
             update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
-            logging.exception(e.__traceback__)
+                '{user_name} couldn\'t register, please contact the support team'.format(user_name=update.message.from_user))
+            context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
     def validate_password(update, context):
@@ -127,11 +114,11 @@ class Bot(Runnable):
                                                                     {'user_name': user.name, 'chat_id': user.id},
                                                                     upsert=True)
 
-            logging.info("{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
+            context._dispatcher.logger.info("{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
 
             update.message.reply_text('{user_name} Registered successfully'.format(user_name=user.name))
         else:
-            logging.warning(
+            context._dispatcher.logger.warning(
                 "{user_name} of {chat_id} have tried to register with password: {password}".format(user_name=user.name,
                                                                                                    chat_id=user.id,
                                                                                                    password=password))
@@ -145,14 +132,14 @@ class Bot(Runnable):
             context._dispatcher.mongo_db.telegram_users.delete_one({'user_name': user.name})
             context._dispatcher.mongo_db.telegram_users.delete_one({'chat_id': user.id})
 
-            logging.info("{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
+            context._dispatcher.logger.info("{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
 
             update.message.reply_text('{user_name} Deregistered successfully'.format(user_name=user.name))
 
         except Exception as e:
             update.message.reply_text(
                 '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
-            logging.exception(e.__traceback__)
+            context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
     def alerts(update, context):
@@ -181,7 +168,7 @@ class Bot(Runnable):
             Bot.send_df(alerts_df, ticker, update.message.reply_document)
 
         except Exception as e:
-            logging.exception(e, exc_info=True)
+            context._dispatcher.logger.exception(e, exc_info=True)
             update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END
@@ -196,7 +183,7 @@ class Bot(Runnable):
             Bot.send_df(dd_df, ticker, update.message.reply_document)
 
         except Exception as e:
-            logging.exception(e, exc_info=True)
+            context._dispatcher.logger.exception(e, exc_info=True)
             update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END

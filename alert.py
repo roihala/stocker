@@ -1,5 +1,3 @@
-import logging
-
 from runnable import Runnable
 from src.alert.daily_alerter import DailyAlerter
 from src.factory import Factory
@@ -7,10 +5,6 @@ from stocker_alerts_bot import Bot
 
 
 class Alert(Runnable):
-    @property
-    def log_name(self) -> str:
-        return 'alert.log'
-
     def run(self):
         [self.__telegram_alert(alerter) for alerter in Factory.get_alerters() if issubclass(alerter, DailyAlerter)]
 
@@ -23,7 +17,7 @@ class Alert(Runnable):
                 Bot.send_df(alerts_df, name, self._telegram_bot.send_document, **{'chat_id': user.get('chat_id')})
 
             except Exception as e:
-                logging.exception(e)
+                self.logger.exception(e)
 
 
 if __name__ == '__main__':
