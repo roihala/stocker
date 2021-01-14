@@ -15,23 +15,35 @@ DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', '
 
 class Runnable(ABC):
     def __init__(self, args=None):
-        self.args = args if args else self.create_parser().parse_args()
-        self._mongo_db = self.init_mongo(self.args.uri)
-        self._telegram_bot = self.init_telegram(self.args.token)
-        self._debug = self.args.debug
-        self._tickers_list = self.extract_tickers(self.args.csv)
+        if os.getenv("ENV") == "production":
+            self._debug = False
+            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
+            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
+            self._tickers_list = self.extract_tickers()
 
-        if self.args.verbose:
-            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+            logger = logging.getLogger(self.__class__.__name__)
+            handler = logging.StreamHandler()
+            logger.setLevel(logging.INFO)
+            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            logger.addHandler(handler)
+            self.logger = logger
+
         else:
-            logging.basicConfig(filename=os.path.join(LOG_DIR, self.log_name), level=logging.INFO,
-                                format='%(asctime)s %(levelname)s %(message)s')
-        logging.info('running {cls}'.format(cls=self.__class__))
+            self.args = args if args else self.create_parser().parse_args()
+            self._mongo_db = self.init_mongo(self.args.uri)
+            self._telegram_bot = self.init_telegram(self.args.token)
+            self._debug = self.args.debug
+            self._tickers_list = self.extract_tickers(self.args.csv)
 
-    @property
-    @abstractmethod
-    def log_name(self) -> str:
-        pass
+            if self.args.verbose:
+                logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+            else:
+                logging.basicConfig(filename=os.path.join(LOG_DIR, self.__class__.__name__), level=logging.INFO,
+                                    format='%(asctime)s %(levelname)s %(message)s')
+
+            self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.logger.info('running {cls}'.format(cls=self.__class__))
 
     @abstractmethod
     def run(self):

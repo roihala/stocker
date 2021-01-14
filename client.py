@@ -25,10 +25,6 @@ class Client(Runnable):
         super().__init__()
         pandas.set_option('display.expand_frame_repr', False)
 
-    @property
-    def log_name(self) -> str:
-        return 'client.log'
-
     def run(self):
         if self.args.history:
             print(self.get_history(self._mongo_db, self.args.history).to_string())
@@ -52,7 +48,7 @@ class Client(Runnable):
 
     def filter_past(self):
         for ticker in self._tickers_list:
-            logging.info('filtering {ticker}'.format(ticker=ticker))
+            self.logger.info('filtering {ticker}'.format(ticker=ticker))
             for collection_name in Factory.COLLECTIONS.keys():
                 try:
                     collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
@@ -71,8 +67,8 @@ class Client(Runnable):
                     collection.delete_many({"ticker": ticker})
                     collection.insert_many(history.to_dict('records'))
                 except Exception as e:
-                    logging.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
-                    logging.exception(e)
+                    self.logger.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
+                    self.logger.exception(e)
 
     @staticmethod
     def get_history(mongo_db, ticker):
@@ -102,7 +98,7 @@ class Client(Runnable):
 
         for ticker in tickers_list:
             try:
-                logging.info('running on {ticker}'.format(ticker=ticker))
+                self.logger.info('running on {ticker}'.format(ticker=ticker))
 
                 securities = Securities(mongo_db, 'securities', ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
@@ -121,7 +117,7 @@ class Client(Runnable):
                     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
 
             except Exception as e:
-                logging.exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
+                self.logger.exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
 
         with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
             tickers_001_1B.to_csv(tmp)

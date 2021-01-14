@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import logging
-import os
+
 import arrow
 import pymongo
-import pandas
 import telegram
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.combining import OrTrigger
@@ -16,31 +15,8 @@ from src.alert.daily_alerter import DailyAlerter
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 
-logger = logging.getLogger("collector")
-handler = logging.StreamHandler()
-logger.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-logger.addHandler(handler)
-
-
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-
-    def __init__(self):
-
-        if os.getenv("ENV") == "production":
-            self._debug = False
-            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
-            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
-
-            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-            self._tickers_list = self.extract_tickers()
-        else:
-            super().__init__()
-
-    @property
-    def log_name(self) -> str:
-        return 'collect.log'
 
     def run(self):
         if self._debug:
@@ -82,7 +58,7 @@ class Collect(Runnable):
             except pymongo.errors.OperationFailure as e:
                 raise Exception("Mongo connectivity problems, check your credentials. error: {e}".format(e=e))
             except Exception as e:
-                logger.exception(e, exc_info=True)
+                self.logger.exception(e, exc_info=True)
 
     def __telegram_alert(self, ticker, alerts):
         # User-friendly message
@@ -103,14 +79,14 @@ class Collect(Runnable):
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
             except Exception as e:
-                logger.exception(e)
+                self.logger.exception(e)
 
 
 def main():
     try:
         Collect().run()
     except Exception as e:
-        logger.exception(e)
+        logging.exception(e)
 
 
 if __name__ == '__main__':
