@@ -16,11 +16,12 @@ class Alert(Runnable):
     def run_daily(self):
         scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(10000)
-        }, timezone="Africa/Abidjan")
+        }, timezone="US/Eastern")
 
         disable_apscheduler_logs()
 
-        scheduler.add_job(self.run, trigger='cron', hour='16', minute='00')
+        # Running daily alerter half an hour before the market opens
+        scheduler.add_job(self.run, trigger='cron', hour='9', minute='00')
         scheduler.start()
 
     def __telegram_alert(self, alerter):

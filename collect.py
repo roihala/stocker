@@ -16,6 +16,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 from utils import disable_apscheduler_logs
 
+
 class Collect(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
 
