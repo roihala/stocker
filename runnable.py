@@ -27,6 +27,7 @@ class Runnable(ABC):
             handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
             logger.addHandler(handler)
             self.logger = logger
+            self.disable_apscheduler_logs()
 
         else:
             self.args = args if args else self.create_parser().parse_args()
@@ -91,3 +92,7 @@ class Runnable(ABC):
         except Exception:
             raise ValueError(
                 'Invalid csv file - validate the path and that the tickers are under a column named symbol')
+
+    @staticmethod
+    def disable_apscheduler_logs():
+        logging.getLogger('apscheduler.executors.default').setLevel(logging.ERROR)

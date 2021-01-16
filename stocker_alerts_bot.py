@@ -18,7 +18,7 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
 class Bot(Runnable):
-    TEMP_IMAGE_PATH_FORMAT = os.path.join(os.path.dirname(__file__), '{name}.png')
+    TEMP_IMAGE_FILE_FORMAT = '{name}.png'
 
     def run(self):
         if os.getenv('TELEGRAM_TOKEN') is not None:
@@ -201,10 +201,10 @@ class Bot(Runnable):
 
     @staticmethod
     def send_df(df, name, func, **kwargs):
-        image_path = Bot.TEMP_IMAGE_PATH_FORMAT.format(name=name)
+        image_path = Bot.TEMP_IMAGE_FILE_FORMAT.format(name=name)
 
         # Converting to image because dataframe isn't shown well in telegram
-        dfi.export(df, image_path, max_rows=100, max_cols=100)
+        dfi.export(df, image_path, max_rows=100, max_cols=100, table_conversion="matplotlib")
 
         with open(image_path, 'rb') as image:
             func(document=image, **kwargs)
