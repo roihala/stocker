@@ -50,7 +50,7 @@ class Collect(Runnable):
         for collection_name in Factory.COLLECTIONS.keys():
             try:
                 collection_args = {'mongo_db': self._mongo_db, 'ticker': ticker, 'date': date, 'debug': self._debug}
-                collector = Factory.colleectors_factory(collection_name, **collection_args)
+                collector = Factory.collectors_factory(collection_name, **collection_args)
                 current, latest = collector.collect()
 
                 alerter = Factory.alerters_factory(collection_name, **collection_args)

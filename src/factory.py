@@ -17,7 +17,7 @@ class Factory(object):
     }
 
     @staticmethod
-    def colleectors_factory(name, *args, **kwargs) -> CollectorBase:
+    def collectors_factory(name, *args, **kwargs) -> CollectorBase:
         return Factory.__instantiate(Factory.COLLECTIONS[name][Factory.COLLECTOR_INDEX], args, kwargs)
 
     @staticmethod
