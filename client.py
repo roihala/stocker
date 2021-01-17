@@ -51,7 +51,7 @@ class Client(Runnable):
             self.logger.info('filtering {ticker}'.format(ticker=ticker))
             for collection_name in Factory.COLLECTIONS.keys():
                 try:
-                    collector = Factory.colleectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+                    collector = Factory.collectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
                     collection = self._mongo_db.get_collection(collection_name)
 
                     # get_sorted_history flattens nested keys in order to apply filters,
@@ -75,7 +75,7 @@ class Client(Runnable):
         history = pandas.DataFrame()
 
         for collection_name in Factory.COLLECTIONS.keys():
-            collector = Factory.colleectors_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
+            collector = Factory.collectors_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
             current = collector.get_sorted_history(filter_rows=True, filter_cols=True)
 
             if current.empty:

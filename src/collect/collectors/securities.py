@@ -9,9 +9,9 @@ class Securities(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
-    def fetch_data(self):
+    def fetch_data(self, data=None):
         try:
-            data = super().fetch_data()
+            data = super().fetch_data(data)
             return data['securities'][0]
         except KeyError:
             raise InvalidTickerExcpetion("Can't get the securities sector from the profile")

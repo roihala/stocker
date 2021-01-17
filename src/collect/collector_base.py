@@ -26,6 +26,7 @@ class CollectorBase(ABC):
         self.ticker = ticker.upper()
         self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
+        self.raw_data = None
         self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
         self._debug = debug
@@ -38,24 +39,18 @@ class CollectorBase(ABC):
         return []
 
     @abstractmethod
-    def fetch_data(self) -> dict:
+    def fetch_data(self, data=None) -> dict:
         pass
 
-    def collect(self):
-        current = self.fetch_data()
-        latest = self.get_latest()
+    def save_data(self, data):
+        # Updating DB with the new data
+        copy = deepcopy(data)
+        copy.update({"ticker": self.ticker, "date": self._date.format()})
 
-        if current != latest:
-            # Updating DB with the new data
-            copy = deepcopy(current)
-            copy.update({"ticker": self.ticker, "date": self._date.format()})
-
-            if self._debug:
-                logger.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
-            else:
-                self.collection.insert_one(copy)
-
-        return current, latest
+        if self._debug:
+            logger.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
+        else:
+            self.collection.insert_one(copy)
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False):
         """
