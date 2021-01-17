@@ -1,10 +1,12 @@
-import json
-import urllib
+import logging
 from abc import ABC, abstractmethod
-from urllib.error import HTTPError
+from copy import deepcopy
+
+import requests
 
 from src.collect.collector_base import CollectorBase
-from src.find.site import InvalidTickerExcpetion
+
+logger = logging.getLogger('Collect')
 
 
 class SiteCollector(CollectorBase, ABC):
@@ -13,13 +15,10 @@ class SiteCollector(CollectorBase, ABC):
     def site(self):
         pass
 
-    def fetch_data(self) -> dict:
-        try:
-            site = urllib.request.urlopen(self.site.get_ticker_url(self.ticker))
+    def fetch_data(self, data=None) -> dict:
+        if not data:
+            data = requests.get(self.site.get_ticker_url(self.ticker)).json()
 
-            response = json.loads(site.read().decode())
+        self.raw_data = deepcopy(data)
 
-        except HTTPError:
-            raise InvalidTickerExcpetion('Invalid ticker: {ticker}', self.ticker)
-
-        return response
+        return data

@@ -13,9 +13,9 @@ class AlerterBase(object):
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
 
     def __init__(self, mongo_db, ticker, date=None, debug=None):
-        self._mongo_db = mongo_db
         self.ticker = ticker
         self.name = self.__class__.__name__.lower()
+        self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
         self._debug = debug
 

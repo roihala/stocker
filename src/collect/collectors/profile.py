@@ -15,7 +15,7 @@ class Profile(SiteCollector):
                 'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate',
                 'estimatedMarketCapAsOfDate', 'estimatedMarketCap']
 
-    def fetch_data(self):
+    def fetch_data(self, data=None):
         data = super().fetch_data()
         # Those keys are either irrelevant or used in other collectors
         [data.pop(key, None) for key in self.drop_keys]
