@@ -5,6 +5,7 @@ from copy import deepcopy
 import requests
 
 from src.collect.collector_base import CollectorBase
+from src.find.site import InvalidTickerExcpetion
 
 logger = logging.getLogger('Collect')
 
@@ -17,8 +18,13 @@ class SiteCollector(CollectorBase, ABC):
 
     def fetch_data(self, data=None) -> dict:
         if not data:
-            data = requests.get(self.site.get_ticker_url(self.ticker)).json()
+            response = requests.get(self.site.get_ticker_url(self.ticker))
 
-        self.raw_data = deepcopy(data)
+            if response.ok is not True:
+                raise InvalidTickerExcpetion(self.ticker)
+
+            data = response.json()
+
+            self.raw_data = deepcopy(data)
 
         return data
