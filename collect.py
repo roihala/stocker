@@ -2,8 +2,10 @@
 import logging
 
 import arrow
+import json
 import pymongo
 import telegram
+import requests
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
@@ -88,8 +90,9 @@ class Collect(Runnable):
 
     def __telegram_alert(self, ticker, alerts):
         # User-friendly message
-        msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+        msg = '{alert_emoji} Detected change on {ticker}:\nstock price = {price}\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                                                            ticker=ticker,
+                                                                           price=json.loads(requests.get('https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',ticker=ticker).text)['previousClose'],
                                                                            alert=alerts)
 
         if self._debug:
@@ -97,6 +100,9 @@ class Collect(Runnable):
                                            parse_mode=telegram.ParseMode.MARKDOWN)
             self._telegram_bot.sendMessage(chat_id=480181908, text=msg,
                                            parse_mode=telegram.ParseMode.MARKDOWN)
+            self._telegram_bot.sendMessage(chat_id=622163634, text=msg,
+                                           parse_mode=telegram.ParseMode.MARKDOWN)
+
             return
 
         for user in self._mongo_db.telegram_users.find():
