@@ -5,7 +5,7 @@ import pandas
 import pymongo
 import telegram
 from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 
 from scheduler_utils import disable_apscheduler_logs
@@ -94,8 +94,8 @@ class AlerterBase(object):
         #     logger.exception(e)
 
     def __send_delayed(self, delayed_users, msg):
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10000),
+        scheduler = BackgroundScheduler(executors={
+            'default': ThreadPoolExecutor(10),
         }, timezone=" Africa/Abidjan")
 
         disable_apscheduler_logs()
