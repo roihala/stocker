@@ -1,9 +1,14 @@
 import logging
+from datetime import datetime, timedelta
+
 import pandas
 import pymongo
-
 import telegram
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.date import DateTrigger
 
+from scheduler_utils import disable_apscheduler_logs
 from src import factory
 
 logger = logging.getLogger('Alert')
@@ -59,23 +64,57 @@ class AlerterBase(object):
         msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                                                            ticker=ticker,
                                                                            alert=self.__translate_diff(diff))
+        nondelayed_users = []
+        delayed_users = []
 
         for user in self._telegram_users:
-            try:
-                if self._debug and not user.get('develop') is True:
-                    continue
+            if user.get('delay') is True:
+                delayed_users.append(user)
+            else:
+                nondelayed_users.append(user)
 
-                # otciq alerts are only for users with high permissions
-                if diff.get('diff_appendix') == 'otciq':
-                    if user.get('permissions') == 'high':
-                        self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                                       parse_mode=telegram.ParseMode.MARKDOWN)
-                else:
-                    self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                                   parse_mode=telegram.ParseMode.MARKDOWN)
+        self.__send_telegram_alert(nondelayed_users, msg)
+        self.__send_delayed(delayed_users, msg)
 
-            except Exception as e:
-                logger.exception(e)
+        # TODO : Halamish decide
+        # try:
+        #     if self._debug and not user.get('develop') is True:
+        #         continue
+        #
+        #     # otciq alerts are only for users with high permissions
+        #     if diff.get('diff_appendix') == 'otciq':
+        #         if user.get('permissions') == 'high':
+        #             self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
+        #                                            parse_mode=telegram.ParseMode.MARKDOWN)
+        #     else:
+        #         self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
+        #                                        parse_mode=telegram.ParseMode.MARKDOWN)
+        #
+        # except Exception as e:
+        #     logger.exception(e)
+
+    def __send_delayed(self, delayed_users, msg):
+        scheduler = BlockingScheduler(executors={
+            'default': ThreadPoolExecutor(10000),
+        }, timezone=" Africa/Abidjan")
+
+        disable_apscheduler_logs()
+        trigger = DateTrigger(run_date=datetime.utcnow() + timedelta(minutes=10))
+
+        # Running daily alerter half an hour before the market opens
+        scheduler.add_job(self.__send_telegram_alert,
+                          args=[delayed_users, msg],
+                          trigger=trigger)
+        scheduler.start()
+
+    def __send_telegram_alert(self, users_group, msg):
+        try:
+            for user in users_group:
+                self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
+                                               parse_mode=telegram.ParseMode.MARKDOWN)
+
+        except Exception as e:
+            logger.exception(e)
 
     def _edit_diff(self, diff) -> dict:
         """
@@ -135,8 +174,8 @@ class AlerterBase(object):
 
         return '{title}\n' \
                '{body}'.format(
-                title=title,
-                body=body)
+            title=title,
+            body=body)
 
     def _get_sorted_diffs(self, ticker):
         return pandas.DataFrame(

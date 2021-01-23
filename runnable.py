@@ -97,7 +97,3 @@ class Runnable(ABC):
         except Exception:
             raise ValueError(
                 'Invalid csv file - validate the path and that the tickers are under a column named symbol')
-
-    @staticmethod
-    def disable_apscheduler_logs():
-        logging.getLogger('apscheduler.executors.default').setLevel(logging.ERROR)
