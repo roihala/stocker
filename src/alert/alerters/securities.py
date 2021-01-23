@@ -1,7 +1,7 @@
-from src.alert.daily_alerter import DailyAlerter
+from src.alert.alerter_base import AlerterBase
 
 
-class Securities(DailyAlerter):
+class Securities(AlerterBase):
     @property
     def filter_keys(self):
         return ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
@@ -14,12 +14,9 @@ class Securities(DailyAlerter):
                 'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName', 'foreignExchangeTier',
                 'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
-    @staticmethod
-    def get_nested_keys():
-        return {'transferAgents': [list, dict, 'name'],
-                'notes': [list]}
-
     def _edit_diff(self, diff):
+        return None
+        # TODO: After adding DailyAlert
         diff = super()._edit_diff(diff)
         if not diff:
             return diff

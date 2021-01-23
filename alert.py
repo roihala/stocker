@@ -1,28 +1,45 @@
+import pymongo
+
 from runnable import Runnable
-from src.alert.daily_alerter import DailyAlerter
 from src.factory import Factory
 from stocker_alerts_bot import Bot
-
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.schedulers.blocking import BlockingScheduler
-
-from utils import disable_apscheduler_logs
 
 
 class Alert(Runnable):
     def run(self):
-        [self.__telegram_alert(alerter) for alerter in Factory.get_alerters() if issubclass(alerter, DailyAlerter)]
+        if self._debug:
+            self.listen()
+            return
 
-    def run_daily(self):
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10000)
-        }, timezone="US/Eastern")
+        # TODO: scheduler
+        pass
 
-        disable_apscheduler_logs()
+    def listen(self):
+        try:
+            for event in self._mongo_db.diffs.watch():
+                self.logger.info('event: {event}'.format(event=event))
+                try:
+                    diff = event.get('fullDocument')
 
-        # Running daily alerter half an hour before the market opens
-        scheduler.add_job(self.run, trigger='cron', hour='9', minute='00')
-        scheduler.start()
+                    if event['operationType'] != 'insert' or diff.get('source') in self.get_daily_alerters():
+                        continue
+
+                    object_id = diff.pop('_id')
+
+                    alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+                                    'debug': self._debug}
+                    alerter = Factory.alerters_factory(diff.get('source'), **alerter_args)
+
+                    if alerter.alert(diff):
+                        self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}})
+
+                except Exception as e:
+                    self.logger.warning("Couldn't alert {event}".format(event=event))
+                    self.logger.exception(e)
+
+        except pymongo.errors.PyMongoError as e:
+            # We know it's unrecoverable:
+            self.logger.exception(e)
 
     def __telegram_alert(self, alerter):
         alerts_df = alerter.get_saved_alerts(self._mongo_db)
@@ -35,6 +52,10 @@ class Alert(Runnable):
             except Exception as e:
                 self.logger.exception(e)
 
+    @staticmethod
+    def get_daily_alerters():
+        return ['securities']
+
 
 if __name__ == '__main__':
-    Alert().run_daily()
+    Alert().run()
