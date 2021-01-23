@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="stocker_alerts_bot" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="alert" type="PythonConfigurationType" factoryName="Python">
     <module name="stock-info" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -11,7 +11,7 @@
     <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/stocker_alerts_bot.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/alert.py" />
     <option name="PARAMETERS" value="--debug --verbose --uri &quot;mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/dev&quot; --token &quot;1431032427:AAE7PIQRg-nzz2lOJUzwXB87iR71n6xwdgs&quot;" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
