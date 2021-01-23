@@ -84,23 +84,6 @@ class AlerterBase(object):
         self.__send_telegram_alert(nondelayed_users, msg)
         self.__send_delayed(delayed_users, msg)
 
-        # TODO : Halamish decide
-        # try:
-        #     if self._debug and not user.get('develop') is True:
-        #         continue
-        #
-        #     # otciq alerts are only for users with high permissions
-        #     if diff.get('diff_appendix') == 'otciq':
-        #         if user.get('permissions') == 'high':
-        #             self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-        #                                            parse_mode=telegram.ParseMode.MARKDOWN)
-        #     else:
-        #         self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-        #                                        parse_mode=telegram.ParseMode.MARKDOWN)
-        #
-        # except Exception as e:
-        #     logger.exception(e)
-
     def __send_delayed(self, delayed_users, msg):
         trigger = DateTrigger(run_date=datetime.utcnow() + timedelta(minutes=10))
 
@@ -109,13 +92,13 @@ class AlerterBase(object):
                                 trigger=trigger)
 
     def __send_telegram_alert(self, users_group, msg):
-        try:
-            for user in users_group:
+        for user in users_group:
+            try:
                 self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
                                                parse_mode=telegram.ParseMode.MARKDOWN)
 
-        except Exception as e:
-            logger.exception(e)
+            except Exception as e:
+                logger.exception(e)
 
     def _edit_diff(self, diff) -> dict:
         """
