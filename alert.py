@@ -1,4 +1,6 @@
-import pymongo
+from time import sleep
+
+from pymongo.errors import PyMongoError
 
 from runnable import Runnable
 from src.factory import Factory
@@ -15,31 +17,35 @@ class Alert(Runnable):
         pass
 
     def listen(self):
-        try:
-            for event in self._mongo_db.diffs.watch():
-                self.logger.info('event: {event}'.format(event=event))
-                try:
-                    diff = event.get('fullDocument')
+        while True:
+            try:
+                with self._mongo_db.diffs.watch() as stream:
+                    for event in stream:
+                        self.logger.info('event: {event}'.format(event=event))
+                        try:
+                            diff = event.get('fullDocument')
 
-                    if event['operationType'] != 'insert' or diff.get('source') in self.get_daily_alerters():
-                        continue
+                            if event['operationType'] != 'insert' or diff.get('source') in self.get_daily_alerters():
+                                continue
 
-                    object_id = diff.pop('_id')
+                            object_id = diff.pop('_id')
 
-                    alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                                    'debug': self._debug}
-                    alerter = Factory.alerters_factory(diff.get('source'), **alerter_args)
+                            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+                                            'debug': self._debug}
+                            alerter = Factory.alerters_factory(diff.get('source'), **alerter_args)
 
-                    if alerter.alert(diff):
-                        self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}})
+                            if alerter.alert(diff):
+                                self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}})
 
-                except Exception as e:
-                    self.logger.warning("Couldn't alert {event}".format(event=event))
-                    self.logger.exception(e)
+                        except Exception as e:
+                            self.logger.warning("Couldn't alert {event}".format(event=event))
+                            self.logger.exception(e)
 
-        except pymongo.errors.PyMongoError as e:
-            # We know it's unrecoverable:
-            self.logger.exception(e)
+            except PyMongoError as e:
+                # We know it's unrecoverable:
+                self.logger.exception(e)
+
+            sleep(5000)
 
     def __telegram_alert(self, alerter):
         alerts_df = alerter.get_saved_alerts(self._mongo_db)
