@@ -98,7 +98,7 @@ class Client(Runnable):
 
         for ticker in tickers_list:
             try:
-                self.logger.info('running on {ticker}'.format(ticker=ticker))
+                logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
 
                 securities = Securities(mongo_db, 'securities', ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
@@ -117,7 +117,7 @@ class Client(Runnable):
                     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
 
             except Exception as e:
-                self.logger.exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
+                logging.getLogger('Client').exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
 
         with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
             tickers_001_1B.to_csv(tmp)
