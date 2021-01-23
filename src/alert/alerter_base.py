@@ -26,6 +26,14 @@ class AlerterBase(object):
         self._debug = debug
         self._telegram_users = self._mongo_db.telegram_users.find()
 
+        self._scheduler = BackgroundScheduler(executors={
+            'default': ThreadPoolExecutor(10),
+        }, timezone=" Africa/Abidjan")
+
+        disable_apscheduler_logs()
+
+        self._scheduler.start()
+
     @property
     def hierarchy(self) -> dict:
         """
@@ -94,18 +102,11 @@ class AlerterBase(object):
         #     logger.exception(e)
 
     def __send_delayed(self, delayed_users, msg):
-        scheduler = BackgroundScheduler(executors={
-            'default': ThreadPoolExecutor(10),
-        }, timezone=" Africa/Abidjan")
-
-        disable_apscheduler_logs()
         trigger = DateTrigger(run_date=datetime.utcnow() + timedelta(minutes=10))
 
-        # Running daily alerter half an hour before the market opens
-        scheduler.add_job(self.__send_telegram_alert,
-                          args=[delayed_users, msg],
-                          trigger=trigger)
-        scheduler.start()
+        self._scheduler.add_job(self.__send_telegram_alert,
+                                args=[delayed_users, msg],
+                                trigger=trigger)
 
     def __send_telegram_alert(self, users_group, msg):
         try:
