@@ -4,11 +4,8 @@ from datetime import datetime, timedelta
 import pandas
 import pymongo
 import telegram
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 
-from scheduler_utils import disable_apscheduler_logs
 from src import factory
 
 logger = logging.getLogger('Alert')
@@ -24,15 +21,6 @@ class AlerterBase(object):
         self._mongo_db = mongo_db
         self._telegram_bot = telegram_bot
         self._debug = debug
-        self._telegram_users = self._mongo_db.telegram_users.find()
-
-        self._scheduler = BackgroundScheduler(executors={
-            'default': ThreadPoolExecutor(10),
-        }, timezone=" Africa/Abidjan")
-
-        disable_apscheduler_logs()
-
-        self._scheduler.start()
 
     @property
     def hierarchy(self) -> dict:
@@ -60,12 +48,14 @@ class AlerterBase(object):
 
         return factory.Factory.collectors_factory(self.name, **collector_args)
 
-    def alert(self, diff):
+    def get_alert_msg(self, diff):
         diff = self._edit_diff(diff)
         if diff:
-            self.__telegram_alert(diff.get('ticker'), diff)
-            return True
-        return False
+            return '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                                ticker=diff.get('ticker'),
+                                                                                alert=self.__translate_diff(diff))
+        else:
+            return ''
 
     def __telegram_alert(self, ticker, diff):
         # User-friendly message
@@ -133,7 +123,7 @@ class AlerterBase(object):
         return diff
 
     def __translate_diff(self, diff):
-        title = '*{key}* has {verb}:\n'
+        title = '*{key}* has {verb}:'
         subtitle = ''
 
         if diff.get('diff_type') == 'remove':
@@ -144,7 +134,7 @@ class AlerterBase(object):
             body = diff.get('new')
         else:
             verb = 'changed'
-            body = '{old} {fast_forward}{fast_forward}{fast_forward} {new}\n'.format(
+            body = '{old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(
                 fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
                 old=diff.get('old'),
                 new=diff.get('new'))
@@ -154,12 +144,10 @@ class AlerterBase(object):
         if diff.get('diff_appendix') == 'otciq':
             subtitle = 'Detected First OTCIQ approach {check_mark}'.format(check_mark=self.CHECK_MARK_EMOJI_UNICODE)
 
-        title = title if not subtitle else title + subtitle + '\n'
+        title = title if not subtitle else title + '\n' + subtitle
 
         return '{title}\n' \
-               '{body}'.format(
-            title=title,
-            body=body)
+               '{body}'.format(title=title, body=body)
 
     def _get_sorted_diffs(self, ticker):
         return pandas.DataFrame(

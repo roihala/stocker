@@ -8,7 +8,7 @@ logger = logging.getLogger('Alert')
 
 class Profile(AlerterBase):
     # TODO: MAYBE more keys
-    OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone']
+    OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
 
     @property
     def filter_keys(self):
