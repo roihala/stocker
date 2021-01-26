@@ -1,5 +1,6 @@
 import datetime
 from functools import reduce
+from typing import Iterable, List
 
 import telegram
 from time import sleep
@@ -31,16 +32,15 @@ class Alert(Runnable):
         self.listen()
 
     def listen(self):
+        # TODO: Alert last 24 hours diffs
+        # Alerting historic diffs to prevent losses
+        self.alert_diffs(self._mongo_db.diffs.find())
+
         while True:
             try:
                 with self._mongo_db.diffs.watch() as stream:
                     event = stream.next()
-
-                    alerts = {diff.pop('_id'): self.__get_alert(diff) for diff in self.__get_diffs(stream, event)}
-
-                    if alerts:
-                        self.__send_or_delay(reduce(lambda x, y: x + '\n' + y, alerts.values()))
-                        [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in alerts.keys()]
+                    self.alert_diffs(self.__unpack_stream(stream, event))
 
             except Exception as e:
                 # We know it's unrecoverable:
@@ -48,7 +48,32 @@ class Alert(Runnable):
 
             sleep(5)
 
-    def __get_diffs(self, stream: CollectionChangeStream, first_event) -> list:
+    def alert_diffs(self, diffs: Iterable[dict]):
+        # Creating a mapping of object_id to alert in order to update mongo accordingly
+        alerts = {}
+
+        for diff in diffs:
+            object_id = diff.pop('_id')
+
+            if diff.get('alerted') is True:
+                continue
+
+            alert = self.__get_alert(diff)
+
+            if alert:
+                alerts[object_id] = alert
+            else:
+                # Deleting non-alerted alerts!
+                self._mongo_db.diffs.delete_one({'_id': object_id})
+
+        if alerts:
+            # Sending or delaying our concatenated alerts
+            self.__send_or_delay(reduce(lambda x, y: x + '\n' + y, alerts.values()))
+            # Updating mongo that the diff has been alerted
+            [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
+             alerts.keys()]
+
+    def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
         event = first_event
         diffs = []
 
