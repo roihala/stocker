@@ -30,13 +30,12 @@ class Profile(AlerterBase):
         diff = super()._edit_diff(diff)
 
         if diff and diff.get('changed_key') in self.OTCIQ_KEYS:
-
             diff = self.update_otciq(self._mongo_db, diff)
 
         return diff
 
     @staticmethod
-    def update_otciq(mongo_db,  diff):
+    def update_otciq(mongo_db, diff):
         """
         Updating diff with otciq payload if detected first otciq account approach
         """
@@ -44,15 +43,8 @@ class Profile(AlerterBase):
         profile = collectors.Profile(mongo_db=mongo_db, ticker=diff.get('ticker'))
         symbols = collectors.Symbols(mongo_db=mongo_db, ticker=diff.get('ticker'))
 
-        logger.info(profile.get_sorted_history(filter_cols=True, ignore_latest=True).columns)
-        logger.info(symbols.get_sorted_history(filter_cols=True, ignore_latest=True).columns)
-
-        # Getting a set of the ONLY columns that contain changes.
-        columns = set(list(profile.get_sorted_history(filter_cols=True, ignore_latest=True).columns) +
-                      list(symbols.get_sorted_history(filter_cols=True, ignore_latest=True).columns))
-
-        # If there aren't any OTCIQ keys in filtered history columns
-        if not set(Profile.OTCIQ_KEYS).intersection(columns):
+        if len(profile.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1 and \
+                len(symbols.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1:
             diff['diff_appendix'] = 'otciq'
 
         return diff

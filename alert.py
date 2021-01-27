@@ -1,10 +1,13 @@
 import datetime
+import pandas
 from functools import reduce
 from typing import Iterable, List
 
+import pymongo
 import telegram
 from time import sleep
 
+import arrow
 from pymongo.change_stream import CollectionChangeStream
 
 from scheduler_utils import disable_apscheduler_logs
@@ -32,9 +35,8 @@ class Alert(Runnable):
         self.listen()
 
     def listen(self):
-        # TODO: Alert last 24 hours diffs
         # Alerting historic diffs to prevent losses
-        self.alert_diffs(self._mongo_db.diffs.find())
+        self.alert_diffs(self.__get_yesterday_diffs())
 
         while True:
             try:
@@ -62,9 +64,6 @@ class Alert(Runnable):
 
             if alert:
                 alerts[object_id] = alert
-            else:
-                # Deleting non-alerted alerts!
-                self._mongo_db.diffs.delete_one({'_id': object_id})
 
         if alerts:
             # Sending or delaying our concatenated alerts
@@ -72,6 +71,14 @@ class Alert(Runnable):
             # Updating mongo that the diff has been alerted
             [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
              alerts.keys()]
+
+    def __get_yesterday_diffs(self):
+        diffs = pandas.DataFrame(
+            self._mongo_db.diffs.find().sort('date', pymongo.ASCENDING))
+
+        # TODO: Make this 24
+        mask = (diffs['date'] > arrow.utcnow().shift(hours=-12).format()) & (diffs['date'] <= arrow.utcnow().format())
+        return diffs.loc[mask].to_dict('records')
 
     def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
         event = first_event
