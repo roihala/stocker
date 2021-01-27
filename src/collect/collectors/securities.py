@@ -9,6 +9,11 @@ class Securities(SiteCollector):
                     'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
+    @property
+    def nested_keys(self):
+        return {'transferAgents': [list, dict, 'name'],
+                'notes': [list]}
+
     def fetch_data(self, data=None):
         try:
             data = super().fetch_data(data)

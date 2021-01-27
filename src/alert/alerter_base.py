@@ -1,22 +1,25 @@
 import logging
-from functools import reduce
-from typing import List
+from datetime import datetime, timedelta
 
-import arrow
+import pandas
+import pymongo
+import telegram
+from apscheduler.triggers.date import DateTrigger
 
-from src.collect.differ import Differ
+from src import factory
 
-logger = logging.getLogger('Collect')
+logger = logging.getLogger('Alert')
 
 
 class AlerterBase(object):
+    ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
+    CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
 
-    def __init__(self, mongo_db, ticker, date=None, debug=None):
-        self.ticker = ticker
+    def __init__(self, mongo_db, telegram_bot, debug=None):
         self.name = self.__class__.__name__.lower()
         self._mongo_db = mongo_db
-        self._date = date if date else arrow.utcnow()
+        self._telegram_bot = telegram_bot
         self._debug = debug
 
     @property
@@ -40,70 +43,52 @@ class AlerterBase(object):
         """
         return {}
 
-    def get_alerts(self, latest, current):
-        diffs = self.get_diffs(latest, current)
-        if diffs and not self._debug:
-            logger.info('diffs: {diffs}'.format(diffs=diffs))
+    def get_collector(self, ticker):
+        collector_args = {'mongo_db': self._mongo_db, 'ticker': ticker}
 
-            # Insert the new diffs to mongo
-            [self._mongo_db.diffs.insert_one(diff) for diff in diffs]
+        return factory.Factory.collectors_factory(self.name, **collector_args)
 
-        return reduce(lambda x, y: x + self.__translate_diff(y), diffs, '')
+    def get_alert_msg(self, diff):
+        diff = self._edit_diff(diff)
+        if diff:
+            return '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                                ticker=diff.get('ticker'),
+                                                                                alert=self.__translate_diff(diff))
+        else:
+            return ''
 
-    def get_diffs(self, latest, current) -> List[dict]:
-        """
-        This function returns a list of the changes that occurred in certain ticker's data.
+    def __telegram_alert(self, ticker, diff):
+        # User-friendly message
+        msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                                                           ticker=ticker,
+                                                                           alert=self.__translate_diff(diff))
+        nondelayed_users = []
+        delayed_users = []
 
-        :return: A list of dicts in the format of:
-        {
-            "ticker": The ticker,
-            "date": The current date,
-            "changed_key": The key that have changed
-            "old": The "old" value,
-            "new": The "new" value,
-            "diff_type": The type of the diff, could be add, remove, etc...
-            "source": Which collection did it come from?
-        }
+        for user in self._telegram_users:
+            if user.get('delay') is True:
+                delayed_users.append(user)
+            else:
+                nondelayed_users.append(user)
 
-        """
-        if not current or not latest:
-            return []
+        self.__send_telegram_alert(nondelayed_users, msg)
+        self.__send_delayed(delayed_users, msg)
 
-        try:
-            diffs = Differ().get_diffs(latest, current, self.get_nested_keys())
-            diffs = [self.__decorate_diff(diff) for diff in diffs]
+    def __send_delayed(self, delayed_users, msg):
+        trigger = DateTrigger(run_date=datetime.utcnow() + timedelta(minutes=10))
 
-            # Applying filters
-            return self._edit_diffs(diffs)
-        except Exception as e:
-            logger.warning('Failed to get diffs between:\n{latest}\n>>>>>>\n{current}'.format(latest=latest,
-                                                                                               current=current))
-            logger.exception(e)
+        self._scheduler.add_job(self.__send_telegram_alert,
+                                args=[delayed_users, msg],
+                                trigger=trigger)
 
-    def _edit_diffs(self, diffs) -> List[dict]:
-        """
-        This function is for editing the list of diffs right before they are alerted
-        The diffs will have the following structure:
+    def __send_telegram_alert(self, users_group, msg):
+        for user in users_group:
+            try:
+                self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
+                                               parse_mode=telegram.ParseMode.MARKDOWN)
 
-        {
-            "ticker": The ticker,
-            "date": The current date,
-            "changed_key": The key that have changed
-            "old": The "old" value,
-            "new": The "new" value,
-            "diff_type": The type of the diff, could be add, remove, etc...
-            "source": Which collection did it come from?
-        }
-        """
-        edited_diffs = []
-
-        for diff in diffs:
-            diff = self._edit_diff(diff)
-
-            if diff is not None and diff['changed_key'] not in self.filter_keys:
-                edited_diffs.append(diff)
-
-        return edited_diffs
+            except Exception as e:
+                logger.exception(e)
 
     def _edit_diff(self, diff) -> dict:
         """
@@ -122,37 +107,48 @@ class AlerterBase(object):
 
         :return: The edited diff, None to delete the diff
         """
-        key = diff['changed_key']
+        key = diff.get('changed_key')
 
-        if key == '':
+        if key is None or key == '' or key in self.filter_keys:
             return None
+
         elif key in self.hierarchy.keys():
             try:
                 if self.hierarchy[key].index(diff['new']) < self.hierarchy[key].index(diff['old']):
                     return None
-            # If the key is not in hierarchy list
+
             except ValueError as e:
-                logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=self.ticker))
+                logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=diff.get('ticker')))
                 logger.exception(e)
         return diff
 
     def __translate_diff(self, diff):
-        return '*{key}* has changed:\n' \
-               '{old} {fast_forward}{fast_forward}{fast_forward} {new}\n'.format(fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
-                                                                                 ticker=diff.get('ticker'),
-                                                                                 key=diff.get('changed_key'),
-                                                                                 old=diff.get('old'),
-                                                                                 new=diff.get('new'))
+        title = '*{key}* has {verb}:'
+        subtitle = ''
 
-    def __decorate_diff(self, diff):
-        # joining by '.' if a key is a list of keys (differ's nested changes approach)
-        key = diff['changed_key'] if not isinstance(diff['changed_key'], list) else \
-            '.'.join((str(part) for part in diff['changed_key']))
+        if diff.get('diff_type') == 'remove':
+            verb = 'been removed'
+            body = diff.get('old')
+        elif diff.get('diff_type') == 'add':
+            verb = 'been added'
+            body = diff.get('new')
+        else:
+            verb = 'changed'
+            body = '{old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(
+                fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
+                old=diff.get('old'),
+                new=diff.get('new'))
 
-        diff.update({
-            "ticker": self.ticker,
-            "date": self._date.format(),
-            "changed_key": key,
-            "source": self.name
-        })
-        return diff
+        title = title.format(key=diff.get('changed_key'), verb=verb)
+
+        if diff.get('diff_appendix') == 'otciq':
+            subtitle = 'Detected First OTCIQ approach {check_mark}'.format(check_mark=self.CHECK_MARK_EMOJI_UNICODE)
+
+        title = title if not subtitle else title + '\n' + subtitle
+
+        return '{title}\n' \
+               '{body}'.format(title=title, body=body)
+
+    def _get_sorted_diffs(self, ticker):
+        return pandas.DataFrame(
+            self._mongo_db.diffs.find({"ticker": ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))

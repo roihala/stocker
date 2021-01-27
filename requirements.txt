@@ -13,3 +13,4 @@ apscheduler
 dnspython
 lxml
 bs4
+retry
