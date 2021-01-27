@@ -10,7 +10,6 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from runnable import Runnable
-from scheduler_utils import disable_apscheduler_logs
 from src.factory import Factory
 from apscheduler.schedulers.blocking import BlockingScheduler
 
@@ -26,7 +25,7 @@ class Collect(Runnable):
             'default': ThreadPoolExecutor(10000)
         })
 
-        disable_apscheduler_logs()
+        self.disable_apscheduler_logs()
 
         trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=300), DateTrigger()])
 

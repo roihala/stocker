@@ -2,7 +2,6 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from runnable import Runnable
-from scheduler_utils import disable_apscheduler_logs
 from src.alert.daily_alerter import DailyAlerter
 from src.factory import Factory
 from stocker_alerts_bot import Bot
@@ -14,7 +13,7 @@ class Alert(Runnable):
             'default': ThreadPoolExecutor(10000)
         }, timezone="US/Eastern")
 
-        disable_apscheduler_logs()
+        self.disable_apscheduler_logs()
 
         # Running daily alerter half an hour before the market opens
         scheduler.add_job(self.run_daily, trigger='cron', hour='9', minute='00')

@@ -10,7 +10,6 @@ from time import sleep
 import arrow
 from pymongo.change_stream import CollectionChangeStream
 
-from scheduler_utils import disable_apscheduler_logs
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
@@ -27,7 +26,7 @@ class Alert(Runnable):
             'default': ThreadPoolExecutor(10),
         }, timezone="Africa/Abidjan")
 
-        disable_apscheduler_logs()
+        self.disable_apscheduler_logs()
 
         self._scheduler.start()
 
