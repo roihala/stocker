@@ -1,4 +1,4 @@
-from geventwebsocket import logging
+import logging
 
 from src.alert.alerter_base import AlerterBase
 from src.collect import collectors
