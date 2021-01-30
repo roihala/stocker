@@ -65,7 +65,8 @@ class CollectorBase(ABC):
             # Saving the diffs to diffs collection
             diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.nested_keys)]
             logger.info('diffs: {diffs}'.format(diffs=diffs))
-            self._mongo_db.diffs.insert_many(diffs)
+            if diffs:
+                self._mongo_db.diffs.insert_many(diffs)
 
         self.__collect_sons()
 
