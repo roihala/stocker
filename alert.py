@@ -66,10 +66,7 @@ class Alert(Runnable):
 
         if alerts:
             # Sending or delaying our concatenated alerts
-            self.__send_or_delay(reduce(lambda x, y: x + '\n' + y, alerts.values()))
-            # Updating mongo that the diff has been alerted
-            [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
-             alerts.keys()]
+            self.__send_or_delay(reduce(lambda x, y: x + '\n' + y, alerts.values()), alerts)
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(
@@ -86,7 +83,7 @@ class Alert(Runnable):
         while event is not None:
             self.logger.info('event: {event}'.format(event=event))
 
-            diff = event['fullDocument']
+            diff = event.get('fullDocument')
 
             if event['operationType'] == 'insert' and diff.get('source') not in self.get_daily_alerters():
                 diffs.append(diff)
@@ -107,25 +104,37 @@ class Alert(Runnable):
             self.logger.warning("Couldn't create alerter for {diff}".format(diff=diff))
             self.logger.exception(e)
 
-    def __send_or_delay(self, msg):
+    def __send_or_delay(self, msg, alerts):
         self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
-        self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg)
+        self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
 
-    def __send_delayed(self, delayed_users, msg):
+    def __send_delayed(self, delayed_users, msg, alerts):
         trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
 
-        self._scheduler.add_job(self.__send_msg,
-                                args=[delayed_users, msg],
+        self._scheduler.add_job(self.__send_msg_with_ack,
+                                args=[delayed_users, msg, alerts],
                                 trigger=trigger)
 
+    def __send_msg_with_ack(self, users_group, msg, alerts):
+        is_success = self.__send_msg(users_group, msg)
+
+        if is_success:
+            # Updating mongo that the diff has been alerted
+            [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
+             alerts.keys()]
+
     def __send_msg(self, users_group, msg):
+        is_sent_successfuly = False
         for user in users_group:
             try:
                 self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
                                                parse_mode=telegram.ParseMode.MARKDOWN)
+                is_sent_successfuly = True
 
             except Exception as e:
                 self.logger.exception(e)
+
+        return is_sent_successfuly
 
     @staticmethod
     def get_daily_alerters():

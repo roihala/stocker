@@ -16,7 +16,7 @@ DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', '
 class Runnable(ABC):
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":
-            self._debug = False
+            self._debug = os.getenv('DEBUG', 'false').lower() == 'true'
             self._write = False
             self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
             self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
