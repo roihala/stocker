@@ -32,7 +32,8 @@ class SiteCollector(CollectorBase, ABC):
         if not data:
             response = requests.get(self.site.get_ticker_url(self.ticker))
 
-            if response.ok is not True:
+            if response.status_code != 200:
+                logger.warning('Bad status code: {code}'.format(code=response.status_code))
                 raise InvalidTickerExcpetion(self.ticker)
 
             data = response.json()
