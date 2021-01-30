@@ -88,7 +88,7 @@ class Differ(object):
             # Whoops, wrong hierarchy
             self._diffs.append(Differ.__build_diff('change', keys, latest, current))
             raise DifferException('Invalid hierarchy structure for {key} --->\n{structure}'
-                                  .format(key=keys, structure=self._hierarchy.get(keys[0])))
+                                  .format(key=keys, structure=self._hierarchy))
 
     def __next_layer(self, keys, latest, current, layers, dig_mode=False):
         layer = next(layers)
