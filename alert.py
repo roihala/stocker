@@ -72,8 +72,7 @@ class Alert(Runnable):
         diffs = pandas.DataFrame(
             self._mongo_db.diffs.find().sort('date', pymongo.ASCENDING))
 
-        # TODO: Make this 24
-        mask = (diffs['date'] > arrow.utcnow().shift(hours=-12).format()) & (diffs['date'] <= arrow.utcnow().format())
+        mask = (diffs['date'] > arrow.utcnow().shift(hours=-24).format()) & (diffs['date'] <= arrow.utcnow().format())
         return diffs.loc[mask].to_dict('records')
 
     def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
@@ -105,6 +104,10 @@ class Alert(Runnable):
             self.logger.exception(e)
 
     def __send_or_delay(self, msg, alerts):
+        if self._debug:
+            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            return
+
         self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
         self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
 
@@ -132,6 +135,7 @@ class Alert(Runnable):
                 is_sent_successfuly = True
 
             except Exception as e:
+                self.logger.warning("Couldn't send message to {user} at {chat_id}:".format(user=user.get("user_name"), chat_id=user.get("chat_id")))
                 self.logger.exception(e)
 
         return is_sent_successfuly
