@@ -111,7 +111,7 @@ class Bot(Runnable):
 
             # Using private attr because of bad API
             context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
-                                                                    {'user_name': user.name, 'chat_id': user.id},
+                                                                    {'user_name': user.name, 'chat_id': user.id, 'delay': True},
                                                                     upsert=True)
 
             context._dispatcher.logger.info("{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
