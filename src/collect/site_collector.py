@@ -14,7 +14,9 @@ username = "yonisoli"
 password = "5ff06d-6ecc98-91006b-86dd29-388b2c"
 
 PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
-proxy = {"http": "http://{}:{}@{}".format(username, password, PROXY_RACK_DNS)}
+proxy_url = "http://{}:{}@{}".format(username, password, PROXY_RACK_DNS)
+proxy = {"http": proxy_url,
+         'https': proxy_url}
 
 
 class SiteCollector(CollectorBase, ABC):
