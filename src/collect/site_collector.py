@@ -10,6 +10,12 @@ from src.find.site import InvalidTickerExcpetion
 
 logger = logging.getLogger('Collect')
 
+username = "yonisoli"
+password = "5ff06d-6ecc98-91006b-86dd29-388b2c"
+
+PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
+proxy = {"http": "http://{}:{}@{}".format(username, password, PROXY_RACK_DNS)}
+
 
 class SiteCollector(CollectorBase, ABC):
     @property
@@ -30,7 +36,7 @@ class SiteCollector(CollectorBase, ABC):
         :return: A dict containing the newly fetched entry
         """
         if not data:
-            response = requests.get(self.site.get_ticker_url(self.ticker))
+            response = requests.get(self.site.get_ticker_url(self.ticker), proxies=proxy)
 
             if response.status_code != 200:
                 logger.warning('Bad status code: {code}'.format(code=response.status_code))
