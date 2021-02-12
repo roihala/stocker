@@ -33,8 +33,6 @@ class Client(Runnable):
             print('low floaters lists are ready')
         elif self.args.filter_past:
             self.filter_past()
-        else:
-            print(self.get_diffs(self._mongo_db).to_string())
 
     def create_parser(self):
         parser = super().create_parser()
@@ -154,11 +152,11 @@ class Client(Runnable):
         return False
 
     @staticmethod
-    def get_diffs(mongo_db, ticker=None):
+    def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
-        alerts = pandas.DataFrame(mongo_db.diffs.find()).drop("_id", axis='columns')
-        if ticker:
-            alerts = alerts[alerts['ticker'] == ticker]
+        alerts = pandas.DataFrame(mongo_db.diffs.find()).drop(['_id', 'alerted'], axis='columns')
+
+        alerts = alerts[alerts['ticker'] == ticker]
 
         # Dropping unnecessary columns
         alerts = alerts.drop(['diff_type', 'source'], axis=1)

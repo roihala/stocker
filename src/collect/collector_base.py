@@ -185,6 +185,11 @@ class CollectorBase(ABC):
 
         if filter_rows:
             shifted_history = history.apply(lambda x: pandas.Series(x.dropna().values), axis=1).fillna('')
+            try:
+                shifted_history.columns = history.columns
+            except Exception as e:
+                logger.warning("Couldn't reindex columns")
+                logger.exception(e)
 
             # Filtering consecutive row duplicates where every column has the same value
             history = shifted_history.loc[(shifted_history.shift() != shifted_history).any(axis='columns')]
