@@ -11,7 +11,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 from client import Client
 from runnable import Runnable
 
-PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
+PRINT_HISTORY, GET_COLLECTION, GENDER, LOCATION, BIO = range(5)
 
 VALIDATE_PASSWORD, STAM = range(2)
 
@@ -49,8 +49,10 @@ class Bot(Runnable):
             entry_points=[CommandHandler('dd', Bot.dd)],
             states={
                 # Allowing 3-5 letters
-                PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.dd_request),
-                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+                GET_COLLECTION: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_collection),
+                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
+                PRINT_HISTORY: [MessageHandler(Filters.text(Factory.COLLECTIONS.keys()), Bot.dd_request),
+                                MessageHandler(~Filters.text(Factory.COLLECTIONS.keys()), Bot.invalid_collection)]
             },
             fallbacks=[],
         )
@@ -182,6 +184,12 @@ class Bot(Runnable):
         return ConversationHandler.END
 
     @staticmethod
+    def invalid_collection(update, context):
+        update.message.reply_text('Invalid input. Please choose one of this collections: {}'.format(Factory.COLLECTIONS.keys()))
+
+        return ConversationHandler.END
+
+    @staticmethod
     def alerts_request(update, context):
         user = update.message.from_user
         ticker = update.message.text.upper()
@@ -203,23 +211,40 @@ class Bot(Runnable):
         return ConversationHandler.END
 
     @staticmethod
-    def dd_request(update, context):
-        user = update.message.from_user
+    def get_collection(update, context):
         ticker = update.message.text.upper()
 
-        try:
-            context._dispatcher.logger.info("{user_name} of {chat_id} have used /dd on ticker: {ticker}".format(
-                user_name=user.name,
-                chat_id=user.id,
-                ticker=ticker
-            ))
-            dd_df = Client.get_history(context._dispatcher.mongo_db, ticker)
+        context.user_data["ticker"] = ticker
 
-            Bot.send_df(dd_df, ticker, update.message.reply_document)
+        kb = telegram.ReplyKeyboardMarkup(
+            [[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
+        update.message.reply_text('Choose a collection.',
+                                  reply_markup=kb)
+
+        return PRINT_HISTORY
+
+    @staticmethod
+    def dd_request(update, context):
+        collection = update.message.text
+        ticker = context.user_data["ticker"]
+
+        try:
+            update.message.reply_text("This action might take some time...",
+                                      reply_markup=telegram.ReplyKeyboardRemove())
+            dd_df = Client.get_history(context._dispatcher.mongo_db, ticker)
+            if len(dd_df.index) == 0:
+                update.message.reply_text("{} does not have any history for {} collection.".format(ticker, collection),
+                                          reply_markup=telegram.ReplyKeyboardRemove())
+                return ConversationHandler.END
+
+            dd_df = dd_df[(dd_df.source==collection)]
+
+            Bot.send_df(dd_df, ticker, update.message.reply_document, reply_markup=telegram.ReplyKeyboardRemove())
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce alerts ``for {ticker}".format(ticker=ticker))
+            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker),
+                                      reply_markup=telegram.ReplyKeyboardRemove())
 
         return ConversationHandler.END
 
@@ -229,7 +254,8 @@ class Bot(Runnable):
 
         if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
             update.message.reply_text('Insert a valid OTC ticker')
-            return PRINT_HISTORY
+
+            return GET_COLLECTION
         else:
             update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
             return ConversationHandler.END
@@ -242,7 +268,7 @@ class Bot(Runnable):
         dfi.export(df, image_path, table_conversion="matplotlib")
 
         with open(image_path, 'rb') as image:
-            func(photo=image, **kwargs)
+            func(document=image, **kwargs)
 
         os.remove(image_path)
 
@@ -259,7 +285,7 @@ class Bot(Runnable):
             update.message.reply_text(
                 '{user_name} couldn\'t register, please contact the support team'.format(user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
-    
+
     @staticmethod
     def send_broadcast_msg(update, context):
         from_user = update.message.from_user
