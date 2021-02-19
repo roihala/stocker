@@ -5,6 +5,7 @@ import os
 
 import dataframe_image as dfi
 import telegram
+from src.factory import Factory
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 
 from client import Client
@@ -165,7 +166,10 @@ class Bot(Runnable):
         user = update.message.from_user
 
         if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            update.message.reply_text('Insert a valid OTC ticker')
+            kb = telegram.ReplyKeyboardMarkup([[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
+            update.message.reply_text('Insert a valid OTC ticker',
+                                      reply_markup=kb)
+
             return PRINT_HISTORY
         else:
             update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
@@ -235,10 +239,10 @@ class Bot(Runnable):
         image_path = Bot.TEMP_IMAGE_FILE_FORMAT.format(name=name)
 
         # Converting to image because dataframe isn't shown well in telegram
-        dfi.export(df, image_path, max_rows=100, max_cols=100, table_conversion="matplotlib")
+        dfi.export(df, image_path, table_conversion="matplotlib")
 
         with open(image_path, 'rb') as image:
-            func(document=image, **kwargs)
+            func(photo=image, **kwargs)
 
         os.remove(image_path)
 
