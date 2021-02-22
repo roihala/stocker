@@ -3,10 +3,13 @@ from datetime import datetime, timedelta
 
 import pandas
 import pymongo
+import requests
 import telegram
 from apscheduler.triggers.date import DateTrigger
 
-from src import factory
+from src.collect.collectors.profile import Profile
+from src.collect.collectors.securities import Securities
+from src.find.site import Site
 
 logger = logging.getLogger('Alert')
 
@@ -15,6 +18,9 @@ class AlerterBase(object):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
     CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
+    DOLLAR_SIGN_EMOJI_UNICODE = u'\U0001F4B2'
+    FACTORY_EMOJI_UNICODE = u'\U0001F3ED'
+    MEDAL_EMOJI_UNICODE = u'\U0001F947'
 
     def __init__(self, mongo_db, telegram_bot, debug=None):
         self.name = self.__class__.__name__.lower()
@@ -123,6 +129,9 @@ class AlerterBase(object):
         return diff
 
     def __translate_diff(self, diff):
+        key = diff.get('changed_key')
+        ticker = diff.get('ticker')
+
         title = '*{key}* has {verb}:'
         subtitle = ''
 
@@ -139,15 +148,39 @@ class AlerterBase(object):
                 old=diff.get('old'),
                 new=diff.get('new'))
 
-        title = title.format(key=diff.get('changed_key'), verb=verb)
+        title = title.format(key=key, verb=verb)
 
         if diff.get('diff_appendix') == 'otciq':
             subtitle = 'Detected First OTCIQ approach {check_mark}'.format(check_mark=self.CHECK_MARK_EMOJI_UNICODE)
 
         title = title if not subtitle else title + '\n' + subtitle
 
+        ticker_profile = Profile(self._mongo_db, ticker).get_latest()
+        ticker_securities = Securities(self._mongo_db, ticker).get_latest()
+
+        industry = ticker_profile.get('primarySicCode')
+        industry = industry[industry.index(" - ")+3:]
+
+        properties = """{factory} Industry: {industry}
+{medal} Tier: {tier}
+{dollar} Last price: {last_price}""".format(factory=self.FACTORY_EMOJI_UNICODE,
+                                       industry=industry,
+                                       medal=self.MEDAL_EMOJI_UNICODE,
+                                       tier=ticker_securities.get('tierDisplayName'),
+                                       dollar=self.DOLLAR_SIGN_EMOJI_UNICODE,
+                                       last_price=AlerterBase.get_last_price(ticker))
+
         return '{title}\n' \
-               '{body}'.format(title=title, body=body)
+               '{body}\n\n' \
+               '{properties}'.format(title=title, body=body, properties=properties)
+
+    @staticmethod
+    def get_last_price(ticker):
+        url = Site('prices',
+                   'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
+                   is_otc=True).get_ticker_url(ticker)
+        response = requests.get(url)
+        return response.json().get('previousClose')
 
     def _get_sorted_diffs(self, ticker):
         return pandas.DataFrame(
