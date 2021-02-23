@@ -52,6 +52,7 @@ class Alert(Runnable):
     def alert_diffs(self, diffs: Iterable[dict]):
         # Creating a mapping of object_id to alert in order to update mongo accordingly
         alerts = {}
+        imgs = []
 
         for diff in diffs:
             object_id = diff.pop('_id')
@@ -59,14 +60,20 @@ class Alert(Runnable):
             if diff.get('alerted') is True:
                 continue
 
-            alert = self.__get_alert(diff)
+            alert, img = self.__get_alert(diff)
 
             if alert:
                 alerts[object_id] = alert
 
+            if img:
+                imgs.append(img)
+
         if alerts:
             # Sending or delaying our concatenated alerts
             self.__send_or_delay(reduce(lambda x, y: x + '\n' + y, alerts.values()), alerts)
+
+        for img in imgs:
+            self.__img_send_or_delay(img)
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(
@@ -97,11 +104,40 @@ class Alert(Runnable):
                             'debug': self._debug}
             alerter = Factory.alerters_factory(diff.get('source'), **alerter_args)
 
-            return alerter.get_alert_msg(diff)
+            return (alerter.get_alert_msg(diff), alerter.get_alert_diff_img(diff))
 
         except Exception as e:
             self.logger.warning("Couldn't create alerter for {diff}".format(diff=diff))
             self.logger.exception(e)
+
+    def __img_send_or_delay(self, img):
+        if self._debug:
+            self.__img_send(self._mongo_db.telegram_users.find(), img)
+
+        self.__img_send(self._mongo_db.telegram_users.find({'delay': False}), img)
+        self.__img_send_delayed(self._mongo_db.telegram_users.find({'delay': True}), img)
+
+    def __img_send_delayed(self, delayed_users, img):
+        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
+
+        self._scheduler.add_job(self.__img_send,
+                                args=[delayed_users, img],
+                                trigger=trigger)
+
+    def __img_send(self, users_group, img):
+        is_sent_successfuly = False
+        for user in users_group:
+            try:
+                img.seek(0)
+                self._telegram_bot.send_photo(chat_id=user.get("chat_id"), photo=img)
+                is_sent_successfuly = True
+
+            except Exception as e:
+                self.logger.warning("Couldn't send image to {user} at {chat_id}:".format(user=user.get("user_name"),
+                                                                                           chat_id=user.get("chat_id")))
+                self.logger.exception(e)
+
+        return is_sent_successfuly
 
     def __send_or_delay(self, msg, alerts):
         if self._debug:

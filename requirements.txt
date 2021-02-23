@@ -14,3 +14,4 @@ dnspython
 lxml
 bs4
 retry
+pillow
