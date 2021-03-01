@@ -25,7 +25,7 @@ class SiteCollector(CollectorBase, ABC):
     def site(self):
         pass
 
-    @retry(JSONDecodeError, tries=3, delay=1)
+    @retry(JSONDecodeError, tries=10, delay=1)
     def fetch_data(self, data=None) -> dict:
         """
         Fetching data by using requests.get
