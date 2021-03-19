@@ -1,10 +1,7 @@
 import logging
-from datetime import datetime, timedelta
 
 import pandas
 import pymongo
-import telegram
-from apscheduler.triggers.date import DateTrigger
 
 from src import factory
 
@@ -56,39 +53,6 @@ class AlerterBase(object):
                                                                                 alert=self.__translate_diff(diff))
         else:
             return ''
-
-    def __telegram_alert(self, ticker, diff):
-        # User-friendly message
-        msg = '{alert_emoji} Detected change on {ticker}:\n{alert}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                                                           ticker=ticker,
-                                                                           alert=self.__translate_diff(diff))
-        nondelayed_users = []
-        delayed_users = []
-
-        for user in self._telegram_users:
-            if user.get('delay') is True:
-                delayed_users.append(user)
-            else:
-                nondelayed_users.append(user)
-
-        self.__send_telegram_alert(nondelayed_users, msg)
-        self.__send_delayed(delayed_users, msg)
-
-    def __send_delayed(self, delayed_users, msg):
-        trigger = DateTrigger(run_date=datetime.utcnow() + timedelta(minutes=10))
-
-        self._scheduler.add_job(self.__send_telegram_alert,
-                                args=[delayed_users, msg],
-                                trigger=trigger)
-
-    def __send_telegram_alert(self, users_group, msg):
-        for user in users_group:
-            try:
-                self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                               parse_mode=telegram.ParseMode.MARKDOWN)
-
-            except Exception as e:
-                logger.exception(e)
 
     def _edit_diff(self, diff) -> dict:
         """
