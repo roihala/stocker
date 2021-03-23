@@ -38,7 +38,6 @@ class AlerterBase(object):
             return ''
 
         title = '*{key}* has {verb}:'
-        subtitle = ''
 
         if diff.get('diff_type') == 'remove':
             verb = 'been removed'
@@ -54,11 +53,6 @@ class AlerterBase(object):
                 new=diff.get('new'))
 
         title = title.format(key=diff.get('changed_key'), verb=verb)
-
-        if diff.get('diff_appendix') == 'otciq':
-            subtitle = 'Detected First OTCIQ approach {check_mark}'.format(check_mark=self.CHECK_MARK_EMOJI_UNICODE)
-
-        title = title if not subtitle else title + '\n' + subtitle
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
