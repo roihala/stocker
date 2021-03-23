@@ -1,5 +1,4 @@
 from copy import deepcopy
-from itertools import tee
 
 import pandas
 import arrow
@@ -32,20 +31,21 @@ class CollectorBase(ABC):
         self._date = date if date else arrow.utcnow()
         self._debug = debug
         self._write = write
+        self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
 
     @staticmethod
-    def sons():
+    def get_sons():
         return []
 
-    @property
-    def drop_keys(self):
+    @staticmethod
+    def get_drop_keys():
         """
         A list of keys to drop. Note that the keys won't even be saved to mongo
         """
         return []
 
-    @property
-    def nested_keys(self):
+    @staticmethod
+    def get_nested_keys():
         return {}
 
     @abstractmethod
@@ -54,7 +54,7 @@ class CollectorBase(ABC):
 
     def collect(self, raw_data=None):
         current = self.fetch_data(raw_data)
-        latest = self.get_latest()
+        latest = self._reader.get_latest()
 
         if not latest:
             self.__save_data(current)
@@ -63,7 +63,7 @@ class CollectorBase(ABC):
             self.__save_data(current)
 
             # Saving the diffs to diffs collection
-            diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.nested_keys)]
+            diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.get_nested_keys())]
             logger.info('diffs: {diffs}'.format(diffs=diffs))
             if diffs:
                 self._mongo_db.diffs.insert_many(diffs)
@@ -96,7 +96,7 @@ class CollectorBase(ABC):
             self.collection.insert_one(copy)
 
     def __collect_sons(self):
-        for son in self.sons():
+        for son in self.get_sons():
             try:
                 collection_args = {'mongo_db': self._mongo_db, 'ticker': self.ticker, 'date': self._date, 'debug': self._debug}
                 collector = factory.Factory.collectors_factory(son, **collection_args)
@@ -104,111 +104,3 @@ class CollectorBase(ABC):
             except Exception as e:
                 logger.warning("Couldn't collect {name}'s son {son}".format(name=self.name, son=son))
                 logger.exception(e)
-
-    def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
-        """
-        Returning sorted history with the ability of filtering consecutive rows and column duplications
-
-        ** NOTE THAT NESTED KEYS WILL BE FLATTENED IN ORDER TO FILTER!
-
-        :param filter_rows: bool
-        :param filter_cols: bool
-        :param ignore_latest: Ignore the latest entry
-        :return: df
-        """
-        history = pandas.DataFrame(
-            self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))\
-            .drop(self.drop_keys, axis='columns', errors='ignore')
-
-        if history.empty:
-            return history
-
-        # Setting date as index
-        history["date"] = history["date"].apply(
-            self.timestamp_to_datestring)
-
-        history = history.set_index(['date'])
-
-        pandas.set_option('display.expand_frame_repr', False)
-
-        if ignore_latest and len(history.index) > 1:
-            history.drop(history.tail(1).index, inplace=True)
-
-        if filter_rows or filter_cols:
-            try:
-                history = self.flatten(history)
-                history = self.__apply_filters(history, filter_rows, filter_cols)
-            except Exception as e:
-                logger.exception(self.__class__)
-                logger.exception(e)
-
-        # Resetting index
-        history.reset_index(inplace=True)
-
-        return history
-
-    def flatten(self, history):
-        for column, layers in self.nested_keys.items():
-            if column in history.columns:
-                history[column] = pandas.Series(
-                    {date: self.__unfold(value, tee(iter(layers))[1]) for date, value in
-                     history[column].dropna().to_dict().items()})
-
-        history.index.name = 'date'
-
-        return history
-
-    @classmethod
-    def __unfold(cls, iterable, layers):
-        try:
-            layer = next(layers)
-
-            if issubclass(layer, list):
-                return tuple([cls.__unfold(value, tee(layers)[1]) for value in iterable])
-
-            elif issubclass(layer, dict):
-                key = next(layers)
-                return cls.__unfold(iterable[key], tee(layers)[1])
-        except StopIteration:
-            return iterable
-        except Exception as e:
-            logger.warning("Couldn't unfold {iterable}".format(iterable=iterable))
-            logger.exception(e)
-
-    @classmethod
-    def __apply_filters(cls, history, filter_rows, filter_cols):
-        if filter_cols:
-            # Dropping monogemic columns where every row has the same value
-            nunique = history.apply(pandas.Series.nunique)
-            cols_to_drop = nunique[nunique == 1].index
-            history = history.drop(cols_to_drop, axis=1).dropna(axis='columns')
-
-        if filter_rows:
-            shifted_history = history.apply(lambda x: pandas.Series(x.dropna().values), axis=1).fillna('')
-            try:
-                shifted_history.columns = history.columns
-            except Exception as e:
-                logger.warning("Couldn't reindex columns")
-                logger.exception(e)
-
-            # Filtering consecutive row duplicates where every column has the same value
-            history = shifted_history.loc[(shifted_history.shift() != shifted_history).any(axis='columns')]
-
-        return history
-
-    def get_latest(self):
-        sorted_history = self.get_sorted_history()
-
-        if sorted_history.empty:
-            return {}
-
-        # to_dict indexes by rows, therefore getting the highest index
-        history_as_dicts = sorted_history.tail(1).drop(['date', 'ticker'], 'columns', errors='ignore').to_dict('index')
-        return history_as_dicts[max(history_as_dicts.keys())]
-
-    @staticmethod
-    def timestamp_to_datestring(value):
-        try:
-            return arrow.get(value).format()
-        except (ParserError, TypeError, ValueError):
-            return value

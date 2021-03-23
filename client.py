@@ -2,16 +2,13 @@ import logging
 import os
 import re
 
-import requests
+import arrow
 import pandas
 
-from collect import Collect
 from runnable import Runnable
-from src.collect.collector_base import CollectorBase
-from src.collect.collectors.profile import Profile
-from src.collect.collectors.securities import Securities
 from src.factory import Factory
-from src.find.site import Site
+from src.read import readers
+from src.read.reader_base import ReaderBase
 
 LOW_FLOATERS_001_1B_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_1B.csv')
 LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_500M.csv')
@@ -29,7 +26,7 @@ class Client(Runnable):
         if self.args.history:
             print(self.get_history(self._mongo_db, self.args.history).to_string())
         elif self.args.low_floaters:
-            self.get_low_floaters(self._mongo_db, Collect.extract_tickers(self.args.csv))
+            self.get_low_floaters(self._mongo_db, self.extract_tickers(self.args.csv))
             print('low floaters lists are ready')
         elif self.args.filter_past:
             self.filter_past()
@@ -49,17 +46,17 @@ class Client(Runnable):
             self.logger.info('filtering {ticker}'.format(ticker=ticker))
             for collection_name in Factory.COLLECTIONS.keys():
                 try:
-                    collector = Factory.collectors_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+                    reader = Factory.readers_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
                     collection = self._mongo_db.get_collection(collection_name)
 
                     # get_sorted_history flattens nested keys in order to apply filters,
                     # we can't write this result because we don't want formatted data to be written to mongo.
-                    filtered_history = collector.get_sorted_history(filter_rows=True)
+                    filtered_history = reader.get_sorted_history(filter_rows=True)
 
                     dates = filtered_history['date']
 
                     # Therefore using dates as indexes for the unchanged data.
-                    history = collector.get_sorted_history()
+                    history = reader.get_sorted_history()
                     history = history[history['date'].isin(dates)]
 
                     collection.delete_many({"ticker": ticker})
@@ -73,8 +70,8 @@ class Client(Runnable):
         history = pandas.DataFrame()
 
         for collection_name in Factory.COLLECTIONS.keys():
-            collector = Factory.collectors_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
-            current = collector.get_sorted_history(filter_rows=True, filter_cols=True)
+            reader = Factory.readers_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
+            current = reader.get_sorted_history(filter_rows=True, filter_cols=True)
 
             if current.empty:
                 continue
@@ -98,10 +95,10 @@ class Client(Runnable):
             try:
                 logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
 
-                securities = Securities(mongo_db, 'securities', ticker).get_latest()
+                securities = readers.Securities(mongo_db, ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
-                last_price = Client.get_last_price(ticker)
-                description = Profile(mongo_db, 'profile', ticker).get_latest()['businessDesc']
+                last_price = ReaderBase.get_last_price(ticker)
+                description = readers.Profile(mongo_db, ticker).get_latest()['businessDesc']
 
                 if last_price <= 0.001 and outstanding <= 1000000000:
                     tickers_001_1B = tickers_001_1B.append({'Symbol': ticker}, ignore_index=True)
@@ -129,15 +126,6 @@ class Client(Runnable):
             ev_tickers.to_csv(tmp)
 
     @staticmethod
-    def get_last_price(ticker):
-        url = Site('prices',
-                   'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
-                   is_otc=True).get_ticker_url(ticker)
-
-        response = requests.get(url)
-        return float(response.json().get('previousClose'))
-
-    @staticmethod
     def is_substring(text, *args):
         """
         Looking for substrings in text while ignoring case
@@ -163,10 +151,10 @@ class Client(Runnable):
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
-            lambda row: CollectorBase.timestamp_to_datestring(row['new']) if 'Date' in row['changed_key'] else row['new'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if 'Date' in row['changed_key'] else row['new'],
             axis=1)
         alerts['old'] = alerts.apply(
-            lambda row: CollectorBase.timestamp_to_datestring(row['old']) if 'Date' in row['changed_key'] else row['old'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if 'Date' in row['changed_key'] else row['old'],
             axis=1)
 
         return alerts

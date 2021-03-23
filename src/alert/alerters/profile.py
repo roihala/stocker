@@ -2,6 +2,7 @@ import logging
 
 from src.alert.alerter_base import AlerterBase
 from src.collect import collectors
+from src.read import readers
 
 logger = logging.getLogger('Alert')
 
@@ -40,8 +41,8 @@ class Profile(AlerterBase):
         Updating diff with otciq payload if detected first otciq account approach
         """
 
-        profile = collectors.Profile(mongo_db=mongo_db, ticker=diff.get('ticker'))
-        symbols = collectors.Symbols(mongo_db=mongo_db, ticker=diff.get('ticker'))
+        profile = readers.Profile(mongo_db=mongo_db, ticker=diff.get('ticker'))
+        symbols = readers.Symbols(mongo_db=mongo_db, ticker=diff.get('ticker'))
 
         if len(profile.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1 and \
                 len(symbols.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1:

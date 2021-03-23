@@ -42,7 +42,7 @@ class Collect(Runnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        all_sons = reduce(lambda x, y: x + y.sons(), Factory.get_collectors(), [])
+        all_sons = reduce(lambda x, y: x + y.get_sons(), Factory.get_collectors(), [])
 
         for collection_name in Factory.COLLECTIONS.keys():
             try:

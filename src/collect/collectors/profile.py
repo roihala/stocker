@@ -10,11 +10,11 @@ class Profile(SiteCollector):
                     True)
 
     @staticmethod
-    def sons():
+    def get_sons():
         return ['securities']
 
-    @property
-    def nested_keys(self):
+    @staticmethod
+    def get_nested_keys():
         return {'officers': [list, dict, 'name'],
                 'premierDirectorList': [list, dict, 'name'],
                 'standardDirectorList': [list, dict, 'name'],
@@ -29,8 +29,8 @@ class Profile(SiteCollector):
                 "indexStatuses": [list, dict, 'indexName'],
                 }
 
-    @property
-    def drop_keys(self):
+    @staticmethod
+    def get_drop_keys():
         return ['securities', 'isProfileVerified', 'isCaveatEmptor', 'isShell', 'isBankrupt', 'unableToContact',
                 'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate',
                 'estimatedMarketCapAsOfDate', 'estimatedMarketCap']
@@ -38,5 +38,5 @@ class Profile(SiteCollector):
     def fetch_data(self, data=None):
         data = super().fetch_data()
         # Those keys are either irrelevant or used in other collectors
-        [data.pop(key, None) for key in self.drop_keys]
+        [data.pop(key, None) for key in self.get_drop_keys()]
         return data
