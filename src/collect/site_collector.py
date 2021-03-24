@@ -38,7 +38,11 @@ class SiteCollector(CollectorBase, ABC):
         :return: A dict containing the newly fetched entry
         """
         if not data:
-            response = requests.get(self.site.get_ticker_url(self.ticker), proxies=proxy)
+            response = requests.get(self.site.get_ticker_url(self.ticker))
+
+            # Trying with proxy
+            if response.status_code == 429:
+                response = requests.get(self.site.get_ticker_url(self.ticker), proxies=proxy)
 
             if response.status_code != 200:
                 logger.warning('Bad status code: {code}'.format(code=response.status_code))
