@@ -11,6 +11,7 @@ class Profile(AlerterBase):
     # TODO: MAYBE more keys
     OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
     ADDRESS_LINES = [['address1', 'address2'], ['city',  'state'], ['country']]
+    EXTRA_DATA = ['officers']
 
     @property
     def filter_keys(self):
@@ -33,8 +34,8 @@ class Profile(AlerterBase):
 
         if diff.get('changed_key') in [key for line in self.ADDRESS_LINES for key in line]:
             records = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker')).get_sorted_history().tail(2)
-            diff['old'], diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1]) 
-                                                       
+            diff['old'], diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1])
+
             diff['changed_key'] = "address"
 
         return diff
@@ -53,6 +54,26 @@ class Profile(AlerterBase):
             diff['diff_appendix'] = 'otciq'
 
         return diff
+
+    def generate_msg(self, diff):
+        return super().generate_msg(diff, new=self.__get_extra_data(diff))
+
+    def __get_extra_data(self, diff):
+        profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
+
+        extra_data_field = diff.get('new')
+        try:
+            field = next((field for field in self.EXTRA_DATA if field == diff.get('changed_key')), None)
+            if field:
+                frac_key = field.split('.')
+                for key, val in [(key, val) for data_dict in profile.get_latest()[frac_key[0]] if data_dict["name"] == diff.get("new") \
+                                            for (key, val) in data_dict.items()]:
+                    if val and key != "name":
+                        extra_data_field += f"\n{key}: {val}"
+            return extra_data_field
+        except (StopIteration, KeyError) as e:
+            logger.warning(f"Couldn't get extra data for field {diff.get('changed_key')}, not found.")
+            logger.exception(e)
 
     def format_address(self, record):
         """
