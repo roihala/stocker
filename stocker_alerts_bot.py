@@ -14,6 +14,8 @@ PRINT_HISTORY, GENDER, LOCATION, BIO = range(4)
 
 VALIDATE_PASSWORD, STAM = range(2)
 
+BROADCAST_MSG, STAM = range(2)
+
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
@@ -61,12 +63,24 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
+        broadcast_conv = ConversationHandler(
+            entry_points=[CommandHandler('broadcast', Bot.broadcast)],
+            states={
+                # Allowing letters and whitespaces
+                BROADCAST_MSG: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.send_broadcast_msg)]
+            },
+            fallbacks=[],
+        )
+
         dp.add_handler(register_conv)
         dp.add_handler(alerts_conv)
         dp.add_handler(dd_conv)
+        dp.add_handler(broadcast_conv)
 
         dp.add_handler(CommandHandler('start', Bot.start))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
+        dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
+
 
         # Start the Bot
         updater.start_polling()
@@ -78,14 +92,19 @@ class Bot(Runnable):
 
     @staticmethod
     def start(update, context):
-        update.message.reply_text(
-            '''   
+        user = update.message.from_user
+        start_msg = '''   
     Stocker alerts bot currently supports the following commands:
             
     /register - Register to get alerts on modifications straight to your telegram account.
     /deregister - Do this to stop getting alerts from stocker. *not recommended*
     /history - Get the saved history of a certain stock, note that columns with no changes will be removed.
-    /alerts - Get every alert that stocker has detected for a specific ticker.''',
+    /alerts - Get every alert that stocker has detected for a specific ticker.'''
+
+        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, user.name, user.id):
+            start_msg += '\n    /broadcast - Send meesages to all users'
+
+        update.message.reply_text(start_msg,
             parse_mode=telegram.ParseMode.MARKDOWN)
         return ConversationHandler.END
 
@@ -214,6 +233,41 @@ class Bot(Runnable):
     @staticmethod
     def __is_registered(mongo_db, user_name, chat_id):
         return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id}))
+
+    @staticmethod
+    def broadcast(update, context):
+        try:
+            update.message.reply_text('Insert broadcast message please')
+            return BROADCAST_MSG
+        except Exception as e:
+            update.message.reply_text(
+                '{user_name} couldn\'t register, please contact the support team'.format(user_name=update.message.from_user))
+            context._dispatcher.logger.exception(e.__traceback__)
+    
+    @staticmethod
+    def send_broadcast_msg(update, context):
+        from_user = update.message.from_user
+        broadcast_msg = update.message.text
+
+        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, from_user.name, from_user.id):
+            for to_user in context._dispatcher.mongo_db.telegram_users.find():
+                bot_instance = update.message.bot
+                try:
+                    bot_instance.sendMessage(chat_id=to_user['chat_id'], text=broadcast_msg)
+                except telegram.error.BadRequest:
+                    context._dispatcher.logger.warning(
+                "{user_name} of {chat_id} not found during broadcast message sending.".format(user_name=to_user['user_name'],
+                                                                                              chat_id=to_user['chat_id']))
+            update.message.reply_text('Your message have been sent to all of the stocker bot users.')
+        else:
+            update.message.reply_text('Your user do not have the sufficient permissions to run this command.')
+            context._dispatcher.logger.warning(
+                "{user_name} of {chat_id} have tried to run an high permission user command".format(user_name=user.name,
+                                                                                                    chat_id=user.id))
+
+    @staticmethod
+    def __is_high_permission_user(mongo_db, user_name, chat_id):
+        return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id,  'permissions': 'high'}))
 
 
 def main():
