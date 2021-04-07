@@ -22,8 +22,8 @@ from src.read.reader_base import ReaderBase
 
 class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-    DOLLAR_SIGN_EMOJI_UNICODE = u'\U0001F4B2'
-    MEDAL_EMOJI_UNICODE = u'\U0001F947'
+    MONEY_BAG_EMOJI_UNICODE = u'\U0001F4B0'
+    TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
 
     def __init__(self):
         super().__init__()
@@ -78,7 +78,7 @@ class Alert(Runnable):
 
         if alerts:
             # Sending or delaying our concatenated alerts
-            msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n' + y, alerts.values()))
+            msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
             self.__send_or_delay(msg, alerts)
 
     def __get_yesterday_diffs(self):
@@ -105,12 +105,12 @@ class Alert(Runnable):
         return diffs
 
     def __add_title(self, ticker, alert_msg):
-        return '{alert_emoji} Detected change on {ticker}:\n({dollar_emoji}{last_price}, {medal_emoji}{tier})\n' \
+        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
                '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                     ticker=ticker,
-                                    dollar_emoji=self.DOLLAR_SIGN_EMOJI_UNICODE,
+                                    money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
                                     last_price=ReaderBase.get_last_price(ticker),
-                                    medal_emoji=self.MEDAL_EMOJI_UNICODE,
+                                    trophy_emoji=self.TROPHY_EMOJI_UNICODE,
                                     tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
                                     alert_msg=alert_msg)
 

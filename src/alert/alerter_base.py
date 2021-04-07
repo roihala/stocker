@@ -8,6 +8,8 @@ logger = logging.getLogger('Alert')
 
 
 class AlerterBase(object):
+    GREEN_CIRCLE_EMOJI_UNICODE = u'\U0001F7E2'
+    RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
     FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
     CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
     FACTORY_EMOJI_UNICODE = u'\U0001F3ED'
@@ -37,28 +39,25 @@ class AlerterBase(object):
         if not diff:
             return ''
 
-        title = '*{key}* has {verb}:'
-        subtitle = ''
+        title = '*{key}* {verb}:'
 
         if diff.get('diff_type') == 'remove':
-            verb = 'been removed'
-            body = diff.get('old')
+            verb = 'removed'
+            body = '{red_circle_emoji}{old}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
+                                                    old=diff.get('old'))
         elif diff.get('diff_type') == 'add':
-            verb = 'been added'
-            body = diff.get('new')
+            verb = 'added'
+            body = '{green_circle_emoji}{new}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                      new=diff.get('new'))
         else:
             verb = 'changed'
-            body = '{old} {fast_forward}{fast_forward}{fast_forward} {new}'.format(
-                fast_forward=self.FAST_FORWARD_EMOJI_UNICODE,
-                old=diff.get('old'),
-                new=diff.get('new'))
+            body = '{red_circle_emoji}{old}\n' \
+                   '{green_circle_emoji}{new}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
+                                                      old=diff.get('old'),
+                                                      green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                      new=diff.get('new'))
 
         title = title.format(key=diff.get('changed_key'), verb=verb)
-
-        if diff.get('diff_appendix') == 'otciq':
-            subtitle = 'Detected First OTCIQ approach {check_mark}'.format(check_mark=self.CHECK_MARK_EMOJI_UNICODE)
-
-        title = title if not subtitle else title + '\n' + subtitle
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
