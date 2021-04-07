@@ -1,5 +1,5 @@
 get_gcp_cluster:
-	gcloud container clusters get-credentials stocker --zone europe-west2-b --project stocker-300519
+	gcloud container clusters get-credentials stocker --zone europe-west2-a --project stocker-300519
 
 
 all: collector alerter telegram
