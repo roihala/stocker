@@ -179,9 +179,15 @@ class Bot(Runnable):
 
     @staticmethod
     def alerts_request(update, context):
+        user = update.message.from_user
         ticker = update.message.text.upper()
 
         try:
+            context._dispatcher.logger.info("{user_name} of {chat_id} have used /alerts on ticker: {ticker}".format(
+                user_name=user.name,
+                chat_id=user.id,
+                ticker=ticker
+            ))
             alerts_df = Client.get_diffs(context._dispatcher.mongo_db, ticker)
 
             Bot.send_df(alerts_df, ticker, update.message.reply_document)
@@ -194,16 +200,22 @@ class Bot(Runnable):
 
     @staticmethod
     def dd_request(update, context):
+        user = update.message.from_user
         ticker = update.message.text.upper()
 
         try:
+            context._dispatcher.logger.info("{user_name} of {chat_id} have used /dd on ticker: {ticker}".format(
+                user_name=user.name,
+                chat_id=user.id,
+                ticker=ticker
+            ))
             dd_df = Client.get_history(context._dispatcher.mongo_db, ticker)
 
             Bot.send_df(dd_df, ticker, update.message.reply_document)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
+            update.message.reply_text("Couldn't produce alerts ``for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END
 
@@ -262,8 +274,8 @@ class Bot(Runnable):
         else:
             update.message.reply_text('Your user do not have the sufficient permissions to run this command.')
             context._dispatcher.logger.warning(
-                "{user_name} of {chat_id} have tried to run an high permission user command".format(user_name=user.name,
-                                                                                                    chat_id=user.id))
+                "{user_name} of {chat_id} have tried to run an high permission user command".format(user_name=from_user.name,
+                                                                                                    chat_id=from_user.id))
 
     @staticmethod
     def __is_high_permission_user(mongo_db, user_name, chat_id):
