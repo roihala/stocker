@@ -105,7 +105,7 @@ class Alert(Runnable):
         return diffs
 
     def __add_title(self, ticker, alert_msg):
-        return '{alert_emoji} {ticker}:\n({money_emoji}{last_price}, {trophy_emoji}{tier})\n' \
+        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
                '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                     ticker=ticker,
                                     money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
