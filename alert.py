@@ -91,8 +91,7 @@ class Alert(Runnable):
 
         mask = (diffs['date'] > arrow.utcnow().shift(hours=-24).format()) & (diffs['date'] <= arrow.utcnow().format())
 
-        # TODO: without tail
-        return diffs.loc[mask].tail(1).to_dict('records')
+        return diffs.loc[mask].to_dict('records')
 
     def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
         event = first_event
