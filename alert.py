@@ -78,8 +78,12 @@ class Alert(Runnable):
 
         if alerts:
             # Sending or delaying our concatenated alerts
-            msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
-            self.__send_or_delay(msg, alerts)
+            try:
+                msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
+                self.__send_or_delay(msg, alerts)
+            except Exception as e:
+                self.logger.warning("Couldn't create alert msg for alerts: {alerts}".format(alerts=alerts))
+                self.logger.exception(e)
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(
