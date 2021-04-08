@@ -2,6 +2,9 @@ from src.alert.alerter_base import AlerterBase
 
 
 class Securities(AlerterBase):
+    # A list of keys that allowed to be alerted
+    WHITE_LIST = ['tierDisplayName']
+
     @property
     def filter_keys(self):
         return ['outstandingSharesAsOfDate', 'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
@@ -15,7 +18,10 @@ class Securities(AlerterBase):
                 'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
     def _edit_diff(self, diff):
-        return None
+        if diff.get('changed_key') in self.WHITE_LIST:
+            return super()._edit_diff(diff)
+        else:
+            return None
         # TODO: After adding DailyAlert
         diff = super()._edit_diff(diff)
         if not diff:
