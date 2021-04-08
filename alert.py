@@ -137,7 +137,7 @@ class Alert(Runnable):
         self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
 
     def __send_delayed(self, delayed_users, msg, alerts):
-        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
+        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
 
         self._scheduler.add_job(self.__send_msg_with_ack,
                                 args=[delayed_users, msg, alerts],
