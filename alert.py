@@ -78,14 +78,19 @@ class Alert(Runnable):
 
         if alerts:
             # Sending or delaying our concatenated alerts
-            msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
-            self.__send_or_delay(msg, alerts)
+            try:
+                msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
+                self.__send_or_delay(msg, alerts)
+            except Exception as e:
+                self.logger.warning("Couldn't create alert msg for alerts: {alerts}".format(alerts=alerts))
+                self.logger.exception(e)
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(
             self._mongo_db.diffs.find().sort('date', pymongo.ASCENDING))
 
         mask = (diffs['date'] > arrow.utcnow().shift(hours=-24).format()) & (diffs['date'] <= arrow.utcnow().format())
+
         return diffs.loc[mask].to_dict('records')
 
     def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
@@ -131,11 +136,11 @@ class Alert(Runnable):
             self.__send_msg(self._mongo_db.telegram_users.find(), msg)
             return
 
-        self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
+        self.__send_msg_with_ack(self._mongo_db.telegram_users.find({'delay': False}), msg, alerts)
         self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
 
     def __send_delayed(self, delayed_users, msg, alerts):
-        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=10))
+        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
 
         self._scheduler.add_job(self.__send_msg_with_ack,
                                 args=[delayed_users, msg, alerts],
