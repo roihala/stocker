@@ -147,4 +147,8 @@ class ReaderBase(ABC):
                    is_otc=True).get_ticker_url(ticker)
 
         response = requests.get(url)
-        return float(response.json().get('previousClose'))
+        previous_close = response.json().get('previousClose')
+        if previous_close:
+            return float(previous_close)
+        else:
+            return 0
