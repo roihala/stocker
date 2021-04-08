@@ -148,7 +148,9 @@ class ReaderBase(ABC):
 
         response = requests.get(url)
         previous_close = response.json().get('previousClose')
+
         if previous_close:
             return float(previous_close)
         else:
+            logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
             return 0
