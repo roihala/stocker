@@ -86,7 +86,9 @@ class Alert(Runnable):
             self._mongo_db.diffs.find().sort('date', pymongo.ASCENDING))
 
         mask = (diffs['date'] > arrow.utcnow().shift(hours=-24).format()) & (diffs['date'] <= arrow.utcnow().format())
-        return diffs.loc[mask].to_dict('records')
+
+        # TODO: without tail
+        return diffs.loc[mask].tail(1).to_dict('records')
 
     def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
         event = first_event
@@ -131,7 +133,7 @@ class Alert(Runnable):
             self.__send_msg(self._mongo_db.telegram_users.find(), msg)
             return
 
-        self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
+        self.__send_msg_with_ack(self._mongo_db.telegram_users.find({'delay': False}), msg, alerts)
         self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
 
     def __send_delayed(self, delayed_users, msg, alerts):
