@@ -1,7 +1,6 @@
 import logging
-
-import pandas
-import pymongo
+from operator import itemgetter
+from typing import Iterable
 
 
 logger = logging.getLogger('Alert')
@@ -33,7 +32,26 @@ class AlerterBase(object):
         # List of keys to ignore
         return []
 
-    def get_alert_msg(self, diff):
+    def get_alert_msg(self, diffs: Iterable[dict]):
+        sorted_diffs = sorted(diffs, key=itemgetter('changed_key'))
+        ids = set()
+        msg = ''
+
+        for diff in sorted_diffs:
+            if diff.get('alerted') is True:
+                continue
+
+            object_id = diff.pop('_id')
+
+            diff_msg = self.generate_msg(diff)
+
+            if diff_msg:
+                msg = msg + '\n\n' + diff_msg if msg else diff_msg
+                ids.add(object_id)
+
+        return ids, msg
+
+    def generate_msg(self, diff):
         diff = self._edit_diff(diff)
 
         if not diff:
@@ -93,7 +111,3 @@ class AlerterBase(object):
                 logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=diff.get('ticker')))
                 logger.exception(e)
         return diff
-
-    def _get_sorted_diffs(self, ticker):
-        return pandas.DataFrame(
-            self._mongo_db.diffs.find({"ticker": ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))
