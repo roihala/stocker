@@ -2,7 +2,6 @@ import datetime
 import pandas
 from functools import reduce
 from typing import Iterable, List
-from operator import itemgetter
 
 import pymongo
 import telegram
@@ -42,13 +41,13 @@ class Alert(Runnable):
 
     def listen(self):
         # Alerting historic diffs to prevent losses
-        self.alert_diffs(self.__get_yesterday_diffs())
+        self.alert_batch(self.__get_yesterday_diffs())
 
         while True:
             try:
                 with self._mongo_db.diffs.watch() as stream:
                     event = stream.next()
-                    self.alert_diffs(self.__unpack_stream(stream, event))
+                    self.alert_batch(self.__unpack_stream(stream, event))
 
             except Exception as e:
                 # We know it's unrecoverable:
@@ -56,36 +55,27 @@ class Alert(Runnable):
 
             sleep(5)
 
-    def alert_diffs(self, diffs: Iterable[dict]):
-        tickers = set([diff.get('ticker') for diff in diffs])
-
-        for ticker in tickers:
+    def alert_batch(self, diffs: Iterable[dict]):
+        for ticker in set([diff.get('ticker') for diff in diffs]):
             self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
-        # Creating a mapping of object_id to alert in order to update mongo accordingly
-        alerts = {}
+        combined_msg = ''
+        combined_ids = set()
 
-        sorted_diffs = sorted(diffs, key=itemgetter('changed_key'))
+        for source in set([diff.get('source') for diff in diffs]):
+            ids, msg = self.__get_alert_by_source(source, [diff for diff in diffs if diff.get('source') == source])
 
-        for diff in sorted_diffs:
-            object_id = diff.pop('_id')
+            if msg and ids:
+                combined_msg = combined_msg + '\n\n' + msg if combined_msg else msg
+                combined_ids = combined_ids.union(ids)
 
-            if diff.get('alerted') is True:
-                continue
-
-            alert = self.__get_alert(diff)
-
-            if alert:
-                alerts[object_id] = alert
-
-        if alerts:
+        if combined_ids and combined_msg:
             # Sending or delaying our concatenated alerts
             try:
-                msg = self.__add_title(ticker, reduce(lambda x, y: x + '\n\n' + y, alerts.values()))
-                self.__send_or_delay(msg, alerts)
+                self.__send_or_delay(self.__add_title(ticker, combined_msg), combined_ids)
             except Exception as e:
-                self.logger.warning("Couldn't create alert msg for alerts: {alerts}".format(alerts=alerts))
+                self.logger.warning("Couldn't create alert msg for diffs: {diffs}".format(diffs=diffs))
                 self.logger.exception(e)
 
     def __get_yesterday_diffs(self):
@@ -112,26 +102,16 @@ class Alert(Runnable):
 
         return diffs
 
-    def __add_title(self, ticker, alert_msg):
-        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
-               '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                    ticker=ticker,
-                                    money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
-                                    last_price=ReaderBase.get_last_price(ticker),
-                                    trophy_emoji=self.TROPHY_EMOJI_UNICODE,
-                                    tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
-                                    alert_msg=alert_msg)
-
-    def __get_alert(self, diff):
+    def __get_alert_by_source(self, source, diffs):
         try:
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
                             'debug': self._debug}
-            alerter = Factory.alerters_factory(diff.get('source'), **alerter_args)
+            alerter = Factory.alerters_factory(source, **alerter_args)
 
-            return alerter.get_alert_msg(diff)
+            return alerter.get_alert_msg(diffs)
 
         except Exception as e:
-            self.logger.warning("Couldn't create alerter for {diff}".format(diff=diff))
+            self.logger.warning("Couldn't create alerter for {diffs}".format(diffs=diffs))
             self.logger.exception(e)
 
     def __send_or_delay(self, msg, alerts):
@@ -171,6 +151,16 @@ class Alert(Runnable):
                 self.logger.exception(e)
 
         return is_sent_successfuly
+
+    def __add_title(self, ticker, alert_msg):
+        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
+               '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
+                                    ticker=ticker,
+                                    money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
+                                    last_price=ReaderBase.get_last_price(ticker),
+                                    trophy_emoji=self.TROPHY_EMOJI_UNICODE,
+                                    tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
+                                    alert_msg=alert_msg)
 
     @staticmethod
     def get_daily_alerters():

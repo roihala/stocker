@@ -24,7 +24,7 @@ class Symbols(AlerterBase):
                 'isBankrupt': [True, False],
                 'hasControlDispute': [True, False]}
 
-    def get_alert_msg(self, diff):
+    def generate_msg(self, diff):
         original_diff = deepcopy(diff)
         diff = self._edit_diff(diff)
 
@@ -39,7 +39,7 @@ class Symbols(AlerterBase):
                                                                key=diff.get('changed_key'))
             elif diff.get('old') is True:
                 msg = '{red_circle_emoji}{key} removed'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                             key=diff.get('changed_key'))
+                                                               key=diff.get('changed_key'))
 
         # If managed to generate boolean-type alert message
         if msg:
