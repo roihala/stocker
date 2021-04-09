@@ -2,6 +2,7 @@ import datetime
 import pandas
 from functools import reduce
 from typing import Iterable, List
+from operator import itemgetter
 
 import pymongo
 import telegram
@@ -65,7 +66,9 @@ class Alert(Runnable):
         # Creating a mapping of object_id to alert in order to update mongo accordingly
         alerts = {}
 
-        for diff in diffs:
+        sorted_diffs = sorted(diffs, key=itemgetter('changed_key'))
+
+        for diff in sorted_diffs:
             object_id = diff.pop('_id')
 
             if diff.get('alerted') is True:
