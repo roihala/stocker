@@ -41,7 +41,7 @@ class Alert(Runnable):
 
     def listen(self):
         # Alerting historic diffs to prevent losses
-        # self.alert_diffs(self.__get_yesterday_diffs())
+        self.alert_diffs(self.__get_yesterday_diffs())
 
         while True:
             try:

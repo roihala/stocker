@@ -17,6 +17,12 @@ class Securities(AlerterBase):
                 'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName', 'foreignExchangeTier',
                 'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
+    @property
+    def hierarchy(self):
+        return {
+            'tierDisplayName': ['Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
+                                'OTCQX International']}
+
     def _edit_diff(self, diff):
         if diff.get('changed_key') in self.WHITE_LIST:
             return super()._edit_diff(diff)
