@@ -21,12 +21,6 @@ class Profile(AlerterBase):
                 'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes', 'reportingStandardMin',
                 'auditStatus', 'auditedStatusDisplay']
 
-    @property
-    def hierarchy(self):
-        return {
-            'tierDisplayName': ['Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
-                                'OTCQX International']}
-
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
 
