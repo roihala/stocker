@@ -14,6 +14,9 @@ from src.collect.differ import Differ
 
 logger = logging.getLogger('Collect')
 
+global cache
+cache = {}
+
 
 class CollectorBase(ABC):
     def __init__(self, mongo_db: Database, ticker, date=None, debug=False, write=False):
@@ -32,6 +35,9 @@ class CollectorBase(ABC):
         self._debug = debug
         self._write = write
         self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+
+        if self.name not in cache:
+            cache[self.name] = {}
 
     @staticmethod
     def get_sons():
@@ -54,10 +60,13 @@ class CollectorBase(ABC):
 
     def collect(self, raw_data=None):
         current = self.fetch_data(raw_data)
-        latest = self._reader.get_latest()
+        latest = cache[self.name].get(self.ticker, None)
+        if latest is None:
+            latest = self._reader.get_latest()
 
         if not latest:
             self.__save_data(current)
+
         elif current != latest:
             # Saving the fetched data
             self.__save_data(current)
@@ -68,6 +77,7 @@ class CollectorBase(ABC):
             if diffs:
                 self._mongo_db.diffs.insert_many(diffs)
 
+        cache[self.name][self.ticker] = current
         self.__collect_sons()
 
     def __decorate_diff(self, diff):
