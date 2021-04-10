@@ -81,9 +81,17 @@ class CollectorBase(ABC):
         self.__collect_sons()
 
     def __decorate_diff(self, diff):
-        # joining by '.' if a key is a list of keys (differ's nested changes approach)
-        key = diff['changed_key'] if not isinstance(diff['changed_key'], list) else \
-            '.'.join((str(part) for part in diff['changed_key']))
+        subkey = None
+        if not isinstance(diff['changed_key'], list):
+            key = diff.get('changed_key')
+        elif len(diff.get('changed_key')) > 1:
+            key = diff.get('changed_key')[0]
+            # joining by '.' if a subkey is a list of keys (differ's nested changes approach)
+            subkey = '.'.join(str(part) for part in diff.get('changed_key')[1:])
+
+            diff.update({
+                "subkey": subkey
+            })
 
         diff.update({
             "ticker": self.ticker,
@@ -92,7 +100,7 @@ class CollectorBase(ABC):
             "source": self.name,
             "alerted": False
         })
-
+        
         return diff
 
     def __save_data(self, data):
