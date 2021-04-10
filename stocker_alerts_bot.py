@@ -6,7 +6,8 @@ import os
 import dataframe_image as dfi
 import telegram
 from src.factory import Factory
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from client import Client
 from runnable import Runnable
@@ -16,6 +17,8 @@ PRINT_HISTORY, GET_COLLECTION, GENDER, LOCATION, BIO = range(5)
 VALIDATE_PASSWORD, STAM = range(2)
 
 BROADCAST_MSG, STAM = range(2)
+
+REGISTER = range(1)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -50,7 +53,7 @@ class Bot(Runnable):
             states={
                 # Allowing 3-5 letters
                 GET_COLLECTION: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_collection),
-                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
+                                 MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
                 PRINT_HISTORY: [MessageHandler(Filters.text(Factory.COLLECTIONS.keys()), Bot.dd_request),
                                 MessageHandler(~Filters.text(Factory.COLLECTIONS.keys()), Bot.invalid_collection)]
             },
@@ -58,7 +61,8 @@ class Bot(Runnable):
         )
 
         register_conv = ConversationHandler(
-            entry_points=[CommandHandler('register', Bot.register)],
+            entry_points=[CommandHandler('register', Bot.register),
+                          CallbackQueryHandler(Bot.register)],
             states={
                 # Allowing letters and whitespaces
                 VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.validate_password)]
@@ -75,6 +79,7 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
+        # dp.add_handler(start_conv)
         dp.add_handler(register_conv)
         dp.add_handler(alerts_conv)
         dp.add_handler(dd_conv)
@@ -83,7 +88,6 @@ class Bot(Runnable):
         dp.add_handler(CommandHandler('start', Bot.start))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
-
 
         # Start the Bot
         updater.start_polling()
@@ -98,7 +102,7 @@ class Bot(Runnable):
         user = update.message.from_user
         start_msg = '''   
     Stocker alerts bot currently supports the following commands:
-            
+
     /register - Register to get alerts on modifications straight to your telegram account.
     /deregister - Do this to stop getting alerts from stocker. *not recommended*
     /history - Get the saved history of a certain stock, note that columns with no changes will be removed.
@@ -107,18 +111,27 @@ class Bot(Runnable):
         if Bot.__is_high_permission_user(context._dispatcher.mongo_db, user.name, user.id):
             start_msg += '\n    /broadcast - Send meesages to all users'
 
+        keyboard = InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("register", callback_data='register')]])
+
         update.message.reply_text(start_msg,
-            parse_mode=telegram.ParseMode.MARKDOWN)
-        return ConversationHandler.END
+                                  parse_mode=telegram.ParseMode.MARKDOWN,
+                                  reply_markup=keyboard)
+        return REGISTER
 
     @staticmethod
     def register(update, context):
         try:
-            update.message.reply_text('Insert password please')
+            # If trying to register by the 'register' button on /start
+            if update.callback_query:
+                update.callback_query.message.reply_text('Insert password please')
+            else:
+                update.message.reply_text('Insert password please')
             return VALIDATE_PASSWORD
         except Exception as e:
             update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(user_name=update.message.from_user))
+                '{user_name} couldn\'t register, please contact the support team'.format(
+                    user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
@@ -133,10 +146,12 @@ class Bot(Runnable):
 
             # Using private attr because of bad API
             context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
-                                                                    {'user_name': user.name, 'chat_id': user.id, 'delay': True},
+                                                                    {'user_name': user.name, 'chat_id': user.id,
+                                                                     'delay': True},
                                                                     upsert=True)
 
-            context._dispatcher.logger.info("{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
+            context._dispatcher.logger.info(
+                "{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
 
             update.message.reply_text('{user_name} Registered successfully'.format(user_name=user.name))
         else:
@@ -154,7 +169,8 @@ class Bot(Runnable):
             context._dispatcher.mongo_db.telegram_users.delete_one({'user_name': user.name})
             context._dispatcher.mongo_db.telegram_users.delete_one({'chat_id': user.id})
 
-            context._dispatcher.logger.info("{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
+            context._dispatcher.logger.info(
+                "{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
 
             update.message.reply_text('{user_name} Deregistered successfully'.format(user_name=user.name))
 
@@ -168,7 +184,8 @@ class Bot(Runnable):
         user = update.message.from_user
 
         if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            kb = telegram.ReplyKeyboardMarkup([[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
+            kb = telegram.ReplyKeyboardMarkup(
+                [[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
             update.message.reply_text('Insert a valid OTC ticker',
                                       reply_markup=kb)
 
@@ -185,7 +202,8 @@ class Bot(Runnable):
 
     @staticmethod
     def invalid_collection(update, context):
-        update.message.reply_text('Invalid input. Please choose one of this collections: {}'.format(Factory.COLLECTIONS.keys()))
+        update.message.reply_text(
+            'Invalid input. Please choose one of this collections: {}'.format(Factory.COLLECTIONS.keys()))
 
         return ConversationHandler.END
 
@@ -237,7 +255,7 @@ class Bot(Runnable):
                                           reply_markup=telegram.ReplyKeyboardRemove())
                 return ConversationHandler.END
 
-            dd_df = dd_df[(dd_df.source==collection)]
+            dd_df = dd_df[(dd_df.source == collection)]
 
             Bot.send_df(dd_df, ticker, update.message.reply_document, reply_markup=telegram.ReplyKeyboardRemove())
 
@@ -283,7 +301,8 @@ class Bot(Runnable):
             return BROADCAST_MSG
         except Exception as e:
             update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(user_name=update.message.from_user))
+                '{user_name} couldn\'t register, please contact the support team'.format(
+                    user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
@@ -298,18 +317,21 @@ class Bot(Runnable):
                     bot_instance.sendMessage(chat_id=to_user['chat_id'], text=broadcast_msg)
                 except telegram.error.BadRequest:
                     context._dispatcher.logger.warning(
-                "{user_name} of {chat_id} not found during broadcast message sending.".format(user_name=to_user['user_name'],
-                                                                                              chat_id=to_user['chat_id']))
+                        "{user_name} of {chat_id} not found during broadcast message sending.".format(
+                            user_name=to_user['user_name'],
+                            chat_id=to_user['chat_id']))
             update.message.reply_text('Your message have been sent to all of the stocker bot users.')
         else:
             update.message.reply_text('Your user do not have the sufficient permissions to run this command.')
             context._dispatcher.logger.warning(
-                "{user_name} of {chat_id} have tried to run an high permission user command".format(user_name=from_user.name,
-                                                                                                    chat_id=from_user.id))
+                "{user_name} of {chat_id} have tried to run an high permission user command".format(
+                    user_name=from_user.name,
+                    chat_id=from_user.id))
 
     @staticmethod
     def __is_high_permission_user(mongo_db, user_name, chat_id):
-        return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id,  'permissions': 'high'}))
+        return bool(
+            mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id, 'permissions': 'high'}))
 
 
 def main():
