@@ -25,6 +25,13 @@ class Symbols(AlerterBase):
                 'hasControlDispute': [True, False],
                 'isLinkedToProhibitedSP': [True, False]}
 
+    @property
+    def humanized_keys() -> dict:
+        return {
+            "verifiedProfile": "Verified Profile",
+            "isDark": "Dark or Defunct"
+        }
+
     def generate_msg(self, diff):
         original_diff = deepcopy(diff)
         diff = self._edit_diff(diff)

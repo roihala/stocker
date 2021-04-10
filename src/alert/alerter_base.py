@@ -29,6 +29,11 @@ class AlerterBase(object):
         # List of keys to ignore
         return []
 
+    @property
+    def humanized_keys() -> dict:
+        # Key translation dictionary
+        pass
+
     def get_alert_msg(self, diffs: Iterable[dict]):
         sorted_diffs = sorted(diffs, key=itemgetter('changed_key'))
         ids = set()
@@ -76,7 +81,8 @@ class AlerterBase(object):
                                                       green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                       new=new)
 
-        title = title.format(key=diff.get('changed_key'), verb=verb)
+        humanized_key = self.humanized_keys.get(diff.get('changed_key')) or diff.get('changed_key')
+        title = title.format(key=humanized_key, verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)

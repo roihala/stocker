@@ -23,6 +23,12 @@ class Securities(AlerterBase):
             'tierDisplayName': ['Expert Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International']}
 
+    @property
+    def humanized_keys() -> dict:
+        return {
+            "tierDisplayName": "Tier"
+        }
+
     def _edit_diff(self, diff):
         if diff.get('changed_key') in self.WHITE_LIST:
             return super()._edit_diff(diff)

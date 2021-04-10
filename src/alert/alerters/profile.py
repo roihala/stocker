@@ -23,6 +23,19 @@ class Profile(AlerterBase):
                 'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes', 'reportingStandardMin',
                 'auditStatus', 'auditedStatusDisplay']
 
+    @property
+    def humanized_keys() -> dict:
+        return {
+            "officers": "Officer",
+            "auditors": "Auditor",
+            "standardDirectorList": "Director",
+            "premierDirectorList": "Director",
+            "numberOfEmployees": "Employees Count",
+            "primarySicCode": "Sic Code",
+            "businessDesc": "Business Description",
+            "address": "Address"
+        }
+
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
 
