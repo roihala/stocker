@@ -10,6 +10,7 @@ logger = logging.getLogger('Alert')
 class Profile(AlerterBase):
     # TODO: MAYBE more keys
     OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
+    ADDRESS_LINES = [['address1', 'address2'], ['city',  'state'], ['country']]
 
     @property
     def filter_keys(self):
@@ -24,8 +25,17 @@ class Profile(AlerterBase):
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
 
-        if diff and diff.get('changed_key') in self.OTCIQ_KEYS:
+        if not diff:
+            return diff
+
+        if diff.get('changed_key') in self.OTCIQ_KEYS:
             diff = self.update_otciq(self._mongo_db, diff)
+
+        if diff.get('changed_key') in [key for line in self.ADDRESS_LINES for key in line]:
+            records = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker')).get_sorted_history().tail(2)
+            diff['old'], diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1]) 
+                                                       
+            diff['changed_key'] = "address"
 
         return diff
 
@@ -43,3 +53,12 @@ class Profile(AlerterBase):
             diff['diff_appendix'] = 'otciq'
 
         return diff
+
+    def format_address(self, record):
+        """
+        Generates pretty address string
+        """
+        address_lines = []
+        for line in self.ADDRESS_LINES:
+            address_lines.append(', '.join(record.get(key) for key in line if record.get(key)))
+        return '\n'.join(address_lines)
