@@ -4,6 +4,7 @@ import re
 
 import arrow
 import pandas
+import pymongo
 
 from runnable import Runnable
 from src.factory import Factory
@@ -142,12 +143,8 @@ class Client(Runnable):
     @staticmethod
     def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
-        alerts = pandas.DataFrame(mongo_db.diffs.find()).drop(['_id', 'alerted'], axis='columns')
-
-        alerts = alerts[alerts['ticker'] == ticker]
-
-        # Dropping unnecessary columns
-        alerts = alerts.drop(['diff_type', 'source'], axis=1)
+        alerts = pandas.DataFrame(
+            mongo_db.diffs.find(({"ticker": ticker, 'alerted': {'$eq': True}})).sort('date', pymongo.ASCENDING))
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
@@ -156,6 +153,9 @@ class Client(Runnable):
         alerts['old'] = alerts.apply(
             lambda row: ReaderBase.timestamp_to_datestring(row['old']) if 'Date' in row['changed_key'] else row['old'],
             axis=1)
+
+        # Dropping columns that the user shouldn't see
+        alerts = alerts.drop(['_id', 'diff_type', 'source', 'alerted'], axis=1)
 
         return alerts
 
