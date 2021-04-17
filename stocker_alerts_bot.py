@@ -104,10 +104,10 @@ class Bot(Runnable):
         start_msg = '''   
     Please use one of the following commands:
 
-    /register - Register to get alerts on updates straight to your telegram account.
-    /alerts - Previously detected alerts for a given ticker.
-    /dd - Dig in to updates that weren't alerted.
-    /deregister - Do this to stop getting alerts from stocker. *not recommended*.
+/register - Register to get alerts on updates straight to your telegram account.
+/alerts - Previously detected alerts for a given ticker.
+/dd - Dig in to updates that weren't alerted.
+/deregister - Do this to stop getting alerts from stocker. *not recommended*.
     '''
 
         if Bot.__is_high_permission_user(context._dispatcher.mongo_db, user.name, user.id):
