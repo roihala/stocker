@@ -7,18 +7,13 @@ import dataframe_image as dfi
 import telegram
 from src.factory import Factory
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup
 
 from client import Client
 from runnable import Runnable
+from src.read import readers
 
-PRINT_HISTORY, GET_COLLECTION, GENDER, LOCATION, BIO = range(5)
-
-VALIDATE_PASSWORD, STAM = range(2)
-
-BROADCAST_MSG, STAM = range(2)
-
-REGISTER = range(1)
+PRINT_DD, GET_TOPIC, PRINT_ALERTS, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(6)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -38,12 +33,21 @@ class Bot(Runnable):
         setattr(dp, 'mongo_db', self._mongo_db)
         setattr(dp, 'logger', self.logger)
 
+        start_conv = ConversationHandler(
+            entry_points=[CommandHandler('start', Bot.start)],
+            states={
+                REGISTER: [CallbackQueryHandler(Bot.register_callback)],
+                VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.validate_password)]
+            },
+            fallbacks=[]
+        )
+
         alerts_conv = ConversationHandler(
             entry_points=[CommandHandler('alerts', Bot.alerts)],
             states={
                 # Allowing 3-5 letters
-                PRINT_HISTORY: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.alerts_request),
-                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+                PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.alerts_request),
+                           MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
             },
             fallbacks=[],
         )
@@ -52,17 +56,15 @@ class Bot(Runnable):
             entry_points=[CommandHandler('dd', Bot.dd)],
             states={
                 # Allowing 3-5 letters
-                GET_COLLECTION: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_collection),
-                                 MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
-                PRINT_HISTORY: [MessageHandler(Filters.text(Factory.COLLECTIONS.keys()), Bot.dd_request),
-                                MessageHandler(~Filters.text(Factory.COLLECTIONS.keys()), Bot.invalid_collection)]
+                GET_TOPIC: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_topic),
+                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
+                PRINT_DD: [CallbackQueryHandler(Bot.dd_callback)]
             },
             fallbacks=[],
         )
 
         register_conv = ConversationHandler(
-            entry_points=[CommandHandler('register', Bot.register),
-                          CallbackQueryHandler(Bot.register)],
+            entry_points=[CommandHandler('register', Bot.register)],
             states={
                 # Allowing letters and whitespaces
                 VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.validate_password)]
@@ -79,13 +81,12 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
-        # dp.add_handler(start_conv)
-        dp.add_handler(register_conv)
+        dp.add_handler(start_conv)
         dp.add_handler(alerts_conv)
+        dp.add_handler(register_conv)
         dp.add_handler(dd_conv)
         dp.add_handler(broadcast_conv)
 
-        dp.add_handler(CommandHandler('start', Bot.start))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
 
@@ -120,19 +121,32 @@ class Bot(Runnable):
         return REGISTER
 
     @staticmethod
-    def register(update, context):
+    def register_callback(update, context):
         try:
             # If trying to register by the 'register' button on /start
-            if update.callback_query:
+            if update.callback_query.data == 'register':
                 update.callback_query.message.reply_text('Insert password please')
+                return VALIDATE_PASSWORD
             else:
-                update.message.reply_text('Insert password please')
+                return ConversationHandler.END
+        except Exception as e:
+            update.message.reply_text(
+                '{user_name} couldn\'t register, please contact the support team'.format(
+                    user_name=update.message.from_user))
+            context._dispatcher.logger.exception(e.__traceback__)
+            return ConversationHandler.END
+
+    @staticmethod
+    def register(update, context):
+        try:
+            update.message.reply_text('Insert password please')
             return VALIDATE_PASSWORD
         except Exception as e:
             update.message.reply_text(
                 '{user_name} couldn\'t register, please contact the support team'.format(
                     user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
+            return ConversationHandler.END
 
     @staticmethod
     def validate_password(update, context):
@@ -159,6 +173,7 @@ class Bot(Runnable):
                 "{user_name} of {chat_id} have tried to register with password: {password}".format(user_name=user.name,
                                                                                                    chat_id=user.id,
                                                                                                    password=password))
+            update.message.reply_text('Wrong password, please make sure you have the correct credentials for this bot!')
         return ConversationHandler.END
 
     @staticmethod
@@ -184,12 +199,9 @@ class Bot(Runnable):
         user = update.message.from_user
 
         if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            kb = telegram.ReplyKeyboardMarkup(
-                [[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
-            update.message.reply_text('Insert a valid OTC ticker',
-                                      reply_markup=kb)
+            update.message.reply_text('Insert a valid OTC ticker')
 
-            return PRINT_HISTORY
+            return PRINT_ALERTS
         else:
             update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
             return ConversationHandler.END
@@ -211,6 +223,7 @@ class Bot(Runnable):
     def alerts_request(update, context):
         user = update.message.from_user
         ticker = update.message.text.upper()
+        update.message.reply_text("This operation might take some time...")
 
         try:
             context._dispatcher.logger.info("{user_name} of {chat_id} have used /alerts on ticker: {ticker}".format(
@@ -229,40 +242,52 @@ class Bot(Runnable):
         return ConversationHandler.END
 
     @staticmethod
-    def get_collection(update, context):
+    def get_topic(update, context):
         ticker = update.message.text.upper()
-
         context.user_data["ticker"] = ticker
 
-        kb = telegram.ReplyKeyboardMarkup(
-            [[telegram.KeyboardButton(collection)] for collection in Factory.COLLECTIONS.keys()])
-        update.message.reply_text('Choose a collection.',
-                                  reply_markup=kb)
+        keyboard = InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Share Structure", callback_data='ss'),
+             telegram.InlineKeyboardButton("Company Profile", callback_data='profile')]])
 
-        return PRINT_HISTORY
+        update.message.reply_text('Please Choose a topic:',
+                                  reply_markup=keyboard)
+
+        return PRINT_DD
 
     @staticmethod
-    def dd_request(update, context):
-        collection = update.message.text
+    def dd_callback(update, context):
+        topic = update.callback_query.data
+        update.callback_query.answer()
         ticker = context.user_data["ticker"]
 
         try:
-            update.message.reply_text("This action might take some time...",
-                                      reply_markup=telegram.ReplyKeyboardRemove())
-            dd_df = Client.get_history(context._dispatcher.mongo_db, ticker)
-            if len(dd_df.index) == 0:
-                update.message.reply_text("{} does not have any history for {} collection.".format(ticker, collection),
-                                          reply_markup=telegram.ReplyKeyboardRemove())
+            dd_df = None
+            update.callback_query.message.reply_text("This operation might take some time...")
+
+            if topic == 'ss':
+                dd_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker)\
+                    .get_sorted_history(filter_rows=True, filter_cols=True)
+            elif topic == 'profile':
+                profile_df = readers.Profile(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
+                    .get_sorted_history(filter_rows=True, filter_cols=True)
+                symbols_df = readers.Symbols(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
+                    .get_sorted_history(filter_rows=True, filter_cols=True)
+
+                # TODO
+                dd_df = profile_df.join(symbols_df, how='outer', lsuffix='_1')
+
+            if dd_df is None:
+                update.callback_query.message.reply_text("Couldn't get /dd for {ticker}".format(ticker=ticker, topic=topic))
+                context._dispatcher.logger.warning("Couldn't generate /dd for {ticker} on {topic} topic".format(ticker=ticker, topic=topic))
                 return ConversationHandler.END
 
-            dd_df = dd_df[(dd_df.source == collection)]
-
-            Bot.send_df(dd_df, ticker, update.message.reply_document, reply_markup=telegram.ReplyKeyboardRemove())
+            Bot.send_df(dd_df, ticker, update.callback_query.message.reply_document, reply_markup=telegram.ReplyKeyboardRemove())
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker),
-                                      reply_markup=telegram.ReplyKeyboardRemove())
+            update.callback_query.message.reply_text("Couldn't produce {topic} for {ticker}".format(ticker=ticker,
+                                                                                                    topic=topic))
 
         return ConversationHandler.END
 
@@ -273,7 +298,7 @@ class Bot(Runnable):
         if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
             update.message.reply_text('Insert a valid OTC ticker')
 
-            return GET_COLLECTION
+            return GET_TOPIC
         else:
             update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
             return ConversationHandler.END
