@@ -1,6 +1,5 @@
 import datetime
 import pandas
-from functools import reduce
 from typing import Iterable, List
 
 import pymongo
@@ -24,6 +23,7 @@ class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     MONEY_BAG_EMOJI_UNICODE = u'\U0001F4B0'
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
+    BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
     def __init__(self):
         super().__init__()
@@ -60,20 +60,28 @@ class Alert(Runnable):
             self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
-        combined_msg = ''
+        try:
+            # Generate message if this ticker have never been alerted
+            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
+                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
+            else:
+                msg = ''
+        except Exception:
+            msg = ''
+
         combined_ids = set()
 
         for source in set([diff.get('source') for diff in diffs]):
-            ids, msg = self.__get_alert_by_source(source, [diff for diff in diffs if diff.get('source') == source])
+            ids, alert = self.__get_alert_by_source(source, [diff for diff in diffs if diff.get('source') == source])
 
-            if msg and ids:
-                combined_msg = combined_msg + '\n\n' + msg if combined_msg else msg
+            if alert and ids:
+                msg = msg + '\n\n' + alert if msg else alert
                 combined_ids = combined_ids.union(ids)
 
-        if combined_ids and combined_msg:
+        if combined_ids and msg:
             # Sending or delaying our concatenated alerts
             try:
-                self.__send_or_delay(self.__add_title(ticker, combined_msg), combined_ids)
+                self.__send_or_delay(self.__add_title(ticker, msg), combined_ids)
             except Exception as e:
                 self.logger.warning("Couldn't create alert msg for diffs: {diffs}".format(diffs=diffs))
                 self.logger.exception(e)
