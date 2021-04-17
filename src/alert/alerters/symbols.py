@@ -22,7 +22,8 @@ class Symbols(AlerterBase):
                 'isCaveatEmptor': [True, False],
                 'unableToContact': [True, False],
                 'isBankrupt': [True, False],
-                'hasControlDispute': [True, False]}
+                'hasControlDispute': [True, False],
+                'isLinkedToProhibitedSP': [True, False]}
 
     def generate_msg(self, diff):
         original_diff = deepcopy(diff)
