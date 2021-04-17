@@ -102,12 +102,13 @@ class Bot(Runnable):
     def start(update, context):
         user = update.message.from_user
         start_msg = '''   
-    Stocker alerts bot currently supports the following commands:
+    Please use one of the following commands:
 
-    /register - Register to get alerts on modifications straight to your telegram account.
-    /deregister - Do this to stop getting alerts from stocker. *not recommended*
-    /history - Get the saved history of a certain stock, note that columns with no changes will be removed.
-    /alerts - Get every alert that stocker has detected for a specific ticker.'''
+    /register - Register to get alerts on updates straight to your telegram account.
+    /alerts - Previously detected alerts for a given ticker.
+    /dd - Dig in to updates that weren't alerted.
+    /deregister - Do this to stop getting alerts from stocker. *not recommended*.
+    '''
 
         if Bot.__is_high_permission_user(context._dispatcher.mongo_db, user.name, user.id):
             start_msg += '\n    /broadcast - Send meesages to all users'
