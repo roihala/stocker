@@ -76,7 +76,7 @@ class Bot(Runnable):
             entry_points=[CommandHandler('broadcast', Bot.broadcast)],
             states={
                 # Allowing letters and whitespaces
-                BROADCAST_MSG: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.send_broadcast_msg)]
+                BROADCAST_MSG: [MessageHandler(Filters.text, Bot.send_broadcast_msg)]
             },
             fallbacks=[],
         )
@@ -353,6 +353,7 @@ class Bot(Runnable):
                 "{user_name} of {chat_id} have tried to run an high permission user command".format(
                     user_name=from_user.name,
                     chat_id=from_user.id))
+        return ConversationHandler.END
 
     @staticmethod
     def __is_high_permission_user(mongo_db, user_name, chat_id):
