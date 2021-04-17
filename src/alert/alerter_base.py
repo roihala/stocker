@@ -9,9 +9,6 @@ logger = logging.getLogger('Alert')
 class AlerterBase(object):
     GREEN_CIRCLE_EMOJI_UNICODE = u'\U0001F7E2'
     RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
-    FAST_FORWARD_EMOJI_UNICODE = u'\U000023E9'
-    CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
-    FACTORY_EMOJI_UNICODE = u'\U0001F3ED'
 
     def __init__(self, mongo_db, telegram_bot, debug=None):
         self.name = self.__class__.__name__.lower()
@@ -35,6 +32,7 @@ class AlerterBase(object):
     def get_alert_msg(self, diffs: Iterable[dict]):
         sorted_diffs = sorted(diffs, key=itemgetter('changed_key'))
         ids = set()
+
         msg = ''
 
         for diff in sorted_diffs:
