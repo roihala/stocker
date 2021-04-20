@@ -137,13 +137,13 @@ class Alert(Runnable):
                                 args=[delayed_users, msg, alerts],
                                 trigger=trigger)
 
-    def __send_msg_with_ack(self, users_group, msg, alerts):
+    def __send_msg_with_ack(self, users_group, msg, alerts_ids):
         is_success = self.__send_msg(users_group, msg)
 
         if is_success:
             # Updating mongo that the diff has been alerted
             [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
-             alerts.keys()]
+             alerts_ids]
 
     def __send_msg(self, users_group, msg):
         is_sent_successfuly = False
