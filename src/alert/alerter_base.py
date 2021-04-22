@@ -49,29 +49,32 @@ class AlerterBase(object):
 
         return ids, msg
 
-    def generate_msg(self, diff):
+    def generate_msg(self, diff, old=None, new=None):
         diff = self._edit_diff(diff)
 
         if not diff:
             return ''
+
+        old = old or diff.get('old')
+        new = new or diff.get('new')
 
         title = '*{key}* {verb}:'
 
         if diff.get('diff_type') == 'remove':
             verb = 'removed'
             body = '{red_circle_emoji}{old}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                    old=diff.get('old'))
+                                                    old=old)
         elif diff.get('diff_type') == 'add':
             verb = 'added'
             body = '{green_circle_emoji}{new}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                      new=diff.get('new'))
+                                                      new=new)
         else:
             verb = 'changed'
             body = '{red_circle_emoji}{old}\n' \
                    '{green_circle_emoji}{new}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                      old=diff.get('old'),
+                                                      old=old,
                                                       green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                      new=diff.get('new'))
+                                                      new=new)
 
         title = title.format(key=diff.get('changed_key'), verb=verb)
 
