@@ -2,16 +2,25 @@ import argparse
 import logging
 import os
 import pandas
+import json
+import requests
 from abc import abstractmethod, ABC
 
 import pymongo
 import telegram
 from pymongo import MongoClient
+from src.find.site import Site
+
 
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
+TDAMERITRADE_API_KEY = "7GF2GJN60ZAP2F9E4V7IXDMFZD5M6GQR"
+TDAMERITRADE_SYMBOL = 'https://api.tdameritrade.com/v1/marketdata/quotes?apikey={api_key}&symbol={tickers_list}'
+
+TICKER_GROUP = 500
+TICKERS_API_DELIMITER = "%2C"
 
 class Runnable(ABC):
     def __init__(self, args=None):
@@ -93,11 +102,37 @@ class Runnable(ABC):
             if not csv:
                 csv = DEFAULT_CSV_PATH
 
-            df = pandas.read_csv(csv)
+            df = Runnable._get_tradeable_tickers(pandas.read_csv(csv))
+            
             return df.Symbol.apply(lambda ticker: ticker.upper())
         except Exception:
             raise ValueError(
                 'Invalid csv file - validate the path and that the tickers are under a column named symbol')
+
+    @staticmethod
+    def _get_tradeable_tickers(df):
+        tradeable_tickers = []
+        tickers_to_check = []
+        print("Checking tickers...")
+        for index, row in df.iterrows():
+            tickers_to_check.append(row["Symbol"])
+
+            if (index + 1) % TICKER_GROUP == 0:
+                tdameritrade_site = Site("tdameritrade",
+                            TDAMERITRADE_SYMBOL,
+                            is_otc=False, api_key=TDAMERITRADE_API_KEY)
+                try:
+                    tradeable_tickers.extend(json.loads(requests.get(
+                        tdameritrade_site.get_tickers_list_url(tickers_to_check)).content).keys())
+                except Exception as e:
+                    # In case there is some problem with retrieving the tradeable
+                    # tickers we'll take all the tickers
+                    tradeable_tickers.extend(tickers_to_check)
+                tickers_to_check = []
+
+        print(f"Out of {index + 1} tickers in the CSV, {len(tradeable_tickers)} are tradeable.")
+        return df[df["Symbol"].isin(tradeable_tickers)]
+
 
     @staticmethod
     def disable_apscheduler_logs():

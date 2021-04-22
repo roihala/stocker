@@ -11,10 +11,13 @@ class Site(object):
     TICKER_TRANSLATION_URL = "http://d.yimg.com/autoc.finance.yahoo.com/autoc?query={ticker}&region=1&lang=en"
     TICKER_PROFILE_URL = 'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}'
 
-    def __init__(self, name, url, is_otc):
+    TICKERS_DELIMITER = "%2C"
+
+    def __init__(self, name, url, is_otc, api_key=None):
         self.name = name
         self.url = url
         self.is_otc = is_otc
+        self.api_key = api_key
 
     def get_ticker_url(self, ticker, strip=False):
         format_keys = self.get_format_keys(self.url)
@@ -43,6 +46,16 @@ class Site(object):
             return response.json()['website']
         except KeyError:
             raise Exception("Couldn't get the website of {ticker}".format(ticker=ticker))
+
+    def get_tickers_list_url(self, tickers_list):
+        format_keys = self.get_format_keys(self.url)
+        if 'tickers_list' in format_keys and 'api_key' in format_keys:
+            if self.api_key:
+                return self.url.format(api_key=self.api_key, tickers_list=self.TICKERS_DELIMITER.join(tickers_list))
+            else:
+                raise Exception("No API key supplied for site: {url}".format(self.url))
+        else:
+            raise Exception("Invalid site format: {url}".format(url=self.url))
 
     @staticmethod
     def get_format_keys(string):
