@@ -35,18 +35,6 @@ class Profile(SiteCollector):
                 'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate',
                 'estimatedMarketCapAsOfDate', 'estimatedMarketCap']
 
-    def _check_diff(self, diff):
-        elif diff.get('changed_key') == "phone":
-            return not _compare_phones(diff.get('old'), diff.get('new'))
-
-    def _compare_phones(self, phone1, phone2):
-        def parse_phone(phone, region="US"):
-            try:
-                return phonenumbers.parse(phone)
-            except phonenumbers.NumberParseException:
-                return phonenumbers.parse(phone, region)
-        return parse_phone(phone1) == parse_phone(phone2)
-
     def fetch_data(self, data=None):
         data = super().fetch_data()
         # Those keys are either irrelevant or used in other collectors

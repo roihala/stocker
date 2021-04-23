@@ -1,4 +1,5 @@
 import logging
+import phonenumbers
 from copy import deepcopy
 
 from src.alert.tickers.ticker_alerter import TickerAlerter
@@ -30,6 +31,17 @@ class Profile(TickerAlerter):
     def _check_diff(self, diff):
         if diff.get('changed_key') == "buisnessDesc":
             return diff.get('new').isascii()
+        elif diff.get('changed_key') == "phone":
+            return diff.get('old').strip() and diff.get('new').strip() and \
+                not self._compare_phones(diff.get('old'), diff.get('new'))
+
+    def _compare_phones(self, phone1, phone2):
+        def parse_phone(phone, region="US"):
+            try:
+                return phonenumbers.parse(phone)
+            except phonenumbers.NumberParseException:
+                return phonenumbers.parse(phone, region)
+        return parse_phone(phone1) == parse_phone(phone2)
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
