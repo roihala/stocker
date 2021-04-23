@@ -27,6 +27,10 @@ class Profile(TickerAlerter):
                 'is12g32b', 'isBankThrift', 'isInternationalReporting', 'isNonBankRegulated', 'isOtherReporting',
                 'regulatoryAgencyId', 'regulatoryAgencyName', 'traderRssdId', 'yearOfIncorporation']
 
+    def _check_diff(self, diff):
+        if diff.get('changed_key') == "buisnessDesc":
+            return diff.get('new').isascii()
+
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
 
