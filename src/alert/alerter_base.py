@@ -35,7 +35,7 @@ class AlerterBase(object):
 
         msg = ''
 
-        for diff in sorted_diffs:
+        for diff in self._edit_batch(sorted_diffs):
             if diff.get('alerted') is True:
                 continue
 
@@ -80,6 +80,9 @@ class AlerterBase(object):
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
+
+    def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
+        return diffs
 
     def _edit_diff(self, diff) -> dict:
         """
