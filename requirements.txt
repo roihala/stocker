@@ -13,4 +13,6 @@ apscheduler
 dnspython
 lxml
 bs4
+grpcio
+google-cloud-pubsub
 retry

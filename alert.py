@@ -1,4 +1,6 @@
 import datetime
+import json
+
 import pandas
 from typing import Iterable, List
 
@@ -17,6 +19,12 @@ from runnable import Runnable
 from src.factory import Factory
 from src.read import readers
 from src.read.reader_base import ReaderBase
+
+from google.cloud.pubsub import SubscriberClient
+from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
+
+subscription_name = 'projects/stocker-300519/subscriptions/diff-updates-sub'
+subscriber = SubscriberClient()
 
 
 class Alert(Runnable):
@@ -37,7 +45,9 @@ class Alert(Runnable):
         self._scheduler.start()
 
     def run(self):
-        self.listen()
+        streaming_pull_future = subscriber.subscribe(subscription_name, self.alert_batch)
+        with subscriber:
+            streaming_pull_future.result()
 
     def listen(self):
         # Alerting historic diffs to prevent losses
@@ -55,9 +65,12 @@ class Alert(Runnable):
 
             sleep(5)
 
-    def alert_batch(self, diffs: Iterable[dict]):
+    def alert_batch(self, batch: PubSubMessage):
+        diffs = json.loads(batch.data)
         for ticker in set([diff.get('ticker') for diff in diffs]):
             self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
+
+        # batch.ack()
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
         try:

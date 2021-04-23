@@ -1,3 +1,5 @@
+import json
+import os
 from copy import deepcopy
 
 import pandas
@@ -6,6 +8,8 @@ import pymongo
 import logging
 
 from arrow import ParserError
+from bson import json_util
+from google.cloud import pubsub_v1
 from pymongo.database import Database
 from abc import ABC, abstractmethod
 
@@ -13,6 +17,9 @@ from src import factory
 from src.collect.differ import Differ
 
 logger = logging.getLogger('Collect')
+
+publisher = pubsub_v1.PublisherClient()
+topic_name = 'projects/stocker-300519/topics/diff-updates'
 
 global cache
 cache = {}
@@ -67,7 +74,7 @@ class CollectorBase(ABC):
         if not latest:
             self.__save_data(current)
 
-        elif current != latest:
+        elif current != latest or not latest:
             # Saving the fetched data
             self.__save_data(current)
 
@@ -76,6 +83,8 @@ class CollectorBase(ABC):
             logger.info('diffs: {diffs}'.format(diffs=diffs))
             if diffs:
                 self._mongo_db.diffs.insert_many(diffs)
+                data = json.dumps(diffs, default=json_util.default).encode('utf-8')
+                publisher.publish(topic_name, data)
 
         cache[self.name][self.ticker] = current
         self.__collect_sons()
@@ -116,7 +125,8 @@ class CollectorBase(ABC):
     def __collect_sons(self):
         for son in self.get_sons():
             try:
-                collection_args = {'mongo_db': self._mongo_db, 'ticker': self.ticker, 'date': self._date, 'debug': self._debug}
+                collection_args = {'mongo_db': self._mongo_db, 'ticker': self.ticker, 'date': self._date,
+                                   'debug': self._debug}
                 collector = factory.Factory.collectors_factory(son, **collection_args)
                 collector.collect(self._raw_data)
             except Exception as e:
