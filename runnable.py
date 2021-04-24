@@ -37,6 +37,7 @@ class Runnable(ABC):
             self._mongo_db = self.init_mongo(self.args.uri)
             self._telegram_bot = self.init_telegram(self.args.token)
             self._tickers_list = self.extract_tickers(self.args.csv)
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(__file__), 'credentials/stocker.json')
 
             if self.args.verbose:
                 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')

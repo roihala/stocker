@@ -39,7 +39,7 @@ class AlerterBase(object):
             if diff.get('alerted') is True:
                 continue
 
-            object_id = diff.pop('_id')
+            object_id = diff['_id']['$oid']
 
             diff_msg = self.generate_msg(diff)
 

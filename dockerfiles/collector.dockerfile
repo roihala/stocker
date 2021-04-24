@@ -7,5 +7,6 @@ COPY ./ /code/
 RUN chmod 755 /code/
 
 ENV PYTHONPATH /code
+ENV GOOGLE_APPLICATION_CREDENTIALS /code/credentials/stocker.json
 
 CMD [ "python", "./code/collect.py" ]

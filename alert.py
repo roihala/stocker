@@ -1,10 +1,11 @@
 import datetime
+import json
+
 import pandas
 from typing import Iterable, List
 
 import pymongo
 import telegram
-from time import sleep
 
 import arrow
 from pymongo.change_stream import CollectionChangeStream
@@ -18,12 +19,17 @@ from src.factory import Factory
 from src.read import readers
 from src.read.reader_base import ReaderBase
 
+from google.cloud.pubsub import SubscriberClient
+from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
+
 
 class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     MONEY_BAG_EMOJI_UNICODE = u'\U0001F4B0'
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
+
+    PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
 
     def __init__(self):
         super().__init__()
@@ -36,38 +42,30 @@ class Alert(Runnable):
 
         self._scheduler.start()
 
+        self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
+        self._subscriber = SubscriberClient()
+
     def run(self):
-        self.listen()
+        streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
+        with self._subscriber:
+            streaming_pull_future.result()
 
-    def listen(self):
-        # Alerting historic diffs to prevent losses
-        self.alert_batch(self.__get_yesterday_diffs())
+    def alert_batch(self, batch: PubSubMessage):
+        diffs = json.loads(batch.data)
 
-        while True:
-            try:
-                with self._mongo_db.diffs.watch() as stream:
-                    event = stream.next()
-                    self.alert_batch(self.__unpack_stream(stream, event))
+        try:
+            for ticker in set([diff.get('ticker') for diff in diffs]):
+                self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
-            except Exception as e:
-                # We know it's unrecoverable:
-                self.logger.exception(e)
-
-            sleep(5)
-
-    def alert_batch(self, diffs: Iterable[dict]):
-        for ticker in set([diff.get('ticker') for diff in diffs]):
-            self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
+            batch.ack()
+        except Exception as e:
+            self.logger.warning("Couldn't ack diffs: {diffs}".format(diffs=diffs))
+            self.logger.exception(e)
+            batch.nack()
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
-        try:
-            # Generate message if this ticker have never been alerted
-            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
-                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
-            else:
-                msg = ''
-        except Exception:
-            msg = ''
+        # Adding a message if this ticker have never been alerted
+        msg = self.__first_alert_msg(ticker)
 
         combined_ids = set()
 
@@ -85,6 +83,17 @@ class Alert(Runnable):
             except Exception as e:
                 self.logger.warning("Couldn't create alert msg for diffs: {diffs}".format(diffs=diffs))
                 self.logger.exception(e)
+
+    def __first_alert_msg(self, ticker):
+        msg = ''
+
+        try:
+            # Generate message if this ticker have never been alerted
+            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
+                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
+        except Exception:
+            pass
+        return msg
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(
@@ -124,7 +133,7 @@ class Alert(Runnable):
 
     def __send_or_delay(self, msg, alerts):
         if self._debug:
-            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            self.__send_msg_with_ack(self._mongo_db.telegram_users.find(), msg, alerts)
             return
 
         self.__send_msg_with_ack(self._mongo_db.telegram_users.find({'delay': False}), msg, alerts)
