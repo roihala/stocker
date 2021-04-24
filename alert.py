@@ -56,6 +56,8 @@ class Alert(Runnable):
         for ticker in set([diff.get('ticker') for diff in diffs]):
             self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
+        batch.ack()
+
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
         # Adding a message if this ticker have never been alerted
         msg = self.__first_alert_msg(ticker)
