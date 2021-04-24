@@ -53,10 +53,15 @@ class Alert(Runnable):
     def alert_batch(self, batch: PubSubMessage):
         diffs = json.loads(batch.data)
 
-        for ticker in set([diff.get('ticker') for diff in diffs]):
-            self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
+        try:
+            for ticker in set([diff.get('ticker') for diff in diffs]):
+                self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
-        batch.ack()
+            batch.ack()
+        except Exception as e:
+            self.logger.warning("Couldn't ack diffs: {diffs}".format(diffs=diffs))
+            self.logger.exception(e)
+            batch.nack()
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
         # Adding a message if this ticker have never been alerted
