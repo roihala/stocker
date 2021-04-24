@@ -6,7 +6,6 @@ from typing import Iterable, List
 
 import pymongo
 import telegram
-from time import sleep
 
 import arrow
 from pymongo.change_stream import CollectionChangeStream
@@ -23,15 +22,14 @@ from src.read.reader_base import ReaderBase
 from google.cloud.pubsub import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
-subscription_name = 'projects/stocker-300519/subscriptions/diff-updates-sub'
-subscriber = SubscriberClient()
-
 
 class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     MONEY_BAG_EMOJI_UNICODE = u'\U0001F4B0'
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
+
+    PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
 
     def __init__(self):
         super().__init__()
@@ -44,43 +42,24 @@ class Alert(Runnable):
 
         self._scheduler.start()
 
+        self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
+        self._subscriber = SubscriberClient()
+
     def run(self):
-        streaming_pull_future = subscriber.subscribe(subscription_name, self.alert_batch)
-        with subscriber:
+        streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
+        with self._subscriber:
+
             streaming_pull_future.result()
-
-    def listen(self):
-        # Alerting historic diffs to prevent losses
-        self.alert_batch(self.__get_yesterday_diffs())
-
-        while True:
-            try:
-                with self._mongo_db.diffs.watch() as stream:
-                    event = stream.next()
-                    self.alert_batch(self.__unpack_stream(stream, event))
-
-            except Exception as e:
-                # We know it's unrecoverable:
-                self.logger.exception(e)
-
-            sleep(5)
 
     def alert_batch(self, batch: PubSubMessage):
         diffs = json.loads(batch.data)
+
         for ticker in set([diff.get('ticker') for diff in diffs]):
             self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
 
-        # batch.ack()
-
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
-        try:
-            # Generate message if this ticker have never been alerted
-            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
-                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
-            else:
-                msg = ''
-        except Exception:
-            msg = ''
+        # Adding a message if this ticker have never been alerted
+        msg = self.__first_alert_msg(ticker)
 
         combined_ids = set()
 
@@ -98,6 +77,17 @@ class Alert(Runnable):
             except Exception as e:
                 self.logger.warning("Couldn't create alert msg for diffs: {diffs}".format(diffs=diffs))
                 self.logger.exception(e)
+
+    def __first_alert_msg(self, ticker):
+        msg = ''
+
+        try:
+            # Generate message if this ticker have never been alerted
+            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
+                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
+        except Exception:
+            pass
+        return msg
 
     def __get_yesterday_diffs(self):
         diffs = pandas.DataFrame(

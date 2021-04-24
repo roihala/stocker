@@ -18,14 +18,13 @@ from src.collect.differ import Differ
 
 logger = logging.getLogger('Collect')
 
-publisher = pubsub_v1.PublisherClient()
-topic_name = 'projects/stocker-300519/topics/diff-updates'
-
 global cache
 cache = {}
 
 
 class CollectorBase(ABC):
+    PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+
     def __init__(self, mongo_db: Database, ticker, date=None, debug=False, write=False):
         """
         :param mongo_db: mongo db connection
@@ -68,8 +67,9 @@ class CollectorBase(ABC):
     def collect(self, raw_data=None):
         current = self.fetch_data(raw_data)
         latest = cache[self.name].get(self.ticker, None)
-        if latest is None:
-            latest = self._reader.get_latest()
+        latest = latest if latest else self._reader.get_latest()
+
+        diffs = []
 
         if not latest:
             self.__save_data(current)
@@ -81,19 +81,12 @@ class CollectorBase(ABC):
             # Saving the diffs to diffs collection
             diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.get_nested_keys())]
             logger.info('diffs: {diffs}'.format(diffs=diffs))
-            if diffs:
-                self._mongo_db.diffs.insert_many(diffs)
-                data = json.dumps(diffs, default=json_util.default).encode('utf-8')
-                publisher.publish(topic_name, data)
 
         cache[self.name][self.ticker] = current
-        self.__collect_sons()
+        return self.__collect_sons(diffs)
 
     def __decorate_diff(self, diff):
-        subkey = None
-        if not isinstance(diff['changed_key'], list):
-            key = diff.get('changed_key')
-        elif len(diff.get('changed_key')) > 1:
+        if isinstance(diff.get('changed_key'), list) and len(diff.get('changed_key')) > 1:
             key = diff.get('changed_key')[0]
             # joining by '.' if a subkey is a list of keys (differ's nested changes approach)
             subkey = '.'.join(str(part) for part in diff.get('changed_key')[1:])
@@ -101,6 +94,9 @@ class CollectorBase(ABC):
             diff.update({
                 "subkey": subkey
             })
+
+        else:
+            key = diff.get('changed_key')
 
         diff.update({
             "ticker": self.ticker,
@@ -122,13 +118,18 @@ class CollectorBase(ABC):
         else:
             self.collection.insert_one(copy)
 
-    def __collect_sons(self):
+    def __collect_sons(self, diffs):
         for son in self.get_sons():
             try:
                 collection_args = {'mongo_db': self._mongo_db, 'ticker': self.ticker, 'date': self._date,
                                    'debug': self._debug}
                 collector = factory.Factory.collectors_factory(son, **collection_args)
-                collector.collect(self._raw_data)
+                result = collector.collect(self._raw_data)
+                if result:
+                    diffs += result
+
             except Exception as e:
                 logger.warning("Couldn't collect {name}'s son {son}".format(name=self.name, son=son))
                 logger.exception(e)
+
+        return diffs
