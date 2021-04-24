@@ -86,7 +86,7 @@ class CollectorBase(ABC):
         return self.__collect_sons(diffs)
 
     def __decorate_diff(self, diff):
-        if isinstance(diff.get('changed_key'), list) and len(diff.get('changed_key')) > 1:
+        if isinstance(diff.get('changed_key'), list):
             key = diff.get('changed_key')[0]
             # joining by '.' if a subkey is a list of keys (differ's nested changes approach)
             subkey = '.'.join(str(part) for part in diff.get('changed_key')[1:])
