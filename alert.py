@@ -48,7 +48,6 @@ class Alert(Runnable):
     def run(self):
         streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
         with self._subscriber:
-
             streaming_pull_future.result()
 
     def alert_batch(self, batch: PubSubMessage):
@@ -127,7 +126,7 @@ class Alert(Runnable):
 
     def __send_or_delay(self, msg, alerts):
         if self._debug:
-            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            self.__send_msg_with_ack(self._mongo_db.telegram_users.find(), msg, alerts)
             return
 
         self.__send_msg_with_ack(self._mongo_db.telegram_users.find({'delay': False}), msg, alerts)
