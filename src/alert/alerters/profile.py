@@ -32,12 +32,6 @@ class Profile(AlerterBase):
         if diff.get('changed_key') in self.OTCIQ_KEYS:
             diff = self.update_otciq(self._mongo_db, diff)
 
-        if diff.get('changed_key') in [key for line in self.ADDRESS_LINES for key in line]:
-            records = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker')).get_sorted_history().tail(2)
-            diff['old'], diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1])
-
-            diff['changed_key'] = "address"
-
         return diff
 
     @staticmethod
@@ -74,6 +68,30 @@ class Profile(AlerterBase):
         except (StopIteration, KeyError) as e:
             logger.warning(f"Couldn't get extra data for field {diff.get('changed_key')}, not found.")
             logger.exception(e)
+
+    def _edit_batch(self, diffs):
+        return self.squash_addresses(diffs)
+
+    def squash_addresses(self, diffs):
+        address_exists = False
+        united_diff = None
+        squashed_diffs = diffs[:]
+
+        for diff in diffs:
+            if diff.get("changed_key") in [field for line in self.ADDRESS_LINES for field in line]:
+                united_diff = diff
+                squashed_diffs.remove(diff)
+                address_exists = True
+
+        if address_exists:
+            records = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker')).get_sorted_history().tail(2)
+            try:
+                united_diff['old'], united_diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1])
+            except IndexError:
+                united_diff['new'] = self.format_address(records.iloc[0])
+            united_diff["changed_key"] = "address"
+            squashed_diffs.append(united_diff)
+        return squashed_diffs
 
     def format_address(self, record):
         """
