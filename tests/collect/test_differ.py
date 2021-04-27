@@ -1,6 +1,6 @@
 import unittest
 
-from src.collect.differ import Differ
+from src.collect.tickers.differ import Differ
 
 
 class TestAlertTime(unittest.TestCase):

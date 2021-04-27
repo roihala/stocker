@@ -216,7 +216,7 @@ class Bot(Runnable):
     @staticmethod
     def invalid_collection(update, context):
         update.message.reply_text(
-            'Invalid input. Please choose one of this collections: {}'.format(Factory.COLLECTIONS.keys()))
+            'Invalid input. Please choose one of this collections: {}'.format(Factory.TICKER_COLLECTIONS.keys()))
 
         return ConversationHandler.END
 
