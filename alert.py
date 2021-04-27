@@ -65,7 +65,9 @@ class Alert(Runnable):
 
     def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
         # Adding a message if this ticker have never been alerted
-        msg = self.__first_alert_msg(ticker)
+        # TODO
+        # msg = self.__first_alert_msg(ticker)
+        msg = ''
 
         combined_ids = set()
 
