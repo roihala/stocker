@@ -54,39 +54,37 @@ class Alert(Runnable):
         diffs = json.loads(batch.data)
 
         try:
-            for ticker in set([diff.get('ticker') for diff in diffs]):
-                self.__alert_by_ticker(ticker, [diff for diff in diffs if diff.get('ticker') == ticker])
+            ticker = self.__extract_ticker(diffs)
+
+            msg = self.__init_msg(ticker)
+
+            combined_ids = set()
+            for source in set([diff.get('source') for diff in diffs]):
+                ids, alert = self.__get_alert_by_source(source,
+                                                        ticker,
+                                                        [diff for diff in diffs if diff.get('source') == source])
+
+                if alert and ids:
+                    msg = msg + '\n\n' + alert if msg else alert
+                    combined_ids = combined_ids.union(ids)
+
+            if combined_ids and msg:
+                self.__send_or_delay(self.__add_title(ticker, msg), combined_ids)
 
             batch.ack()
         except Exception as e:
-            self.logger.warning("Couldn't ack diffs: {diffs}".format(diffs=diffs))
+            self.logger.warning("Couldn't alert diffs: {diffs}".format(diffs=diffs))
             self.logger.exception(e)
             batch.nack()
 
-    def __alert_by_ticker(self, ticker, diffs: Iterable[dict]):
-        # Adding a message if this ticker have never been alerted
-        # TODO
-        # msg = self.__first_alert_msg(ticker)
-        msg = ''
+    def __extract_ticker(self, diffs):
+        tickers = set([diff.get('ticker') for diff in diffs])
+        if not len(tickers) == 1:
+            raise ValueError("Batch consists more than one ticker: {tickers}".format(tickers=tickers))
 
-        combined_ids = set()
+        return tickers.pop()
 
-        for source in set([diff.get('source') for diff in diffs]):
-            ids, alert = self.__get_alert_by_source(source, [diff for diff in diffs if diff.get('source') == source])
-
-            if alert and ids:
-                msg = msg + '\n\n' + alert if msg else alert
-                combined_ids = combined_ids.union(ids)
-
-        if combined_ids and msg:
-            # Sending or delaying our concatenated alerts
-            try:
-                self.__send_or_delay(self.__add_title(ticker, msg), combined_ids)
-            except Exception as e:
-                self.logger.warning("Couldn't create alert msg for diffs: {diffs}".format(diffs=diffs))
-                self.logger.exception(e)
-
-    def __first_alert_msg(self, ticker):
+    def __init_msg(self, ticker):
         msg = ''
 
         try:
