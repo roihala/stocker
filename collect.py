@@ -80,9 +80,7 @@ class Collect(Runnable):
                 self.logger.exception(e, exc_info=True)
 
         if all_diffs:
-            print(all_diffs)
             self._mongo_db.diffs.insert_many(all_diffs)
-            print(all_diffs)
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
 

@@ -8,4 +8,3 @@ class Filings(RecordsCollector):
     def url(self):
         #TODO
         return 'https://backend.otcmarkets.com/otcapi/company/financial-report/?pageSize=10&page=1&sortOn=releaseDate&sortDir=DESC'
-

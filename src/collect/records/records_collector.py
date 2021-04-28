@@ -1,4 +1,5 @@
 import logging
+import pandas
 from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import Dict, List
@@ -25,8 +26,9 @@ class RecordsCollector(CollectorBase, ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.name not in self.cache:
-            self.cache[self.name] = []
+        if not self.cache.get(self.name):
+            df = pandas.DataFrame(self.collection.find())
+            self.cache[self.name] = df[df['date'] > arrow.utcnow().shift(hours=-7).format()].to_dict('records')
 
     @property
     @abstractmethod
@@ -39,6 +41,7 @@ class RecordsCollector(CollectorBase, ABC):
         new_records = self.extract_new_records(records)
 
         if new_records:
+            [record.update({'date': self._date.format()}) for record in new_records]
             self.collection.insert_many(new_records)
             self.cache[self.name] += new_records
             self.__flush()

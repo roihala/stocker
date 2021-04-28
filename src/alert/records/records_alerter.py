@@ -14,19 +14,15 @@ logger = logging.getLogger('Alert')
 
 class RecordsAlerter(AlerterBase, ABC):
     def get_alert_msg(self, diffs: Iterable[dict]):
-        msg = ''
-
         first_id = min([diff.get('record_id') for diff in diffs])
 
         prev = self._get_previous_record(self._ticker, first_id)
 
         if prev and (arrow.utcnow() - arrow.get(prev.get('releaseDate'))).days > 180:
-            msg = self.generate_msg(diffs)
+            return set(diff['_id']['$oid'] for diff in diffs), self.generate_msg(diffs)
 
-        if msg:
-            return set(diff['_id']['$oid'] for diff in diffs), msg
         else:
-            return set(), msg
+            return set(), ''
 
     def generate_msg(self, diffs):
         return '*{name}* added:\n' \
@@ -41,13 +37,11 @@ class RecordsAlerter(AlerterBase, ABC):
 
     def _get_previous_record(self, ticker, record_id):
         try:
-            # Records should sorted via url arguments (self.url)
+            # Records should be sorted via url arguments (self.url)
             records = requests.get(self.site.get_ticker_url(ticker)).json().get('records')
             index = next((i for i, record in enumerate(records) if record["id"] == record_id), None)
 
             return records[index + 1] if index else None
-            # TODO: read from db
-
 
         except Exception as e:
             logger.warning("Couldn't get last record for ticker: {ticker}".format(ticker=ticker))
