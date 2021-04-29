@@ -51,6 +51,8 @@ class RecordsCollect(Runnable):
         date = arrow.utcnow()
 
         for collection_name in Factory.RECORDS_COLLECTIONS.keys():
+            if collection_name == 'secfilings':
+                continue
             collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
                               'write': self._write}
             collector = Factory.collectors_factory(collection_name, **collector_args)

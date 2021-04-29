@@ -42,7 +42,7 @@ class RecordsAlerter(AlerterBase, ABC):
         prev_records = [brother.get_previous_record(self._get_batch_by_source(brother.name)) for brother in self.brothers] + [self.get_previous_record(diffs)]
 
         # Returning the latest releaseDate
-        return max([self.get_release_date(record) for record in prev_records if record])
+        return max([self.get_release_date(record) for record in prev_records if record is not None])
 
     def get_previous_record(self, diffs):
         try:
@@ -61,7 +61,7 @@ class RecordsAlerter(AlerterBase, ABC):
             return None
 
         except Exception as e:
-            logger.warning("Couldn't get last record for ticker: {ticker}".format(ticker=ticker))
+            logger.warning("Couldn't get last record for ticker: {ticker}".format(ticker=self._ticker))
             logger.exception(e)
 
     @staticmethod
