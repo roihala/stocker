@@ -22,7 +22,8 @@ class Factory(object):
     }
 
     RECORDS_COLLECTIONS = {
-        'filings': (records_collectors.Filings, records_alerters.Filings)
+        'filings': (records_collectors.Filings, records_alerters.Filings),
+        'secfilings': (None, records_alerters.SecFilings)
     }
 
     @staticmethod

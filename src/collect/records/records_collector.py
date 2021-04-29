@@ -28,7 +28,7 @@ class RecordsCollector(CollectorBase, ABC):
 
         if not self.cache.get(self.name):
             df = pandas.DataFrame(self.collection.find())
-            self.cache[self.name] = df[df['date'] > arrow.utcnow().shift(hours=-7).format()].to_dict('records')
+            self.cache[self.name] = df[df['date'] > arrow.utcnow().shift(days=-7).format()].to_dict('records') if 'date' in df.columns else []
 
     @property
     @abstractmethod

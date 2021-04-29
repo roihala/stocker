@@ -60,9 +60,7 @@ class Alert(Runnable):
 
             combined_ids = set()
             for source in set([diff.get('source') for diff in diffs]):
-                ids, alert = self.__get_alert_by_source(source,
-                                                        ticker,
-                                                        [diff for diff in diffs if diff.get('source') == source])
+                ids, alert = self.__get_alert_by_source(source, ticker, diffs)
 
                 if alert and ids:
                     msg = msg + '\n\n' + alert if msg else alert
@@ -119,10 +117,10 @@ class Alert(Runnable):
 
         return diffs
 
-    def __get_alert_by_source(self, source, diffs):
+    def __get_alert_by_source(self, source, ticker, diffs):
         try:
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'debug': self._debug}
+                            'ticker': ticker, 'debug': self._debug}
             alerter = Factory.alerters_factory(source, **alerter_args)
 
             return alerter.get_alert_msg(diffs)

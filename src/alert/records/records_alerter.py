@@ -13,12 +13,19 @@ logger = logging.getLogger('Alert')
 
 
 class RecordsAlerter(AlerterBase, ABC):
+    @property
+    @abstractmethod
+    def site(self) -> Site:
+        pass
+
+    @property
+    def brothers(self):
+        return []
+
     def get_alert_msg(self, diffs: Iterable[dict]):
-        first_id = min([diff.get('record_id') for diff in diffs])
+        prev = self.__get_previous_date(diffs)
 
-        prev = self._get_previous_record(self._ticker, first_id)
-
-        if prev and (arrow.utcnow() - arrow.get(prev.get('releaseDate'))).days > 180:
+        if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
             return set(diff['_id']['$oid'] for diff in diffs), self.generate_msg(diffs)
 
         else:
@@ -30,26 +37,40 @@ class RecordsAlerter(AlerterBase, ABC):
                                                       green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                       titles=', '.join([diff.get('title') for diff in diffs]))
 
-    @property
-    @abstractmethod
-    def site(self) -> Site:
-        pass
+    def __get_previous_date(self, diffs):
+        # Previous record date
+        prev_records = [brother.get_previous_record(self._get_batch_by_source(brother.name)) for brother in self.brothers] + [self.get_previous_record(diffs)]
 
-    def _get_previous_record(self, ticker, record_id):
+        # Returning the latest releaseDate
+        return max([self.get_release_date(record) for record in prev_records if record])
+
+    def get_previous_record(self, diffs):
         try:
             # Records should be sorted via url arguments (self.url)
-            records = requests.get(self.site.get_ticker_url(ticker)).json().get('records')
-            index = next((i for i, record in enumerate(records) if record["id"] == record_id), None)
+            records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
 
-            return records[index + 1] if index else None
+            if not diffs:
+                return records[0] if records else None
+
+            first_id = min([diff.get('record_id') for diff in diffs])
+
+            for index, record in enumerate(records):
+                if record.get('id') == first_id:
+                    return records[index + 1]
+
+            return None
 
         except Exception as e:
             logger.warning("Couldn't get last record for ticker: {ticker}".format(ticker=ticker))
             logger.exception(e)
 
     @staticmethod
-    def get_first(diffs: Iterable[dict]):
-        def calc_first(x, y):
-            return x if x.get('record_id') < y.get('record_id') else y
+    def get_release_date(record):
+        if record.get('releaseDate'):
+            date = record.get('releaseDate')
+        elif record.get('receivedDate'):
+            date = record.get('receivedDate')
+        else:
+            raise ValueError("No relase date for record: {record}".format(record=record))
 
-        return reduce(lambda x, y: calc_first(x, y), diffs)
+        return arrow.get(date)
