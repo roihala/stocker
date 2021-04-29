@@ -41,14 +41,16 @@ class RecordsAlerter(AlerterBase, ABC):
         # Previous record date
         prev_records = [brother.get_previous_record(self._get_batch_by_source(brother.name)) for brother in self.brothers] + [self.get_previous_record(diffs)]
 
+        dates = [self.get_release_date(record) for record in prev_records if record is not None]
+
         # Returning the latest releaseDate
-        return max([self.get_release_date(record) for record in prev_records if record is not None])
+        return max(dates) if dates else None
 
     def get_previous_record(self, diffs):
-        try:
-            # Records should be sorted via url arguments (self.url)
-            records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
+        # Records should be sorted via url arguments (self.url)
+        records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
 
+        try:
             if not diffs:
                 return records[0] if records else None
 
@@ -59,6 +61,9 @@ class RecordsAlerter(AlerterBase, ABC):
                     return records[index + 1]
 
             return None
+
+        except IndexError:
+            logger.info("No last records for {ticker}:{records}".format(ticker=self._ticker, records=records))
 
         except Exception as e:
             logger.warning("Couldn't get last record for ticker: {ticker}".format(ticker=self._ticker))
