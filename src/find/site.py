@@ -1,5 +1,4 @@
 from string import Formatter
-from requests.models import PreparedRequest
 import urllib
 
 import requests
@@ -18,26 +17,20 @@ class Site(object):
         self.is_otc = is_otc
 
     def get_ticker_url(self, ticker):
-        ticker = ticker.upper()
         format_keys = self.get_format_keys(self.url)
 
         if 'ticker' in format_keys:
-            url = self.url.format(ticker=ticker)
+            return self.url.format(ticker=ticker)
 
         elif 'company_name' in format_keys:
-            url = self.url.format(company_name=urllib.parse.quote(self.get_company_name(ticker)))
+            return self.url.format(company_name=urllib.parse.quote(self.get_company_name(ticker)))
 
         elif 'company_site' in format_keys:
-            url = self.url.format(company_site=self.get_company_site(ticker))
+
+            return self.url.format(company_site=self.get_company_site(ticker))
 
         else:
             raise Exception("Invalid site format: {url}".format(url=self.url))
-
-        return url
-
-    # def update_attributes(self, attributes, url=None):
-    #     url = url if url else self.url
-    #     return PreparedRequest().prepare_url(url, attributes)
 
     def get_company_site(self, ticker):
         if not self.is_otc:
