@@ -16,9 +16,6 @@ from runnable import Runnable
 from src.factory import Factory
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-global cache
-cache = {}
-
 
 class Collect(Runnable):
     PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
@@ -56,16 +53,16 @@ class Collect(Runnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        all_sons = reduce(lambda x, y: x + y.get_sons(), Factory.get_tickers_collectors(), [])
+        all_sons = reduce(lambda x, y: x + y.get_sons(), Factory.get_collectors(), [])
         all_diffs = []
 
-        for collection_name in Factory.TICKER_COLLECTIONS.keys():
+        for collection_name in Factory.COLLECTIONS.keys():
             try:
                 if collection_name in all_sons:
                     continue
 
-                collector_args = {'mongo_db': self._mongo_db, 'cache': cache, 'date': date, 'debug': self._debug,
-                                  'write': self._write, 'ticker': ticker}
+                collector_args = {'mongo_db': self._mongo_db, 'ticker': ticker, 'date': date, 'debug': self._debug,
+                                  'write': self._write}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
 

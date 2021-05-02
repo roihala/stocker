@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: records-app
+spec:
+  selector:
+    matchLabels:
+      run: records-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: records-app
+    spec:
+      containers:
+        - name: records-app
+          image: eu.gcr.io/stocker-300519/records:latest
+          resources:
+            requests:
+              memory: "8Gi"
+          env:
+            - name: ENV
+              value: "production"
+            - name: MONGO_URI
+              value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+            - name: TELEGRAM_TOKEN
+              value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"

@@ -45,7 +45,7 @@ class Client(Runnable):
     def filter_past(self):
         for ticker in self._tickers_list:
             self.logger.info('filtering {ticker}'.format(ticker=ticker))
-            for collection_name in Factory.TICKER_COLLECTIONS.keys():
+            for collection_name in Factory.COLLECTIONS.keys():
                 try:
                     reader = Factory.readers_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
                     collection = self._mongo_db.get_collection(collection_name)
@@ -70,7 +70,7 @@ class Client(Runnable):
     def get_history(mongo_db, ticker):
         history = pandas.DataFrame()
 
-        for collection_name in Factory.TICKER_COLLECTIONS.keys():
+        for collection_name in Factory.COLLECTIONS.keys():
             reader = Factory.readers_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
             current = reader.get_sorted_history(filter_rows=True, filter_cols=True)
 

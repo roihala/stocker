@@ -2,7 +2,7 @@ get_gcp_cluster:
 	gcloud container clusters get-credentials stocker --zone europe-west2-a --project stocker-300519
 
 
-all: collector alerter telegram
+all: collector alerter telegram records
 
 collector: collector_build_push collector_delete_pod
 
@@ -59,3 +59,20 @@ alerter_delete_pod:
 
 alerter_run_local:
 	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" alerter
+
+
+records: records_build_push records_delete_pod
+
+records_build_push:
+	docker build -t stocker -f dockerfiles/records.dockerfile .
+	docker tag stocker:latest eu.gcr.io/stocker-300519/records:latest
+	docker push eu.gcr.io/stocker-300519/records:latest
+
+records_update_deployment: get_gcp_cluster
+	kubectl apply -f kubefiles/records_deployment.yaml
+
+records_deploy: get_gcp_cluster
+	kubectl patch deployment records-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+
+records_delete_pod:
+	kubectl delete pods -l run=records-app || true
