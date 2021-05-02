@@ -120,10 +120,10 @@ class Alert(Runnable):
     def __get_alert_by_source(self, source, ticker, diffs):
         try:
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug}
+                            'ticker': ticker, 'debug': self._debug, 'batch': diffs}
             alerter = Factory.alerters_factory(source, **alerter_args)
 
-            return alerter.get_alert_msg(diffs)
+            return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
 
         except Exception as e:
             self.logger.warning("Couldn't create alerter for {diffs}".format(diffs=diffs))
