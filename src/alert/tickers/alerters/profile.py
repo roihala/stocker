@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 
 from src.alert.tickers.ticker_alerter import TickerAlerter
 from src.read import readers
@@ -9,7 +10,7 @@ logger = logging.getLogger('Alert')
 class Profile(TickerAlerter):
     # TODO: MAYBE more keys
     OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
-    ADDRESS_KEYS = ['address1', 'address2', 'city', 'state', 'country']
+    ADDRESS_LINES = [['address1', 'address2'], ['city', 'state'], ['country']]
     EXTRA_DATA = ['officers']
 
     @property
@@ -28,7 +29,7 @@ class Profile(TickerAlerter):
         if not diff:
             return diff
 
-        if diff.get('changed_key') in self.ADDRESS_KEYS:
+        if diff.get('changed_key') in self.ADDRESS_LINES:
             return None
 
         if diff.get('changed_key') in self.OTCIQ_KEYS:
@@ -76,49 +77,39 @@ class Profile(TickerAlerter):
         return self.squash_addresses(diffs)
 
     def squash_addresses(self, diffs):
-        if any([diff for diff in diffs if diff.get('changed_key') in self.ADDRESS_KEYS]):
-            logger.info(self._reader.get_sorted_history().tail(2))
-            raise Exception('kaki')
-            # old, new = self._reader.get_sorted_history().tail(2).to_json('records')
-        else:
-            return diffs
-        asdf
+        try:
+            # If any address diffs
+            to_squash = [diff for diff in diffs if diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
 
+            if any(to_squash):
+                # TODO: pull the exact diff by date
+                old, new = self._reader.get_sorted_history().tail(2).to_dict('records')
+                print(to_squash)
+                print([diff for diff in diffs if diff not in to_squash])
 
-        address_diffs = [diff for diff in diffs if diff.get('changed_key') in self.ADDRESS_KEYS]
+                return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
 
-        # if address_diffs:
+                return list(set(diffs) - set(to_squash)) + [self.generate_squashed_diff(to_squash[0], old, new)]
 
-        adsf
+        except Exception as e:
+            logger.warning("Couldn't squash diffs: {diffs}".format(diffs=diffs))
+            logger.exception(e)
 
-
-
-
-        address_exists = False
-        united_diff = None
-        squashed_diffs = diffs[:]
-
-        for diff in diffs:
-            if diff.get("changed_key") in [field for line in self.ADDRESS_KEYS for field in line]:
-                united_diff = diff
-                squashed_diffs.remove(diff)
-                address_exists = True
-
-        if address_exists:
-            records = readers.Profile(mongo_db=self._mongo_db, ticker=united_diff.get('ticker')).get_sorted_history().tail(2)
-            try:
-                united_diff['old'], united_diff['new'] = self.format_address(records.iloc[0]), self.format_address(records.iloc[1])
-            except IndexError:
-                united_diff['new'] = self.format_address(records.iloc[0])
-            united_diff["changed_key"] = "address"
-            squashed_diffs.append(united_diff)
-        return squashed_diffs
+        return diffs
 
     def format_address(self, record):
         """
         Generates pretty address string
         """
         address_lines = []
-        for line in self.ADDRESS_KEYS:
+        for line in self.ADDRESS_LINES:
             address_lines.append(', '.join(record.get(key) for key in line if record.get(key)))
         return '\n'.join(address_lines)
+
+    def generate_squashed_diff(self, origin, old, new):
+        squashed = deepcopy(origin)
+        squashed['old'] = self.format_address(old)
+        squashed['new'] = self.format_address(new)
+        squashed['changed_key'] = 'address'
+
+        return squashed
