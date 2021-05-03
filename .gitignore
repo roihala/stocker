@@ -7,7 +7,6 @@ pip-selfcheck.json
 ticker_finder.exe
 .idea
 __pycache__
-tickers
 go1.11.4.linux-amd64.tar.gz
 *.png
 low_floaters.csv
