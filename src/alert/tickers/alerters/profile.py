@@ -84,12 +84,8 @@ class Profile(TickerAlerter):
             if any(to_squash):
                 # TODO: pull the exact diff by date
                 old, new = self._reader.get_sorted_history().tail(2).to_dict('records')
-                print(to_squash)
-                print([diff for diff in diffs if diff not in to_squash])
 
                 return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
-
-                return list(set(diffs) - set(to_squash)) + [self.generate_squashed_diff(to_squash[0], old, new)]
 
         except Exception as e:
             logger.warning("Couldn't squash diffs: {diffs}".format(diffs=diffs))
