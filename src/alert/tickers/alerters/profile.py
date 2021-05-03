@@ -99,7 +99,7 @@ class Profile(TickerAlerter):
         """
         address_lines = []
         for line in self.ADDRESS_LINES:
-            address_lines.append(', '.join(record.get(key) for key in line if record.get(key)))
+            address_lines.append(', '.join(str(record.get(key)) for key in line if record.get(key)))
         return '\n'.join(address_lines)
 
     def generate_squashed_diff(self, origin, old, new):
