@@ -78,6 +78,5 @@ class RecordsCollector(CollectorBase, ABC):
             "diff_type": "add",
             "date": self._date.format(),
             "source": self.name,
-            "alerted": False,
             "ticker": record.get('symbol')
         }

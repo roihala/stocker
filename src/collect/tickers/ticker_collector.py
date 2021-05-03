@@ -59,7 +59,6 @@ class TickerCollector(CollectorBase, ABC):
             # Saving the fetched data
             self.__save_document(current)
 
-            # Saving the diffs to diffs collection
             diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.get_nested_keys())]
 
             logger.info('diffs: {diffs}'.format(diffs=diffs))
@@ -84,8 +83,7 @@ class TickerCollector(CollectorBase, ABC):
             "ticker": self.ticker,
             "date": self._date.format(),
             "changed_key": key,
-            "source": self.name,
-            "alerted": False
+            "source": self.name
         })
         
         return diff

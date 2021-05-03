@@ -26,10 +26,10 @@ class RecordsAlerter(AlerterBase, ABC):
         prev = self.__get_previous_date(diffs)
 
         if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
-            return set(diff['_id']['$oid'] for diff in diffs), self.generate_msg(diffs)
+            return self.generate_msg(diffs)
 
         else:
-            return set(), ''
+            return ''
 
     def generate_msg(self, diffs):
         return '*{name}* added:\n' \

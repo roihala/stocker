@@ -16,3 +16,4 @@ low_floaters003_250M.csv
 src/games
 .gitignore
 .idea/**
+.ipynb_checkpoints/

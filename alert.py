@@ -2,13 +2,7 @@ import datetime
 import json
 
 import pandas
-from typing import Iterable, List
-
-import pymongo
 import telegram
-
-import arrow
-from pymongo.change_stream import CollectionChangeStream
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -56,18 +50,18 @@ class Alert(Runnable):
         try:
             ticker = self.__extract_ticker(diffs)
 
-            msg = self.__init_msg(ticker)
+            msg = ''
 
-            combined_ids = set()
             for source in set([diff.get('source') for diff in diffs]):
-                ids, alert = self.__get_alert_by_source(source, ticker, diffs)
+                alert = self.__get_alert_by_source(source, ticker, diffs)
 
-                if alert and ids:
+                if alert:
                     msg = msg + '\n\n' + alert if msg else alert
-                    combined_ids = combined_ids.union(ids)
 
-            if combined_ids and msg:
-                self.__send_or_delay(self.__add_title(ticker, msg), combined_ids)
+            if msg:
+                self._mongo_db.diffs.insert_many(diffs)
+                self.__send_or_delay(self.__add_title(ticker, msg))
+
 
             batch.ack()
         except Exception as e:
@@ -82,41 +76,6 @@ class Alert(Runnable):
 
         return tickers.pop()
 
-    def __init_msg(self, ticker):
-        msg = ''
-
-        try:
-            # Generate message if this ticker have never been alerted
-            if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker, 'alerted': {'$eq': True}})).empty:
-                msg = '{bang_emoji} First ever alert for this ticker'.format(bang_emoji=self.BANG_EMOJI_UNICODE)
-        except Exception:
-            pass
-        return msg
-
-    def __get_yesterday_diffs(self):
-        diffs = pandas.DataFrame(
-            self._mongo_db.diffs.find().sort('date', pymongo.ASCENDING))
-
-        mask = (diffs['date'] > arrow.utcnow().shift(hours=-24).format()) & (diffs['date'] <= arrow.utcnow().format())
-
-        return diffs.loc[mask].to_dict('records')
-
-    def __unpack_stream(self, stream: CollectionChangeStream, first_event) -> List[dict]:
-        event = first_event
-        diffs = []
-
-        while event is not None:
-            self.logger.info('event: {event}'.format(event=event))
-
-            diff = event.get('fullDocument')
-
-            if event['operationType'] == 'insert' and diff.get('source') not in self.get_daily_alerters():
-                diffs.append(diff)
-
-            event = stream.try_next()
-
-        return diffs
-
     def __get_alert_by_source(self, source, ticker, diffs):
         try:
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
@@ -129,45 +88,39 @@ class Alert(Runnable):
             self.logger.warning("Couldn't create alerter for {diffs}".format(diffs=diffs))
             self.logger.exception(e)
 
-    def __send_or_delay(self, msg, alerts):
+    def __send_or_delay(self, msg):
         if self._debug:
-            self.__send_msg_with_ack(self._mongo_db.telegram_users.find(), msg, alerts)
+            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
             return
 
-        self.__send_msg_with_ack(self._mongo_db.telegram_users.find({'delay': False}), msg, alerts)
-        self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg, alerts)
+        self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
+        self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg)
 
-    def __send_delayed(self, delayed_users, msg, alerts):
+    def __send_delayed(self, delayed_users, msg):
         trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
 
-        self._scheduler.add_job(self.__send_msg_with_ack,
-                                args=[delayed_users, msg, alerts],
+        self._scheduler.add_job(self.__send_msg,
+                                args=[delayed_users, msg],
                                 trigger=trigger)
 
-    def __send_msg_with_ack(self, users_group, msg, alerts_ids):
-        is_success = self.__send_msg(users_group, msg)
-
-        if is_success:
-            # Updating mongo that the diff has been alerted
-            [self._mongo_db.diffs.update_one({'_id': object_id}, {'$set': {"alerted": True}}) for object_id in
-             alerts_ids]
-
     def __send_msg(self, users_group, msg):
-        is_sent_successfuly = False
         for user in users_group:
             try:
                 self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
                                                parse_mode=telegram.ParseMode.MARKDOWN)
-                is_sent_successfuly = True
 
             except Exception as e:
-                self.logger.warning("Couldn't send message to {user} at {chat_id}:".format(user=user.get("user_name"),
-                                                                                           chat_id=user.get("chat_id")))
+                self.logger.warning(
+                    "Couldn't alert {message} to {user} at {chat_id}:".format(user=user.get("user_name"),
+                                                                              chat_id=user.get("chat_id"),
+                                                                              message=msg))
                 self.logger.exception(e)
 
-        return is_sent_successfuly
-
     def __add_title(self, ticker, alert_msg):
+        if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker})).empty:
+            alert_msg = '{bang_emoji} First ever alert for this ticker\n'.format(
+                bang_emoji=self.BANG_EMOJI_UNICODE) + alert_msg
+
         return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
                '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                     ticker=ticker,
@@ -176,10 +129,6 @@ class Alert(Runnable):
                                     trophy_emoji=self.TROPHY_EMOJI_UNICODE,
                                     tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
                                     alert_msg=alert_msg)
-
-    @staticmethod
-    def get_daily_alerters():
-        return ['securities']
 
 
 if __name__ == '__main__':

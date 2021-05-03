@@ -2,9 +2,8 @@ import logging
 import os
 import re
 
-import arrow
-import pandas
 import pymongo
+import pandas
 
 from runnable import Runnable
 from src.factory import Factory
@@ -31,6 +30,81 @@ class Client(Runnable):
             print('low floaters lists are ready')
         elif self.args.filter_past:
             self.filter_past()
+        elif self.args.clear_diffs:
+            self.clear_diffs()
+
+    def clear_diffs(self):
+        diffs = pandas.DataFrame(self._mongo_db.diffs.find())
+        diffs.sort_values(by='date')
+
+        all_drop_keys = ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
+                         'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
+                         'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard',
+                         'latestFilingType',
+                         'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName',
+                         'venue',
+                         'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered',
+                         'isAlternativeReporting',
+                         'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes',
+                         'reportingStandardMin',
+                         'auditStatus', 'auditedStatusDisplay'] + ['outstandingSharesAsOfDate',
+                                                                   'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
+                                                                   'restrictedSharesAsOfDate',
+                                                                   'unrestrictedSharesAsOfDate',
+                                                                   'dtcShares', 'tierStartDate', 'tierId',
+                                                                   'numOfRecordShareholdersDate', 'tierName',
+                                                                   'categoryName',
+                                                                   'categoryId', 'tierCode', 'shortInterest',
+                                                                   'shortInterestDate', 'shortInterestChange',
+                                                                   'publicFloatAsOfDate', 'isNoInfo',
+                                                                   'currentCapitalChangePayDate',
+                                                                   'currentCapitalChangeExDate', 'currentCapitalChange',
+                                                                   'currentCapitalChangeRecordDate', 'cusip',
+                                                                   'hasLevel2', 'isLevel2Entitled', 'primaryVenue',
+                                                                   'tierGroupId', 'isPiggyBacked',
+                                                                   'notes', 'otcAward', 'showTrustedLogo',
+                                                                   'isUnsolicited', 'statusName', 'foreignExchangeTier',
+                                                                   'foreignExchangeName', 'isOtcQX',
+                                                                   'foreignExchangeId'] + ['isPennyStockExempt',
+                                                                                           'verifiedDate']
+
+        old_df = diffs[diffs['date'] < '2021-01-28 02:56:36+00:00']
+        late_df = diffs[diffs['date'] > '2021-04-24 07:15:40+00:00']
+        alerted_df = diffs[
+            (diffs['date'] <= '2021-04-24 07:15:40+00:00') & (diffs['date'] >= '2021-01-28 02:56:36+00:00')]
+
+        late_drop_ids = []
+
+        for index, row in late_df.iterrows():
+            oid = row.pop('_id')
+            record = row.to_dict()
+            record['_id'] = {'$oid': oid}
+
+            try:
+                alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': None,
+                                'ticker': record.get('ticker'), 'debug': True, 'batch': []}
+                alerter = Factory.alerters_factory(record.get('source'), **alerter_args)
+
+                _, msg = alerter.get_alert_msg([record])
+                if not msg:
+                    late_drop_ids.append(oid)
+            except Exception as e:
+                print('exception on', oid)
+                print(e)
+
+        old_drop_ids = []
+
+        for index, row in old_df.iterrows():
+            oid = row.pop('_id')
+            record = row.to_dict()
+            record['_id'] = {'$oid': oid}
+
+            if any([record.get('changed_key').startswith(key) for key in all_drop_keys]):
+                old_drop_ids.append(oid)
+
+        self._mongo_db.diffs.delete_many({'_id': {'$in': late_drop_ids}})
+        self._mongo_db.diffs.delete_many({'_id': {'$in': old_drop_ids}})
+        self._mongo_db.diffs.delete_many({'_id': {'$in': alerted_df[alerted_df['alerted'] == False]['_id'].to_list()}})
 
     def create_parser(self):
         parser = super().create_parser()
@@ -39,6 +113,8 @@ class Client(Runnable):
         parser.add_argument('--low_floaters', dest='low_floaters', help='Get a list of light low float stocks',
                             default=False,action='store_true')
         parser.add_argument('--filter_past', dest='filter_past', help='Filter duplicate rows from mongo',
+                            default=False, action='store_true')
+        parser.add_argument('--clear_diffs', dest='clear_diffs', help='Clear diffs collection from alerted: true',
                             default=False, action='store_true')
         return parser
 
@@ -144,7 +220,7 @@ class Client(Runnable):
     def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
         alerts = pandas.DataFrame(
-            mongo_db.diffs.find(({"ticker": ticker, 'alerted': {'$eq': True}})).sort('date', pymongo.ASCENDING))
+            mongo_db.diffs.find(({"ticker": ticker})).sort('date', pymongo.ASCENDING))
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(

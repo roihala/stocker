@@ -28,26 +28,19 @@ class TickerAlerter(AlerterBase):
         return []
 
     def get_alert_msg(self, diffs: Iterable[dict]):
-        ids = set()
         msg = ''
 
         for diff in self._edit_batch(diffs):
             try:
-                if diff.get('alerted') is True:
-                    continue
-
-                object_id = diff['_id']['$oid']
-
                 diff_msg = self.generate_msg(diff)
 
                 if diff_msg:
                     msg = msg + '\n\n' + diff_msg if msg else diff_msg
-                    ids.add(object_id)
             except Exception as e:
                 logger.warning("Couldn't generate msg for diff: {diff}".format(diff=diff))
                 logger.exception(e)
 
-        return ids, msg
+        return msg
 
     def generate_msg(self, diff, old=None, new=None):
         diff = self._edit_diff(diff)
