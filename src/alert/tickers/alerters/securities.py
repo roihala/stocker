@@ -20,7 +20,7 @@ class Securities(TickerAlerter):
     @property
     def hierarchy(self):
         return {
-            'tierDisplayName': ['Expert Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
+            'tierDisplayName': ['Grey Market', 'Expert Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International']}
 
     def _edit_diff(self, diff):
