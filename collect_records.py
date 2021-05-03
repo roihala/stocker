@@ -67,7 +67,6 @@ class RecordsCollect(Runnable):
         # Separating publish by tickers
         for ticker in tickers:
             ticker_diffs = [diff for diff in diffs if diff.get('ticker') == ticker]
-            self._mongo_db.diffs.insert_many(ticker_diffs)
             data = json.dumps(ticker_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
 
