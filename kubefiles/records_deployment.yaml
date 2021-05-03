@@ -15,9 +15,6 @@ spec:
       containers:
         - name: records-app
           image: eu.gcr.io/stocker-300519/records:latest
-          resources:
-            requests:
-              memory: "8Gi"
           env:
             - name: ENV
               value: "production"
