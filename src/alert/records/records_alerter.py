@@ -18,16 +18,11 @@ class RecordsAlerter(AlerterBase, ABC):
     def site(self) -> Site:
         pass
 
-    @property
-    def brothers(self):
-        return []
-
     def get_alert_msg(self, diffs: Iterable[dict]):
         prev = self.__get_previous_date(diffs)
 
         if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
             return self.generate_msg(diffs)
-
         else:
             return ''
 
@@ -38,13 +33,8 @@ class RecordsAlerter(AlerterBase, ABC):
                                                       titles=', '.join([diff.get('title') for diff in diffs]))
 
     def __get_previous_date(self, diffs):
-        # Previous record date
-        prev_records = [brother.get_previous_record(self._get_batch_by_source(brother.name)) for brother in self.brothers] + [self.get_previous_record(diffs)]
-
-        dates = [self.get_release_date(record) for record in prev_records if record is not None]
-
-        # Returning the latest releaseDate
-        return max(dates) if dates else None
+        prev_record = self.get_previous_record(diffs).get('')
+        return self.get_release_date(prev_record)
 
     def get_previous_record(self, diffs):
         # Records should be sorted via url arguments (self.url)
@@ -71,7 +61,9 @@ class RecordsAlerter(AlerterBase, ABC):
 
     @staticmethod
     def get_release_date(record):
-        if record.get('releaseDate'):
+        if not record:
+            return None
+        elif record.get('releaseDate'):
             date = record.get('releaseDate')
         elif record.get('receivedDate'):
             date = record.get('receivedDate')
