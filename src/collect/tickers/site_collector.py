@@ -38,14 +38,21 @@ class SiteCollector(TickerCollector, ABC):
         :return: A dict containing the newly fetched entry
         """
         if not data:
-            response = requests.get(self.site.get_ticker_url(self.ticker))
+            url = self.site.get_ticker_url(self.ticker)
+            response = requests.get(url)
+
+            if response.status_code == 404:
+                logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
+                    ticker=self.ticker, url=url))
+                raise InvalidTickerExcpetion(self.ticker)
 
             # Trying with proxy
             if response.status_code == 429:
                 response = requests.get(self.site.get_ticker_url(self.ticker), proxies=proxy)
 
             if response.status_code != 200:
-                logger.warning('Bad status code: {code}'.format(code=response.status_code))
+                logger.warning("Can't collect {ticker}: {url} -> responsne code: {code}".format(
+                    ticker=self.ticker, url=url, code=response.status_code))
                 raise InvalidTickerExcpetion(self.ticker)
 
             data = response.json()
