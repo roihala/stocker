@@ -1,5 +1,6 @@
 import datetime
 import json
+from copy import deepcopy
 
 import pandas
 import telegram
@@ -46,6 +47,10 @@ class Alert(Runnable):
 
     def alert_batch(self, batch: PubSubMessage):
         diffs = json.loads(batch.data)
+        self.logger.info('alerting diffs: {diffs}'.format(diffs=diffs))
+
+        # Removing _id column from diffs that are going to be inserted to db
+        raw_diffs = [{key: value for key, value in diff.items() if key != '_id'} for diff in diffs]
 
         try:
             ticker = self.__extract_ticker(diffs)
@@ -59,9 +64,8 @@ class Alert(Runnable):
                     msg = msg + '\n\n' + alert if msg else alert
 
             if msg:
-                self._mongo_db.diffs.insert_many(diffs)
+                self._mongo_db.diffs.insert_many(raw_diffs)
                 self.__send_or_delay(self.__add_title(ticker, msg))
-
 
             batch.ack()
         except Exception as e:
@@ -77,16 +81,11 @@ class Alert(Runnable):
         return tickers.pop()
 
     def __get_alert_by_source(self, source, ticker, diffs):
-        try:
-            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug, 'batch': diffs}
-            alerter = Factory.alerters_factory(source, **alerter_args)
+        alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+                        'ticker': ticker, 'debug': self._debug, 'batch': diffs}
+        alerter = Factory.alerters_factory(source, **alerter_args)
 
-            return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
-
-        except Exception as e:
-            self.logger.warning("Couldn't create alerter for {diffs}".format(diffs=diffs))
-            self.logger.exception(e)
+        return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
 
     def __send_or_delay(self, msg):
         if self._debug:

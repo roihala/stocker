@@ -55,7 +55,7 @@ class TickerCollector(CollectorBase, ABC):
         if not latest:
             self.__save_document(current)
 
-        elif current != latest or not latest:
+        elif current != latest:
             # Saving the fetched data
             self.__save_document(current)
 

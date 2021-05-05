@@ -220,7 +220,7 @@ class Client(Runnable):
     def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
         alerts = pandas.DataFrame(
-            mongo_db.diffs.find(({"ticker": ticker})).sort('date', pymongo.ASCENDING))
+            mongo_db.diffs.find(({"ticker": ticker, 'source': {'$nin': Factory.RECORDS_COLLECTIONS.keys()}})).sort('date', pymongo.ASCENDING))
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
