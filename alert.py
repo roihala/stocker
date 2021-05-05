@@ -132,14 +132,18 @@ class Alert(Runnable):
             alert_msg = '{bang_emoji} First ever alert for this ticker\n'.format(
                 bang_emoji=self.BANG_EMOJI_UNICODE) + alert_msg
 
-        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):\n' \
-               '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
-                                    ticker=ticker,
-                                    money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
-                                    last_price=price,
-                                    trophy_emoji=self.TROPHY_EMOJI_UNICODE,
-                                    tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
-                                    alert_msg=alert_msg)
+        return '{title}\n' \
+               '{alert_msg}'.format(title=self.generate_title(ticker, price, self._mongo_db), alert_msg=alert_msg)
+
+    @staticmethod
+    def generate_title(ticker, price, mongo_db):
+        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):'.format(
+            alert_emoji=Alert.ALERT_EMOJI_UNICODE,
+            ticker=ticker,
+            money_emoji=Alert.MONEY_BAG_EMOJI_UNICODE,
+            last_price=price,
+            trophy_emoji=Alert.TROPHY_EMOJI_UNICODE,
+            tier=readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName'))
 
 
 if __name__ == '__main__':

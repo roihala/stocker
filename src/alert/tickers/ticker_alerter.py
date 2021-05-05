@@ -14,8 +14,8 @@ class TickerAlerter(AlerterBase):
 
         self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
 
-    @property
-    def hierarchy(self) -> dict:
+    @staticmethod
+    def get_hierarchy() -> dict:
         """
         This property is a mapping between keys and a sorted list of their logical hierarchy.
         by using this mapping we could filter diffs by locating changed values in hierarchy
@@ -99,9 +99,9 @@ class TickerAlerter(AlerterBase):
         if key is None or key == '' or key in self.filter_keys:
             return None
 
-        elif key in self.hierarchy.keys():
+        elif key in self.get_hierarchy().keys():
             try:
-                if self.hierarchy[key].index(diff['new']) < self.hierarchy[key].index(diff['old']):
+                if self.get_hierarchy()[key].index(diff['new']) < self.get_hierarchy[key].index(diff['old']):
                     return None
 
             except ValueError as e:

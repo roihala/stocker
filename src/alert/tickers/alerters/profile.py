@@ -10,7 +10,7 @@ logger = logging.getLogger('Alert')
 class Profile(TickerAlerter):
     # TODO: MAYBE more keys
     OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
-    ADDRESS_LINES = [['address1', 'address2'], ['city', 'state'], ['country']]
+    ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country']]
     EXTRA_DATA = ['officers']
 
     @property
@@ -93,14 +93,20 @@ class Profile(TickerAlerter):
 
         return diffs
 
-    def format_address(self, record):
+    @staticmethod
+    def format_address(record, is_paddding=False):
         """
         Generates pretty address string
         """
         address_lines = []
-        for line in self.ADDRESS_LINES:
+        for line in Profile.ADDRESS_LINES:
             address_lines.append(', '.join(str(record.get(key)) for key in line if record.get(key)))
-        return '\n'.join(address_lines)
+
+        if is_paddding:
+            # Visual padding
+            return '\n\t\t\t\t\t\t\t\t\t'.join(address_lines)
+        else:
+            return '\n'.join(address_lines)
 
     def generate_squashed_diff(self, origin, old, new):
         squashed = deepcopy(origin)

@@ -17,8 +17,8 @@ class Securities(TickerAlerter):
                 'notes', 'otcAward', 'showTrustedLogo', 'isUnsolicited', 'statusName', 'foreignExchangeTier',
                 'foreignExchangeName', 'isOtcQX', 'foreignExchangeId']
 
-    @property
-    def hierarchy(self):
+    @staticmethod
+    def get_hierarchy() -> dict:
         return {
             'tierDisplayName': ['Grey Market', 'Expert Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International']}

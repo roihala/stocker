@@ -63,3 +63,10 @@ class Factory(object):
             return Factory.TICKER_COLLECTIONS[name][Factory.COLLECTOR_INDEX]
         elif name in Factory.RECORDS_COLLECTIONS:
             return Factory.RECORDS_COLLECTIONS[name][Factory.COLLECTOR_INDEX]
+
+    @staticmethod
+    def get_alerter(name):
+        if name in Factory.TICKER_COLLECTIONS:
+            return Factory.TICKER_COLLECTIONS[name][Factory.ALERTER_INDEX]
+        elif name in Factory.RECORDS_COLLECTIONS:
+            return Factory.RECORDS_COLLECTIONS[name][Factory.ALERTER_INDEX]
