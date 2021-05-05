@@ -157,11 +157,11 @@ class Bot(Runnable):
         # Allowing users to register only with this specific password
         if password == 'KingofLion':
             # replace_one will create one if no results found in filter
-            replace_filter = {'user_name': user.name}
+            replace_filter = {'chat_id': user.id}
 
             # Using private attr because of bad API
             context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
-                                                                    {'user_name': user.name, 'chat_id': user.id,
+                                                                    {'chat_id': user.id, 'user_name': user.name,
                                                                      'delay': True},
                                                                     upsert=True)
 
