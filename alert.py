@@ -1,6 +1,5 @@
 import datetime
 import json
-from copy import deepcopy
 
 import pandas
 import telegram
@@ -53,7 +52,9 @@ class Alert(Runnable):
         raw_diffs = [{key: value for key, value in diff.items() if key != '_id'} for diff in diffs]
 
         try:
-            ticker = self.__extract_ticker(diffs)
+            ticker, price = self.__extract_ticker(diffs)
+            if not self.is_alertable(ticker, price):
+                batch.ack()
 
             msg = ''
 
@@ -65,7 +66,7 @@ class Alert(Runnable):
 
             if msg:
                 self._mongo_db.diffs.insert_many(raw_diffs)
-                self.__send_or_delay(self.__add_title(ticker, msg))
+                self.__send_or_delay(self.__add_title(ticker, price, msg))
 
             batch.ack()
         except Exception as e:
@@ -78,7 +79,14 @@ class Alert(Runnable):
         if not len(tickers) == 1:
             raise ValueError("Batch consists more than one ticker: {tickers}".format(tickers=tickers))
 
-        return tickers.pop()
+        ticker = tickers.pop()
+        return ticker, ReaderBase.get_last_price(ticker)
+
+    def is_alertable(self, ticker, price):
+        # Will we alert this ticker?
+        if price < 0.05 and not (len(ticker) == 5 and ticker[-1] == 'F'):
+            return True
+        return False
 
     def __get_alert_by_source(self, source, ticker, diffs):
         alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
@@ -115,7 +123,7 @@ class Alert(Runnable):
                                                                               message=msg))
                 self.logger.exception(e)
 
-    def __add_title(self, ticker, alert_msg):
+    def __add_title(self, ticker, price, alert_msg):
         if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker})).empty:
             alert_msg = '{bang_emoji} First ever alert for this ticker\n'.format(
                 bang_emoji=self.BANG_EMOJI_UNICODE) + alert_msg
@@ -124,7 +132,7 @@ class Alert(Runnable):
                '{alert_msg}'.format(alert_emoji=self.ALERT_EMOJI_UNICODE,
                                     ticker=ticker,
                                     money_emoji=self.MONEY_BAG_EMOJI_UNICODE,
-                                    last_price=ReaderBase.get_last_price(ticker),
+                                    last_price=price,
                                     trophy_emoji=self.TROPHY_EMOJI_UNICODE,
                                     tier=readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName'),
                                     alert_msg=alert_msg)

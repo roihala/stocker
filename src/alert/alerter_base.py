@@ -15,7 +15,7 @@ class AlerterBase(ABC):
         self._batch = batch
 
     @abstractmethod
-    def get_alert_msg(self, diffs: Iterable[dict]) -> Tuple[Set, str]:
+    def get_alert_msg(self, diffs: Iterable[dict]) -> str:
         pass
 
     def _get_batch_by_source(self, source):
