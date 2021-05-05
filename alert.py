@@ -66,7 +66,8 @@ class Alert(Runnable):
 
             if msg:
                 self._mongo_db.diffs.insert_many(raw_diffs)
-                self.__send_or_delay(self.__add_title(ticker, price, msg))
+                delay = False if any([diff.get('source') == 'filings' for diff in raw_diffs]) else True
+                self.__send_or_delay(self.__add_title(ticker, price, msg), delay=delay)
 
             batch.ack()
         except Exception as e:
@@ -95,13 +96,16 @@ class Alert(Runnable):
 
         return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
 
-    def __send_or_delay(self, msg):
+    def __send_or_delay(self, msg, delay=True):
         if self._debug:
             self.__send_msg(self._mongo_db.telegram_users.find(), msg)
             return
 
-        self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
-        self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg)
+        if delay:
+            self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
+            self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg)
+        else:
+            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
 
     def __send_delayed(self, delayed_users, msg):
         trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
