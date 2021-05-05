@@ -147,10 +147,11 @@ class ReaderBase(ABC):
                    is_otc=True).get_ticker_url(ticker)
 
         response = requests.get(url)
-        previous_close = response.json().get('previousClose')
 
-        if previous_close:
-            return float(previous_close)
+        if response.json().get('lastSale'):
+            return float(response.json().get('lastSale'))
+        elif response.json().get('previousClose'):
+            return float(response.json().get('previousClose'))
         else:
             logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
             return 0
