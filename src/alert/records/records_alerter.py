@@ -33,7 +33,7 @@ class RecordsAlerter(AlerterBase, ABC):
                                                       titles=', '.join([diff.get('title') for diff in diffs]))
 
     def __get_previous_date(self, diffs):
-        prev_record = self.get_previous_record(diffs).get('')
+        prev_record = self.get_previous_record(diffs)
         return self.get_release_date(prev_record)
 
     def get_previous_record(self, diffs):
