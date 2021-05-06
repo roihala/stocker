@@ -1,3 +1,5 @@
+import arrow
+
 from src.alert.alerter_base import AlerterBase
 from src.read.reader_base import ReaderBase
 
@@ -15,18 +17,19 @@ class Symbols(ReaderBase):
         return history
 
     def generate_msg(self):
-        latest = self.get_latest()
-
         # For every true symbol
-        true_symbols = [symbol for symbol, value in latest.items() if value is True]
-        return '\n'.join(sorted([self.red_or_green(symbol) + ' ' + symbol for symbol in true_symbols], reverse=True))
+        true_symbols = [symbol for symbol, value in self.get_latest().items() if value is True]
 
-    def red_or_green(self, symbol):
+        return '\n'.join(sorted([self.generate_line(symbol) for symbol in true_symbols], reverse=True))
+
+    def generate_line(self, symbol):
         try:
             hierarchy = self._alerter.get_hierarchy().get(symbol)
             if hierarchy.index(False) < hierarchy.index(True):
-                return AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE
+                red_or_green = AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE
             else:
-                return AlerterBase.RED_CIRCLE_EMOJI_UNICODE
-        except Exception:
-            return ''
+                red_or_green = AlerterBase.RED_CIRCLE_EMOJI_UNICODE
+
+            return f'{red_or_green} {symbol} {"(" + arrow.get(self._latest.get("verifiedDate")).humanize() + ")" if symbol == "verifiedProfile" else ""}'
+        except ValueError:
+            return symbol

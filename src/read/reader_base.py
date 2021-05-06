@@ -33,6 +33,7 @@ class ReaderBase(ABC):
 
         self._collector = factory.Factory.get_collector(self.name)
         self._alerter = factory.Factory.get_alerter(self.name)
+        self._latest = self.get_latest()
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
         """
@@ -128,7 +129,7 @@ class ReaderBase(ABC):
 
         return history
 
-    def get_latest(self, clear_nans=False):
+    def get_latest(self, clear_nans=True):
         sorted_history = self.get_sorted_history()
 
         if sorted_history.empty:
