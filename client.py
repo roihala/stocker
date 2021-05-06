@@ -21,6 +21,8 @@ EV_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'ev_tickers.csv')
 
 
 class Client(Runnable):
+    LINK_EMOJI_UNICODE = u'\U0001F517'
+
     def __init__(self):
         super().__init__()
         pandas.set_option('display.expand_frame_repr', False)
@@ -57,15 +59,15 @@ class Client(Runnable):
         latest_profile = profile.get_latest()
 
         sites = [Site("otcmarkets", '"https://www.otcmarkets.com/stock/{ticker}/profile"', is_otc=True),
-                 Site("twitter", '"https://twitter.com/search?q=%24{ticker}&src=typed_query"', is_otc=True),
-                 latest_profile.get('website') if latest_profile.get('website') else '']
+                 Site("twitter", '"https://twitter.com/search?q=%24{ticker}&src=typed_query"', is_otc=True)]
+
+        sites.append(latest_profile.get('website')) if latest_profile.get('website') else None
 
         links = '\n'.join(
-            [site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
+            [f'\n{Client.LINK_EMOJI_UNICODE} ' + site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
         links = ReaderBase.escape_markdown(links) if escape_markdown else links
 
         return """{title}
-        
 {subtitle}
 
 *Symbols*
