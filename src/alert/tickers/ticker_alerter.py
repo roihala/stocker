@@ -31,14 +31,10 @@ class TickerAlerter(AlerterBase):
         msg = ''
 
         for diff in self._edit_batch(diffs):
-            try:
-                diff_msg = self.generate_msg(diff)
+            diff_msg = self.generate_msg(diff)
 
-                if diff_msg:
-                    msg = msg + '\n\n' + diff_msg if msg else diff_msg
-            except Exception as e:
-                logger.warning("Couldn't generate msg for diff: {diff}".format(diff=diff))
-                logger.exception(e)
+            if diff_msg:
+                msg = msg + '\n\n' + diff_msg if msg else diff_msg
 
         return msg
 
@@ -101,7 +97,7 @@ class TickerAlerter(AlerterBase):
 
         elif key in self.get_hierarchy().keys():
             try:
-                if self.get_hierarchy()[key].index(diff['new']) < self.get_hierarchy[key].index(diff['old']):
+                if self.get_hierarchy()[key].index(diff['new']) < self.get_hierarchy()[key].index(diff['old']):
                     return None
 
             except ValueError as e:
