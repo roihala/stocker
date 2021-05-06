@@ -30,6 +30,7 @@ class ReaderBase(ABC):
         self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
+        self._latest = self.get_latest()
 
         self._collector = factory.Factory.get_collector(self.name)
         self._alerter = factory.Factory.get_alerter(self.name)
@@ -128,7 +129,7 @@ class ReaderBase(ABC):
 
         return history
 
-    def get_latest(self, clear_nans=False):
+    def get_latest(self, clear_nans=True):
         sorted_history = self.get_sorted_history()
 
         if sorted_history.empty:

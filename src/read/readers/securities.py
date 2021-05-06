@@ -5,6 +5,4 @@ class Securities(ReaderBase):
     INTERESTING_KEYS = ['authorizedShares', 'outstandingShares', 'restrictedShares', 'unrestrictedShares']
 
     def generate_msg(self):
-        latest = self.get_latest()
-
-        return '\n'.join(['{key}: {value:,}'.format(key=key, value=latest.get(key)) for key in self.INTERESTING_KEYS if latest.get(key)])
+        return '\n'.join(['{key}: {value:,}'.format(key=key, value=latest.get(key)) for key in self.INTERESTING_KEYS if self.get_latest().get(key)])
