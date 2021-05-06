@@ -57,6 +57,7 @@ class Alert(Runnable):
             ticker, price = self.__extract_ticker(diffs)
             if not self.is_relevant(ticker, price):
                 batch.ack()
+                return
 
             msg = ''
 
