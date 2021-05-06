@@ -118,6 +118,7 @@ class Bot(Runnable):
 /register - Register to get alerts on updates straight to your telegram account.
 /alerts - Previously detected alerts for a given ticker.
 /dd - Dig in to updates that weren't alerted.
+/info - View the LATEST information for a given ticker.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*.
     '''
 
