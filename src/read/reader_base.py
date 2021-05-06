@@ -166,3 +166,7 @@ class ReaderBase(ABC):
         else:
             logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
             return 0
+
+    @staticmethod
+    def escape_markdown(msg):
+        return msg.replace("_", "\\_").replace("[", "\\[").replace("`", "\\`").replace("*", "\\*")

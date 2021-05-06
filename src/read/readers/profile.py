@@ -6,10 +6,14 @@ class Profile(ReaderBase):
     PIN_EMOJI_UNICODE = u'\U0001F4CD'
     INTERESTING_KEYS = ['website', 'phone', 'email', 'facebook', 'linkedin', 'twitter', 'businessDesc']
 
-    def generate_msg(self):
+    def generate_msg(self, exclude=None, escape_markdown=False):
+        """
+        :param escape_markdown:
+        :param exclude: List of keys to exclude
+        """
         latest = self.get_latest(clear_nans=True)
 
         features = [alerters.Profile.format_address(latest, is_paddding=True)] + \
-                   [value for key, value in latest.items() if key in self.INTERESTING_KEYS]
-
-        return f'{self.PIN_EMOJI_UNICODE} ' + f'\n{self.PIN_EMOJI_UNICODE} '.join(features)
+                   [value for key, value in latest.items() if key in set(self.INTERESTING_KEYS).difference(set(exclude))]
+        msg = f'{self.PIN_EMOJI_UNICODE} ' + f'\n{self.PIN_EMOJI_UNICODE} '.join(features)
+        return self.escape_markdown(msg) if escape_markdown else msg

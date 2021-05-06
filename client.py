@@ -8,6 +8,7 @@ import pandas
 from alert import Alert
 from runnable import Runnable
 from src.factory import Factory
+from src.find.site import Site
 from src.read import readers
 from src.read.reader_base import ReaderBase
 from src.read.readers import Profile, Symbols, Securities
@@ -42,7 +43,7 @@ class Client(Runnable):
 
         parser.add_argument('--history', dest='history', help='Print the saved history of a ticker')
         parser.add_argument('--low_floaters', dest='low_floaters', help='Get a list of light low float stocks',
-                            default=False,action='store_true')
+                            default=False, action='store_true')
         parser.add_argument('--filter_past', dest='filter_past', help='Filter duplicate rows from mongo',
                             default=False, action='store_true')
         parser.add_argument('--clear_diffs', dest='clear_diffs', help='Clear diffs collection from alerted: true',
@@ -51,10 +52,20 @@ class Client(Runnable):
         return parser
 
     @staticmethod
-    def info(mongo_db, ticker):
+    def info(mongo_db, ticker, escape_markdown=True):
         profile = Profile(mongo_db, ticker)
+        latest_profile = profile.get_latest()
+
+        sites = [Site("otcmarkets", '"https://www.otcmarkets.com/stock/{ticker}/profile"', is_otc=True),
+                 Site("twitter", '"https://twitter.com/search?q=%24{ticker}&src=typed_query"', is_otc=True),
+                 latest_profile.get('website') if latest_profile.get('website') else '']
+
+        links = '\n'.join(
+            [site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
+        links = ReaderBase.escape_markdown(links) if escape_markdown else links
 
         return """{title}
+        
 {subtitle}
 
 *Symbols*
@@ -63,14 +74,18 @@ class Client(Runnable):
 *Company Profile*
 {profile}
 
+*Links*
+{links}
+
 *Security details*
 {securities}
 """.format(
             title=Alert.generate_title(ticker, ReaderBase.get_last_price(ticker), mongo_db),
             subtitle=profile.get_latest().get('name'),
             symbols=Symbols(mongo_db, ticker).generate_msg(),
-            profile=profile.generate_msg(),
-            securities=Securities(mongo_db, ticker).generate_msg())
+            profile=profile.generate_msg(['website', 'businessDesc'], escape_markdown) + f'\n_{latest_profile.get("businessDesc")}_',
+            securities=Securities(mongo_db, ticker).generate_msg(),
+            links=links)
 
     def filter_past(self):
         for ticker in self._tickers_list:
@@ -93,7 +108,8 @@ class Client(Runnable):
                     collection.delete_many({"ticker": ticker})
                     collection.insert_many(history.to_dict('records'))
                 except Exception as e:
-                    self.logger.exception("Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
+                    self.logger.exception(
+                        "Couldn't filter {ticker}.{collection}".format(ticker=ticker, collection=collection_name))
                     self.logger.exception(e)
 
     @staticmethod
@@ -127,7 +143,7 @@ class Client(Runnable):
                 logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
 
                 securities = readers.Securities(mongo_db, ticker).get_latest()
-                outstanding, tier_code = int(securities['outstandingShares']),  securities['tierCode']
+                outstanding, tier_code = int(securities['outstandingShares']), securities['tierCode']
                 last_price = ReaderBase.get_last_price(ticker)
                 description = readers.Profile(mongo_db, ticker).get_latest()['businessDesc']
 
@@ -174,7 +190,9 @@ class Client(Runnable):
     def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
         alerts = pandas.DataFrame(
-            mongo_db.diffs.find(({"ticker": ticker, 'source': {'$nin': list(Factory.RECORDS_COLLECTIONS.keys())}})).sort('date', pymongo.ASCENDING))
+            mongo_db.diffs.find(
+                ({"ticker": ticker, 'source': {'$nin': list(Factory.RECORDS_COLLECTIONS.keys())}})).sort('date',
+                                                                                                         pymongo.ASCENDING))
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(

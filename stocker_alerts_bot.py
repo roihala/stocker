@@ -366,7 +366,9 @@ class Bot(Runnable):
                 ticker=ticker
             ))
 
-            update.message.reply_text(Client.info(context._dispatcher.mongo_db, ticker))
+            # Escaping irrelevant markdown characters
+            update.message.reply_text(Client.info(context._dispatcher.mongo_db, ticker),
+                                      parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
