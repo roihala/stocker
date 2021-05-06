@@ -64,7 +64,7 @@ class Client(Runnable):
         sites.append(latest_profile.get('website')) if latest_profile.get('website') else None
 
         links = '\n'.join(
-            [f'\n{Client.LINK_EMOJI_UNICODE} ' + site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
+            [f'{Client.LINK_EMOJI_UNICODE} ' + site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
         links = ReaderBase.escape_markdown(links) if escape_markdown else links
 
         return """{title}
