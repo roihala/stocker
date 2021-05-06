@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 
 from runnable import Runnable
+from src.alert.tickers.alerters import Securities
 from src.factory import Factory
 from src.read import readers
 from src.read.reader_base import ReaderBase
@@ -53,7 +54,7 @@ class Alert(Runnable):
 
         try:
             ticker, price = self.__extract_ticker(diffs)
-            if not self.is_alertable(ticker, price):
+            if not self.is_relevant(ticker, price):
                 batch.ack()
 
             msg = ''
@@ -83,9 +84,18 @@ class Alert(Runnable):
         ticker = tickers.pop()
         return ticker, ReaderBase.get_last_price(ticker)
 
-    def is_alertable(self, ticker, price):
+    def is_relevant(self, ticker, price):
+        try:
+            tier = readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName')
+            tier_hierarchy = Securities.get_hierarchy()['tierDisplayName']
+            relevant_tier = tier_hierarchy.index(tier) < tier_hierarchy.index('OTCQB')
+        except ValueError:
+            relevant_tier = True
+
         # Will we alert this ticker?
-        if price < 0.05 and not (len(ticker) == 5 and ticker[-1] == 'F'):
+        if price < 0.05 \
+                and (not len(ticker) == 5 and ticker[-1] == 'F') \
+                and relevant_tier:
             return True
         return False
 
