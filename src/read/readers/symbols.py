@@ -1,3 +1,5 @@
+import arrow
+
 from src.alert.alerter_base import AlerterBase
 from src.read.reader_base import ReaderBase
 
@@ -28,6 +30,6 @@ class Symbols(ReaderBase):
             else:
                 red_or_green = AlerterBase.RED_CIRCLE_EMOJI_UNICODE
 
-            return f'{red_or_green} {symbol} {self._latest.get("verifiedDate") if symbol == "verifiedProfile" else ""}'
+            return f'{red_or_green} {symbol} {"(" + arrow.get(self._latest.get("verifiedDate")).humanize() + ")" if symbol == "verifiedProfile" else ""}'
         except ValueError:
             return symbol

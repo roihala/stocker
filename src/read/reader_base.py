@@ -30,10 +30,10 @@ class ReaderBase(ABC):
         self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
-        self._latest = self.get_latest()
 
         self._collector = factory.Factory.get_collector(self.name)
         self._alerter = factory.Factory.get_alerter(self.name)
+        self._latest = self.get_latest()
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
         """
