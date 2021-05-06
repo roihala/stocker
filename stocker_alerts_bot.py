@@ -13,7 +13,7 @@ from client import Client
 from runnable import Runnable
 from src.read import readers
 
-PRINT_DD, GET_TOPIC, PRINT_ALERTS, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(6)
+PRINT_DD, GET_TOPIC, PRINT_ALERTS, PRINT_INFO, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(7)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -52,6 +52,16 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
+        info_conv = ConversationHandler(
+            entry_points=[CommandHandler('info', Bot.info)],
+            states={
+                # Allowing 3-5 letters
+                PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.info_request),
+                               MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+            },
+            fallbacks=[],
+        )
+
         dd_conv = ConversationHandler(
             entry_points=[CommandHandler('dd', Bot.dd)],
             states={
@@ -83,6 +93,7 @@ class Bot(Runnable):
 
         dp.add_handler(start_conv)
         dp.add_handler(alerts_conv)
+        dp.add_handler(info_conv)
         dp.add_handler(register_conv)
         dp.add_handler(dd_conv)
         dp.add_handler(broadcast_conv)
@@ -330,6 +341,40 @@ class Bot(Runnable):
                 '{user_name} couldn\'t register, please contact the support team'.format(
                     user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
+
+    @staticmethod
+    def info(update, context):
+        user = update.message.from_user
+
+        if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
+            update.message.reply_text('Insert a valid OTC ticker')
+
+            return PRINT_INFO
+        else:
+            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            return ConversationHandler.END
+
+    @staticmethod
+    def info_request(update, context):
+        user = update.message.from_user
+        ticker = update.message.text.upper()
+
+        try:
+            context._dispatcher.logger.info("{user_name} of {chat_id} have used /info on ticker: {ticker}".format(
+                user_name=user.name,
+                chat_id=user.id,
+                ticker=ticker
+            ))
+
+            # Escaping irrelevant markdown characters
+            update.message.reply_text(Client.info(context._dispatcher.mongo_db, ticker),
+                                      parse_mode=telegram.ParseMode.MARKDOWN)
+
+        except Exception as e:
+            context._dispatcher.logger.exception(e, exc_info=True)
+            update.message.reply_text("Couldn't produce info for {ticker}".format(ticker=ticker))
+
+        return ConversationHandler.END
 
     @staticmethod
     def send_broadcast_msg(update, context):

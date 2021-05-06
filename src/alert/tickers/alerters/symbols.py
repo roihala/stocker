@@ -9,8 +9,8 @@ class Symbols(TickerAlerter):
     def filter_keys(self):
         return ['isPennyStockExempt', 'verifiedDate']
 
-    @property
-    def hierarchy(self):
+    @staticmethod
+    def get_hierarchy() -> dict:
         return {'verifiedProfile': [False, True],
                 'isHotSector': [False, True],
                 'hasPromotion': [False, True],

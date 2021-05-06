@@ -1,4 +1,5 @@
 import logging
+import math
 
 import arrow
 import pandas
@@ -31,6 +32,7 @@ class ReaderBase(ABC):
         self._mongo_db = mongo_db
 
         self._collector = factory.Factory.get_collector(self.name)
+        self._alerter = factory.Factory.get_alerter(self.name)
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
         """
@@ -85,6 +87,9 @@ class ReaderBase(ABC):
 
         return history
 
+    def generate_msg(self):
+        return ''
+
     @classmethod
     def __unfold(cls, iterable, layers):
         try:
@@ -123,7 +128,7 @@ class ReaderBase(ABC):
 
         return history
 
-    def get_latest(self):
+    def get_latest(self, clear_nans=False):
         sorted_history = self.get_sorted_history()
 
         if sorted_history.empty:
@@ -131,7 +136,13 @@ class ReaderBase(ABC):
 
         # to_dict indexes by rows, therefore getting the highest index
         history_as_dicts = sorted_history.tail(1).drop(['date', 'ticker'], 'columns', errors='ignore').to_dict('index')
-        return history_as_dicts[max(history_as_dicts.keys())]
+
+        latest = history_as_dicts[max(history_as_dicts.keys())]
+        if clear_nans:
+            # NaN does not equal to Nan
+            return {k: v for k, v in latest.items() if v == v}
+        else:
+            return latest
 
     @staticmethod
     def timestamp_to_datestring(value):
@@ -155,3 +166,7 @@ class ReaderBase(ABC):
         else:
             logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
             return 0
+
+    @staticmethod
+    def escape_markdown(msg):
+        return msg.replace("_", "\\_").replace("[", "\\[").replace("`", "\\`").replace("*", "\\*")
