@@ -96,7 +96,7 @@ class Alert(Runnable):
 
         # Will we alert this ticker?
         if price < 0.05 \
-                and (not len(ticker) == 5 and ticker[-1] == 'F') \
+                and not (len(ticker) == 5 and ticker[-1] == 'F') \
                 and relevant_tier:
             return True
         return False
