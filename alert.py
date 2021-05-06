@@ -9,10 +9,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 
 from runnable import Runnable
-from src.alert.tickers.alerters import Securities
+
 from src.factory import Factory
 from src.read import readers
 from src.read.reader_base import ReaderBase
+from src.alert.tickers.alerters import Securities
 
 from google.cloud.pubsub import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
