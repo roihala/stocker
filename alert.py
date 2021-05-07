@@ -56,6 +56,7 @@ class Alert(Runnable):
         try:
             ticker, price = self.__extract_ticker(diffs)
             if not self.is_relevant(ticker, price):
+                self.logger.info('irrelevant {ticker}'.format(ticker=ticker))
                 batch.ack()
                 return
 
@@ -91,6 +92,7 @@ class Alert(Runnable):
             tier = readers.Securities(self._mongo_db, ticker).get_latest().get('tierDisplayName')
             tier_hierarchy = Securities.get_hierarchy()['tierDisplayName']
             relevant_tier = tier_hierarchy.index(tier) < tier_hierarchy.index('OTCQB')
+
         except ValueError:
             relevant_tier = True
 

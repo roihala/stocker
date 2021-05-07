@@ -21,7 +21,11 @@ class Profile(TickerAlerter):
                 'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName', 'venue',
                 'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered', 'isAlternativeReporting',
                 'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes', 'reportingStandardMin',
-                'auditStatus', 'auditedStatusDisplay']
+                'auditStatus', 'auditedStatusDisplay', 'countryOfIncorporation', 'countryOfIncorporationName',
+                'audited', 'bankId', 'blankCheck', 'blindPool', 'cik', 'companyLogoUrl', 'deregistrationDate',
+                'filingCycle', 'fiscalYearEnd', 'hasLogo', 'id', 'investmentBanks', 'investorRelationFirms',
+                'is12g32b', 'isBankThrift', 'isInternationalReporting', 'isNonBankRegulated', 'isOtherReporting',
+                'regulatoryAgencyId', 'regulatoryAgencyName', 'traderRssdId', 'yearOfIncorporation']
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
