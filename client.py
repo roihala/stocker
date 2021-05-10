@@ -198,10 +198,10 @@ class Client(Runnable):
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if row['changed_key'] and 'date' in row['changed_key'].lower() else row['new'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if row['changed_key'] == row['changed_key'] and 'date' in row['changed_key'].lower() else row['new'],
             axis=1)
         alerts['old'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if row['changed_key'] and 'date' in row['changed_key'].lower() else row['old'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if ['changed_key'] == row['changed_key'] and 'date' in row['changed_key'].lower() else row['old'],
             axis=1)
 
         return alerts
