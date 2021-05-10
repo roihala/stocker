@@ -36,10 +36,10 @@ class Symbols(TickerAlerter):
 
         if diff.get('diff_type') == 'change':
             if diff.get('old') is False:
-                msg = '{green_circle_emoji} {key} added'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                msg = '{green_circle_emoji} *{key}* added'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                                 key=diff.get('changed_key'))
             elif diff.get('old') is True:
-                msg = '{red_circle_emoji} {key} removed'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
+                msg = '{red_circle_emoji} *{key}* removed'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
                                                                 key=diff.get('changed_key'))
 
         # If managed to generate boolean-type alert message

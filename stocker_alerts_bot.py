@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import arrow
+from functools import reduce
 
 import dataframe_image as dfi
 import telegram
+
 from src.factory import Factory
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup
@@ -12,6 +15,8 @@ from telegram import InlineKeyboardMarkup
 from client import Client
 from runnable import Runnable
 from src.read import readers
+from alert import Alert
+
 
 PRINT_DD, GET_TOPIC, PRINT_ALERTS, PRINT_INFO, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(7)
 
@@ -31,7 +36,9 @@ class Bot(Runnable):
 
         # Bad APIs make bad workarounds
         setattr(dp, 'mongo_db', self._mongo_db)
+        setattr(dp, 'telegram_bot', self._telegram_bot)
         setattr(dp, 'logger', self.logger)
+        setattr(dp, 'debug', self._debug)
 
         start_conv = ConversationHandler(
             entry_points=[CommandHandler('start', Bot.start)],
@@ -236,7 +243,7 @@ class Bot(Runnable):
     def alerts_request(update, context):
         user = update.message.from_user
         ticker = update.message.text.upper()
-        update.message.reply_text("This operation might take some time...")
+        msg_holder = update.message.reply_text("This operation might take some time...")
 
         try:
             context._dispatcher.logger.info("{user_name} of {chat_id} have used /alerts on ticker: {ticker}".format(
@@ -244,15 +251,25 @@ class Bot(Runnable):
                 chat_id=user.id,
                 ticker=ticker
             ))
-            alerts_df = Client.get_diffs(context._dispatcher.mongo_db, ticker)
+            diffs = Client.get_diffs(context._dispatcher.mongo_db, ticker).to_dict('records')
+            alerter_args = {'mongo_db': context._dispatcher.mongo_db, 'telegram_bot': context._dispatcher.telegram_bot,
+                            'ticker': ticker, 'debug': context._dispatcher.debug}
+            messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
-            Bot.send_df(alerts_df, ticker, update.message.reply_document)
+            title = Alert.generate_title(ticker, context._dispatcher.mongo_db)
+            msg = reduce(lambda _, diff: _ + (Bot.format_message(messages, diff) if diff.get('_id') in messages else ''), diffs, '')
+            msg_holder.edit_text(f"{title}\n{msg}", parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
             update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END
+
+    @staticmethod
+    def format_message(messages, diff):
+        # Add date and blank lines
+        return f"{messages[diff.get('_id')]}\n_{arrow.get(diff.get('date')).to('Asia/Jerusalem').format()}_\n\n"
 
     @staticmethod
     def get_topic(update, context):

@@ -28,12 +28,3 @@ class Securities(TickerAlerter):
             return super()._edit_diff(diff)
         else:
             return None
-        # TODO: After adding DailyAlert
-        diff = super()._edit_diff(diff)
-        if not diff:
-            return diff
-
-        if diff['changed_key'].startswith('showTrustedLogo'):
-            return None
-
-        return diff

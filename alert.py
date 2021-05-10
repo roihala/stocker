@@ -2,6 +2,7 @@ import datetime
 import json
 
 import pandas
+import pymongo
 import telegram
 
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -60,13 +61,10 @@ class Alert(Runnable):
                 batch.ack()
                 return
 
-            msg = ''
+            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+                            'ticker': ticker, 'debug': self._debug}
 
-            for source in set([diff.get('source') for diff in diffs]):
-                alert = self.__get_alert_by_source(source, ticker, diffs)
-
-                if alert:
-                    msg = msg + '\n\n' + alert if msg else alert
+            msg = self.generate_msg(diffs, alerter_args)
 
             if msg:
                 self._mongo_db.diffs.insert_many(raw_diffs)
@@ -78,6 +76,22 @@ class Alert(Runnable):
             self.logger.warning("Couldn't alert diffs: {diffs}".format(diffs=diffs))
             self.logger.exception(e)
             batch.nack()
+
+    @staticmethod
+    def generate_msg(diffs, alerter_args, as_dict=False):
+        """
+        :param as_dict: Return the message as dict of {_id: msg}
+        :param diffs: list of diffs
+        :param alerter_args: e.g: {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+                            'ticker': ticker, 'debug': self._debug, 'batch': diffs}
+        """
+        messages = {}
+
+        for source in set([diff.get('source') for diff in diffs]):
+            alerter = Factory.alerters_factory(source, **alerter_args)
+            messages.update(alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=True))
+
+        return messages if as_dict else '\n\n'.join([value for value in messages.values()])
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -102,13 +116,6 @@ class Alert(Runnable):
                 and relevant_tier:
             return True
         return False
-
-    def __get_alert_by_source(self, source, ticker, diffs):
-        alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                        'ticker': ticker, 'debug': self._debug, 'batch': diffs}
-        alerter = Factory.alerters_factory(source, **alerter_args)
-
-        return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
 
     def __send_or_delay(self, msg, delay=True):
         if self._debug:
@@ -147,15 +154,15 @@ class Alert(Runnable):
                 bang_emoji=self.BANG_EMOJI_UNICODE) + alert_msg
 
         return '{title}\n' \
-               '{alert_msg}'.format(title=self.generate_title(ticker, price, self._mongo_db), alert_msg=alert_msg)
+               '{alert_msg}'.format(title=self.generate_title(ticker, self._mongo_db, price), alert_msg=alert_msg)
 
     @staticmethod
-    def generate_title(ticker, price, mongo_db):
+    def generate_title(ticker, mongo_db, price=None):
         return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):'.format(
             alert_emoji=Alert.ALERT_EMOJI_UNICODE,
             ticker=ticker,
             money_emoji=Alert.MONEY_BAG_EMOJI_UNICODE,
-            last_price=price,
+            last_price=price if price else ReaderBase.get_last_price(ticker),
             trophy_emoji=Alert.TROPHY_EMOJI_UNICODE,
             tier=readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName'))
 

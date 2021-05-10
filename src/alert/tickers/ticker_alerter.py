@@ -27,16 +27,15 @@ class TickerAlerter(AlerterBase):
         # List of keys to ignore
         return []
 
-    def get_alert_msg(self, diffs: Iterable[dict]):
-        msg = ''
+    def get_alert_msg(self, diffs: Iterable[dict], as_dict=False):
+        messages = {}
 
         for diff in self._edit_batch(diffs):
-            diff_msg = self.generate_msg(diff)
+            msg = self.generate_msg(diff)
+            if msg:
+                messages[diff.get('_id')] = msg
 
-            if diff_msg:
-                msg = msg + '\n\n' + diff_msg if msg else diff_msg
-
-        return msg
+        return messages if as_dict else '\n\n'.join([msg for msg in messages.values()])
 
     def generate_msg(self, diff, old=None, new=None):
         diff = self._edit_diff(diff)
