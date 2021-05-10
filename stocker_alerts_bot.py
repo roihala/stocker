@@ -6,6 +6,7 @@ import arrow
 from functools import reduce
 
 import dataframe_image as dfi
+import plotly.express as px
 import telegram
 
 from src.factory import Factory
@@ -16,7 +17,6 @@ from client import Client
 from runnable import Runnable
 from src.read import readers
 from alert import Alert
-
 
 PRINT_DD, GET_TOPIC, PRINT_ALERTS, PRINT_INFO, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(7)
 
@@ -54,7 +54,7 @@ class Bot(Runnable):
             states={
                 # Allowing 3-5 letters
                 PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.alerts_request),
-                           MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+                               MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
             },
             fallbacks=[],
         )
@@ -64,7 +64,7 @@ class Bot(Runnable):
             states={
                 # Allowing 3-5 letters
                 PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.info_request),
-                               MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
+                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
             },
             fallbacks=[],
         )
@@ -257,7 +257,9 @@ class Bot(Runnable):
             messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
             title = Alert.generate_title(ticker, context._dispatcher.mongo_db)
-            msg = reduce(lambda _, diff: _ + (Bot.format_message(messages, diff) if diff.get('_id') in messages else ''), diffs, '')
+            msg = reduce(
+                lambda _, diff: _ + (Bot.format_message(messages, diff) if diff.get('_id') in messages else ''), diffs,
+                '')
             msg_holder.edit_text(f"{title}\n{msg}", parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
@@ -277,7 +279,7 @@ class Bot(Runnable):
         context.user_data["ticker"] = ticker
 
         keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("Share Structure", callback_data='ss'),
+            [telegram.InlineKeyboardButton("Dilution", callback_data='dilution'),
              telegram.InlineKeyboardButton("Company Profile", callback_data='profile')]])
 
         update.message.reply_text('Please Choose a topic:',
@@ -292,29 +294,30 @@ class Bot(Runnable):
         ticker = context.user_data["ticker"]
 
         try:
-            dd_df = None
             update.callback_query.message.reply_text("This operation might take some time...")
 
-            if topic == 'ss':
-                dd_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker)\
+            if topic == 'dilution':
+                securities_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
                     .get_sorted_history(filter_rows=True, filter_cols=True)
+                fig = px.line(securities_df, x="date", y=[key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns],
+                              title='Life expectancy in Canada')
+                Bot.send_df(securities_df, ticker, update.callback_query.message.reply_document,
+                            plotly_fig=fig, reply_markup=telegram.ReplyKeyboardRemove())
+
             elif topic == 'profile':
                 profile_df = readers.Profile(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
                     .get_sorted_history(filter_rows=True, filter_cols=True)
                 symbols_df = readers.Symbols(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
                     .get_sorted_history(filter_rows=True, filter_cols=True)
 
-                # TODO
+                # TODO: date_1?
                 dd_df = profile_df.join(symbols_df, how='outer', lsuffix='_1')
-
-            if dd_df is None:
-                update.callback_query.message.reply_text("Couldn't get /dd for {ticker}".format(ticker=ticker, topic=topic))
-                context._dispatcher.logger.warning("Couldn't generate /dd for {ticker} on {topic} topic".format(ticker=ticker, topic=topic))
-                return ConversationHandler.END
-
-            Bot.send_df(dd_df, ticker, update.callback_query.message.reply_document, reply_markup=telegram.ReplyKeyboardRemove())
+                Bot.send_df(dd_df, ticker, update.callback_query.message.reply_document,
+                            reply_markup=telegram.ReplyKeyboardRemove())
 
         except Exception as e:
+            context._dispatcher.logger.warning(
+                "Couldn't generate /dd for {ticker} on {topic} topic".format(ticker=ticker, topic=topic))
             context._dispatcher.logger.exception(e, exc_info=True)
             update.callback_query.message.reply_text("Couldn't produce {topic} for {ticker}".format(ticker=ticker,
                                                                                                     topic=topic))
@@ -334,11 +337,14 @@ class Bot(Runnable):
             return ConversationHandler.END
 
     @staticmethod
-    def send_df(df, name, func, **kwargs):
-        image_path = Bot.TEMP_IMAGE_FILE_FORMAT.format(name=name)
+    def send_df(df, ticker, func, plotly_fig=None, **kwargs):
+        image_path = Bot.TEMP_IMAGE_FILE_FORMAT.format(name=ticker)
 
-        # Converting to image because dataframe isn't shown well in telegram
-        dfi.export(df, image_path, table_conversion="matplotlib")
+        if plotly_fig:
+            plotly_fig.write_image(image_path)
+        else:
+            # Converting to image because dataframe isn't shown well in telegram
+            dfi.export(df, image_path, table_conversion="matplotlib")
 
         with open(image_path, 'rb') as image:
             func(document=image, **kwargs)
