@@ -292,7 +292,7 @@ class Bot(Runnable):
         topic = update.callback_query.data
         update.callback_query.answer()
         ticker = context.user_data["ticker"]
-        user = update.message.from_user
+        user = update.callback_query.from_user
 
         context._dispatcher.logger.info("{user_name} of {chat_id} have used /dd on {ticker}, {topic}".format(
             user_name=user.name,
@@ -302,7 +302,7 @@ class Bot(Runnable):
         ))
 
         try:
-            update.callback_query.message.reply_text("This operation might take some time...")
+            msg_holder = update.callback_query.message.reply_text("This operation might take some time...")
 
             if topic == 'dilution':
                 securities_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
@@ -322,6 +322,8 @@ class Bot(Runnable):
                 dd_df = profile_df.join(symbols_df, how='outer', lsuffix='_1')
                 Bot.send_df(dd_df, ticker, update.callback_query.message.reply_document,
                             reply_markup=telegram.ReplyKeyboardRemove())
+
+            msg_holder.delete()
 
         except Exception as e:
             context._dispatcher.logger.warning(
