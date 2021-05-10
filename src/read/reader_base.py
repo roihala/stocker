@@ -130,15 +130,11 @@ class ReaderBase(ABC):
         return history
 
     def get_latest(self, clear_nans=True):
-        sorted_history = self.get_sorted_history()
+        if hasattr(self, '_latest'):
+            return self._latest
 
-        if sorted_history.empty:
-            return {}
+        latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.ASCENDING).limit(1)[0]
 
-        # to_dict indexes by rows, therefore getting the highest index
-        history_as_dicts = sorted_history.tail(1).drop(['date', 'ticker'], 'columns', errors='ignore').to_dict('index')
-
-        latest = history_as_dicts[max(history_as_dicts.keys())]
         if clear_nans:
             # NaN does not equal to Nan
             return {k: v for k, v in latest.items() if v == v}

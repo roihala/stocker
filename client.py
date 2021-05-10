@@ -38,7 +38,7 @@ class Client(Runnable):
         elif self.args.clear_diffs:
             self.clear_diffs()
         elif self.args.info:
-            print(self.info(self.args.info))
+            print(self.info(self._mongo_db, self.args.info))
 
     def create_parser(self):
         parser = super().create_parser()
@@ -82,7 +82,7 @@ class Client(Runnable):
 *Security details*
 {securities}
 """.format(
-            title=Alert.generate_title(ticker, ReaderBase.get_last_price(ticker), mongo_db),
+            title=Alert.generate_title(ticker, mongo_db),
             subtitle=profile.get_latest().get('name'),
             symbols=Symbols(mongo_db, ticker).generate_msg(),
             profile=profile.generate_msg(['website', 'businessDesc'], escape_markdown) + f'\n_{latest_profile.get("businessDesc")}_',
@@ -192,20 +192,17 @@ class Client(Runnable):
     def get_diffs(mongo_db, ticker):
         # Pulling from diffs collection
         alerts = pandas.DataFrame(
-            mongo_db.diffs.find(
-                ({"ticker": ticker, 'source': {'$nin': list(Factory.RECORDS_COLLECTIONS.keys())}})).sort('date',
-                                                                                                         pymongo.ASCENDING))
+            mongo_db.diffs.find(({"ticker": ticker})).sort('date', pymongo.ASCENDING))
+
+        pandas.set_option('display.expand_frame_repr', False)
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if 'Date' in row['changed_key'] else row['new'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if row['changed_key'] and 'date' in row['changed_key'].lower() else row['new'],
             axis=1)
         alerts['old'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if 'Date' in row['changed_key'] else row['old'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if row['changed_key'] and 'date' in row['changed_key'].lower() else row['old'],
             axis=1)
-
-        # Dropping columns that the user shouldn't see
-        alerts = alerts.drop(['_id', 'diff_type', 'source', 'alerted'], axis=1)
 
         return alerts
 
@@ -223,8 +220,8 @@ class Client(Runnable):
                          'isAlternativeReporting',
                          'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes',
                          'reportingStandardMin',
-                         'auditStatus', 'auditedStatusDisplay'] + ['outstandingSharesAsOfDate',
-                                                                   'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
+                         'auditStatus', 'auditedStatusDisplay'] + ['outstandingSharesAsOfDate', 'outstandingShares', 'authorizedShares',
+                                                                   'authorizedSharesAsOfDate', 'dtcSharesAsOfDate', 'unrestrictedShares',
                                                                    'restrictedSharesAsOfDate',
                                                                    'unrestrictedSharesAsOfDate',
                                                                    'dtcShares', 'tierStartDate', 'tierId',
@@ -258,7 +255,7 @@ class Client(Runnable):
 
             try:
                 alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': None,
-                                'ticker': record.get('ticker'), 'debug': True, 'batch': []}
+                                'ticker': record.get('ticker'), 'debug': True}
                 alerter = Factory.alerters_factory(record.get('source'), **alerter_args)
 
                 _, msg = alerter.get_alert_msg([record])

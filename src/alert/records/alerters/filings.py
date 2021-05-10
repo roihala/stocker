@@ -8,7 +8,3 @@ class Filings(RecordsAlerter):
     def site(self) -> Site:
         return Site('filings',
                     'https://backend.otcmarkets.com/otcapi/company/{ticker}/financial-report?symbol={ticker}&page=1&pageSize=50&statusId=A&sortOn=releaseDate&sortDir=DESC', True)
-
-    @property
-    def brothers(self):
-        return [SecFilings(self._mongo_db, self._telegram_bot, self._batch, self._ticker)]

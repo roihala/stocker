@@ -1,7 +1,6 @@
 import logging
 from abc import abstractmethod, ABC
-from functools import reduce
-from typing import Iterable
+from typing import List
 
 import arrow
 import requests
@@ -18,13 +17,13 @@ class RecordsAlerter(AlerterBase, ABC):
     def site(self) -> Site:
         pass
 
-    def get_alert_msg(self, diffs: Iterable[dict]):
+    def get_alert_msg(self, diffs: List[dict], as_dict=False):
         prev = self.__get_previous_date(diffs)
 
         if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
-            return self.generate_msg(diffs)
+            return {diffs[0]['_id']: self.generate_msg(diffs)} if as_dict else self.generate_msg(diffs)
         else:
-            return ''
+            return {} if as_dict else ''
 
     def generate_msg(self, diffs):
         return '*{name}* added:\n' \
