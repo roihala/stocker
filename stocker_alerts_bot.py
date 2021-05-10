@@ -75,7 +75,7 @@ class Bot(Runnable):
                 # Allowing 3-5 letters
                 GET_TOPIC: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_topic),
                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
-                PRINT_DD: [CallbackQueryHandler(Bot.dd_callback)]
+                PRINT_DD: [CallbackQueryHandler(Bot.dd_request)]
             },
             fallbacks=[],
         )
@@ -288,10 +288,18 @@ class Bot(Runnable):
         return PRINT_DD
 
     @staticmethod
-    def dd_callback(update, context):
+    def dd_request(update, context):
         topic = update.callback_query.data
         update.callback_query.answer()
         ticker = context.user_data["ticker"]
+        user = update.message.from_user
+
+        context._dispatcher.logger.info("{user_name} of {chat_id} have used /dd on {ticker}, {topic}".format(
+            user_name=user.name,
+            chat_id=user.id,
+            ticker=ticker,
+            topic=topic
+        ))
 
         try:
             update.callback_query.message.reply_text("This operation might take some time...")
