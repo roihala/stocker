@@ -25,6 +25,7 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 class Bot(Runnable):
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
+    MAX_MESSAGE_LENGTH = 4096
 
     def run(self):
         if os.getenv('TELEGRAM_TOKEN') is not None:
@@ -260,7 +261,9 @@ class Bot(Runnable):
             msg = reduce(
                 lambda _, diff: _ + (Bot.format_message(messages, diff) if diff.get('_id') in messages else ''), diffs,
                 '')
-            msg_holder.edit_text(f"{title}\n{msg}", parse_mode=telegram.ParseMode.MARKDOWN)
+
+            msg_holder.delete()
+            Bot.send_long_message(update.message.reply_text, f"{title}\n{msg}", parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
@@ -439,6 +442,10 @@ class Bot(Runnable):
         return bool(
             mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id, 'permissions': 'high'}))
 
+    @staticmethod
+    def send_long_message(func, msg, *args, **kwargs):
+        for msg in [msg[i: i + Bot.MAX_MESSAGE_LENGTH] for i in range(0, len(msg), Bot.MAX_MESSAGE_LENGTH)]:
+            func(msg, *args, **kwargs)
 
 def main():
     try:

@@ -1,5 +1,7 @@
 import logging
-import math
+from json import JSONDecodeError
+
+from retry import retry
 
 import arrow
 import pandas
@@ -132,14 +134,17 @@ class ReaderBase(ABC):
     def get_latest(self, clear_nans=True):
         if hasattr(self, '_latest'):
             return self._latest
+        try:
+            latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.DESCENDING).limit(1)[0]
 
-        latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.ASCENDING).limit(1)[0]
-
-        if clear_nans:
-            # NaN does not equal to Nan
-            return {k: v for k, v in latest.items() if v == v}
-        else:
-            return latest
+            if clear_nans:
+                # NaN does not equal to Nan
+                return {k: v for k, v in latest.items() if v == v}
+            else:
+                return latest
+        except Exception as e:
+            logger.warning(f"Couldn't get latest of {self.ticker}")
+            logger.exception(e)
 
     @staticmethod
     def timestamp_to_datestring(value):
@@ -149,19 +154,22 @@ class ReaderBase(ABC):
             return value
 
     @staticmethod
+    @retry(JSONDecodeError, tries=3, delay=1)
     def get_last_price(ticker):
         url = Site('prices',
                    'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                    is_otc=True).get_ticker_url(ticker)
 
         response = requests.get(url)
-
-        if response.json().get('lastSale'):
-            return float(response.json().get('lastSale'))
-        elif response.json().get('previousClose'):
-            return float(response.json().get('previousClose'))
-        else:
-            logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
+        try:
+            if response.json().get('lastSale'):
+                return float(response.json().get('lastSale'))
+            elif response.json().get('previousClose'):
+                return float(response.json().get('previousClose'))
+            else:
+                logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
+                return 0
+        except JSONDecodeError:
             return 0
 
     @staticmethod

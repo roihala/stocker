@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 
 import pandas
 import pymongo
@@ -83,13 +84,18 @@ class Alert(Runnable):
         :param as_dict: Return the message as dict of {_id: msg}
         :param diffs: list of diffs
         :param alerter_args: e.g: {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug, 'batch': diffs}
+                            'ticker': ticker, 'debug': self._debug}
         """
         messages = {}
 
-        for source in set([diff.get('source') for diff in diffs]):
-            alerter = Factory.alerters_factory(source, **alerter_args)
-            messages.update(alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=True))
+        for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
+            try:
+                alerter = Factory.alerters_factory(source, **alerter_args)
+                messages.update(alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=True))
+            except Exception as e:
+                logger = logging.getLogger(Factory.get_alerter(source).__class__.__name__)
+                logger.warning(f"Couldn't generate msg {diffs}: {source}")
+                logger.exception(e)
 
         return messages if as_dict else '\n\n'.join([value for value in messages.values()])
 
