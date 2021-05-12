@@ -18,12 +18,23 @@ from runnable import Runnable
 from src.read import readers
 from alert import Alert
 
-PRINT_DD, GET_TOPIC, PRINT_ALERTS, PRINT_INFO, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(7)
+CHOOSE_TOOL, START_CALLBACK, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, REGISTER, CONVERSATION_CALLBACK, PRINT_DILUTION = range(
+    8)
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
 class Bot(Runnable):
+    START_MESSAGE = '''   
+    Please use one of the following commands:
+
+/register - Register to get alerts on updates straight to your telegram account.
+/alerts - Previously detected alerts for a given ticker.
+/dd - Dig in to updates that weren't alerted.
+/info - View the LATEST information for a given ticker.
+/deregister - Do this to stop getting alerts from stocker. *not recommended*.
+    '''
+
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
 
@@ -41,53 +52,24 @@ class Bot(Runnable):
         setattr(dp, 'logger', self.logger)
         setattr(dp, 'debug', self._debug)
 
-        start_conv = ConversationHandler(
-            entry_points=[CommandHandler('start', Bot.start)],
+        tools_conv = ConversationHandler(
+            entry_points=[CommandHandler('tools', Bot.tools_command),
+                          CommandHandler('start', Bot.start_command)],
             states={
-                REGISTER: [CallbackQueryHandler(Bot.register_callback)],
-                VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.validate_password)]
-            },
-            fallbacks=[]
-        )
+                # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
+                CONVERSATION_CALLBACK: [CallbackQueryHandler(Bot.conversation_callback)],
+                CHOOSE_TOOL: [MessageHandler(Filters.regex('^/tools|/start$'), Bot.tools)],
 
-        alerts_conv = ConversationHandler(
-            entry_points=[CommandHandler('alerts', Bot.alerts)],
-            states={
-                # Allowing 3-5 letters
-                PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.alerts_request),
+                PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.info_callback),
+                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
+                REGISTER: [MessageHandler(Filters.regex('.*'), Bot.register_conv_callback)],
+                PRINT_DILUTION: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.dilution_callback),
+                                 MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
+                PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.alerts_callback),
                                MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
             },
-            fallbacks=[],
-        )
 
-        info_conv = ConversationHandler(
-            entry_points=[CommandHandler('info', Bot.info)],
-            states={
-                # Allowing 3-5 letters
-                PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.info_request),
-                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)]
-            },
-            fallbacks=[],
-        )
-
-        dd_conv = ConversationHandler(
-            entry_points=[CommandHandler('dd', Bot.dd)],
-            states={
-                # Allowing 3-5 letters
-                GET_TOPIC: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), Bot.get_topic),
-                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), Bot.invalid_ticker_format)],
-                PRINT_DD: [CallbackQueryHandler(Bot.dd_request)]
-            },
-            fallbacks=[],
-        )
-
-        register_conv = ConversationHandler(
-            entry_points=[CommandHandler('register', Bot.register)],
-            states={
-                # Allowing letters and whitespaces
-                VALIDATE_PASSWORD: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.validate_password)]
-            },
-            fallbacks=[],
+            fallbacks=[MessageHandler(Filters.regex('^/tools|/start$'), Bot.conversation_fallback)]
         )
 
         broadcast_conv = ConversationHandler(
@@ -99,13 +81,13 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
-        dp.add_handler(start_conv)
-        dp.add_handler(alerts_conv)
-        dp.add_handler(info_conv)
-        dp.add_handler(register_conv)
-        dp.add_handler(dd_conv)
+        dp.add_handler(tools_conv)
         dp.add_handler(broadcast_conv)
 
+        dp.add_handler(CommandHandler('register', Bot.register_command))
+        dp.add_handler(CommandHandler('dilution', Bot.dilution_command))
+        dp.add_handler(CommandHandler('alerts', Bot.alerts_command))
+        dp.add_handler(CommandHandler('info', Bot.info_command))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
 
@@ -118,84 +100,41 @@ class Bot(Runnable):
         updater.idle()
 
     @staticmethod
-    def start(update, context):
-        user = update.message.from_user
-        start_msg = '''   
-    Please use one of the following commands:
+    def conversation_fallback(update, context):
+        if update.message.text == '/start':
+            Bot.start(update.message, update.message.from_user, context)
+        elif update.message.text == '/tools':
+            Bot.tools(update.message, update.message.from_user, context)
+        else:
+            raise ValueError("Logic shouldn't get here")
 
-/register - Register to get alerts on updates straight to your telegram account.
-/alerts - Previously detected alerts for a given ticker.
-/dd - Dig in to updates that weren't alerted.
-/info - View the LATEST information for a given ticker.
-/deregister - Do this to stop getting alerts from stocker. *not recommended*.
-    '''
+        return CONVERSATION_CALLBACK
 
-        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, user.name, user.id):
-            start_msg += '\n    /broadcast - Send meesages to all users'
+    @staticmethod
+    def start_command(update, context):
+        Bot.start(update.message, update.message.from_user, context)
+
+        return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def start(message, from_user, context, edit_text=False):
+        start_msg = Bot.START_MESSAGE
+
+        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, from_user.name, from_user.id):
+            start_msg += '\n/broadcast - Send meesages to all users'
 
         keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("register", callback_data='register')]])
+            [telegram.InlineKeyboardButton("register", callback_data='register'),
+             telegram.InlineKeyboardButton("tools", callback_data='tools')]])
 
-        update.message.reply_text(start_msg,
-                                  parse_mode=telegram.ParseMode.MARKDOWN,
-                                  reply_markup=keyboard)
-        return REGISTER
-
-    @staticmethod
-    def register_callback(update, context):
-        try:
-            # If trying to register by the 'register' button on /start
-            if update.callback_query.data == 'register':
-                update.callback_query.message.reply_text('Insert password please')
-                return VALIDATE_PASSWORD
-            else:
-                return ConversationHandler.END
-        except Exception as e:
-            update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(
-                    user_name=update.message.from_user))
-            context._dispatcher.logger.exception(e.__traceback__)
-            return ConversationHandler.END
-
-    @staticmethod
-    def register(update, context):
-        try:
-            update.message.reply_text('Insert password please')
-            return VALIDATE_PASSWORD
-        except Exception as e:
-            update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(
-                    user_name=update.message.from_user))
-            context._dispatcher.logger.exception(e.__traceback__)
-            return ConversationHandler.END
-
-    @staticmethod
-    def validate_password(update, context):
-        user = update.message.from_user
-        password = update.message.text
-
-        # Allowing users to register only with this specific password
-        if password == 'KingofLion':
-            # replace_one will create one if no results found in filter
-            replace_filter = {'chat_id': user.id}
-
-            # Using private attr because of bad API
-            context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
-                                                                    {'chat_id': user.id, 'user_name': user.name,
-                                                                     'delay': True},
-                                                                    upsert=True)
-
-            context._dispatcher.logger.info(
-                "{user_name} of {chat_id} registered".format(user_name=user.name, chat_id=user.id))
-
-            update.message.reply_text('{user_name} Registered successfully'.format(user_name=user.name))
+        if edit_text:
+            message.edit_text(start_msg,
+                              parse_mode=telegram.ParseMode.MARKDOWN,
+                              reply_markup=keyboard)
         else:
-            context._dispatcher.logger.warning(
-                "{user_name} of {chat_id} have tried to register with password: {password}".format(user_name=user.name,
-                                                                                                   chat_id=user.id,
-                                                                                                   password=password))
-            update.message.reply_text('Wrong password, please make sure you have the correct credentials for this bot!')
-        return ConversationHandler.END
+            message.reply_text(start_msg,
+                               parse_mode=telegram.ParseMode.MARKDOWN,
+                               reply_markup=keyboard)
 
     @staticmethod
     def deregister(update, context):
@@ -216,22 +155,36 @@ class Bot(Runnable):
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
-    def alerts(update, context):
-        user = update.message.from_user
+    def tools_command(update, context):
+        Bot.tools(update.message, update.message.from_user, context)
 
-        if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            update.message.reply_text('Insert a valid OTC ticker')
+        return CONVERSATION_CALLBACK
 
-            return PRINT_ALERTS
-        else:
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+    @staticmethod
+    def tools(message, from_user, context, edit_text=False):
+        if not Bot.__is_registered(context._dispatcher.mongo_db, from_user.name, from_user.id):
+            message.reply_text('You need to be registered in order to use this. Check /register for more info')
             return ConversationHandler.END
+
+        keyboard = InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Alerts", callback_data='alerts'),
+             telegram.InlineKeyboardButton("Dilution", callback_data='dilution'),
+             telegram.InlineKeyboardButton("Info", callback_data='info')],
+            [telegram.InlineKeyboardButton("« Back to start menu", callback_data='back')]
+        ])
+
+        msg = 'Please choose one of the following:'
+
+        if edit_text:
+            message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+        else:
+            message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
 
     @staticmethod
     def invalid_ticker_format(update, context):
         update.message.reply_text('Invalid input, please insert 3-5 letters OTC registered ticker')
 
-        return ConversationHandler.END
+        return CONVERSATION_CALLBACK
 
     @staticmethod
     def invalid_collection(update, context):
@@ -241,113 +194,234 @@ class Bot(Runnable):
         return ConversationHandler.END
 
     @staticmethod
-    def alerts_request(update, context):
-        user = update.message.from_user
-        ticker = update.message.text.upper()
-        msg_holder = update.message.reply_text("This operation might take some time...")
+    def conversation_callback(update, context):
+        query = update.callback_query
+        query.answer()
 
+        if update.callback_query.data == 'register':
+            Bot.register(query.message, query.from_user, context)
+            return CONVERSATION_CALLBACK
+
+        elif update.callback_query.data == 'tools':
+            Bot.tools(query.message, query.from_user, context, edit_text=True)
+            return CONVERSATION_CALLBACK
+
+        elif update.callback_query.data == 'back':
+            Bot.start(query.message, query.from_user, context, edit_text=True)
+            return CONVERSATION_CALLBACK
+
+        query.message.reply_text('Please insert valid OTC ticker')
+        if update.callback_query.data == 'info':
+            return PRINT_INFO
+        elif update.callback_query.data == 'alerts':
+            return PRINT_ALERTS
+        elif update.callback_query.data == 'dilution':
+            return PRINT_DILUTION
+        else:
+            return ConversationHandler.END
+
+    @staticmethod
+    def register_command(update, context):
+        Bot.register(update.message,
+                     update.message.from_user,
+                     context)
+
+    @staticmethod
+    def register_callback(update, context):
+        Bot.register(update.message,
+                     update.message.from_user,
+                     context)
+
+        return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def register_conv_callback(update, context):
+        query = update.callback_query
+        query.answer()
+
+        Bot.register(query.message,
+                     query.from_user,
+                     context)
+
+        return REGISTER
+
+    @staticmethod
+    def register(message, from_user, context):
+        # replace_one will create one if no results found in filter
+        replace_filter = {'chat_id': from_user.id}
+
+        # Using private attr because of bad API
+        context._dispatcher.mongo_db.telegram_users.replace_one(replace_filter,
+                                                                {'chat_id': from_user.id, 'user_name': from_user.name,
+                                                                 'delay': True},
+                                                                upsert=True)
+
+        context._dispatcher.logger.info(
+            "{user_name} of {chat_id} registered".format(user_name=from_user.name, chat_id=from_user.id))
+
+        message.reply_text('{user_name} Registered successfully'.format(user_name=from_user.name))
+
+    @staticmethod
+    def alerts_command(update, context):
+        user = update.message.from_user
+        ticker = Bot.__extract_ticker(context)
+
+        if not ticker:
+            update.message.reply_text("Couldn't detect ticker, Please try again by the format: /alerts TICKR")
+
+        elif not Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
+            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+
+        else:
+            Bot.print_alerts(update.message,
+                             update.message.from_user,
+                             ticker,
+                             context)
+
+    @staticmethod
+    def alerts_callback(update, context):
+        ticker = update.message.text.upper()
+
+        Bot.print_alerts(update.message,
+                         update.message.from_user,
+                         ticker,
+                         context)
+
+        return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def print_alerts(message, from_user, ticker, context):
         try:
-            context._dispatcher.logger.info("{user_name} of {chat_id} have used /alerts on ticker: {ticker}".format(
-                user_name=user.name,
-                chat_id=user.id,
-                ticker=ticker
-            ))
+            pending_message = message.reply_text("This operation might take some time...")
+
+            context._dispatcher.logger.info(
+                "{user_name} of {chat_id} have used /alerts on ticker: {ticker}".format(
+                    user_name=from_user.name,
+                    chat_id=from_user.id,
+                    ticker=ticker
+                ))
             diffs = Client.get_diffs(context._dispatcher.mongo_db, ticker).to_dict('records')
             alerter_args = {'mongo_db': context._dispatcher.mongo_db, 'telegram_bot': context._dispatcher.telegram_bot,
                             'ticker': ticker, 'debug': context._dispatcher.debug}
             messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
-            title = Alert.generate_title(ticker, context._dispatcher.mongo_db)
-            msg = reduce(
-                lambda _, diff: _ + (Bot.format_message(messages, diff) if diff.get('_id') in messages else ''), diffs,
-                '')
+            msg = Alert.generate_title(ticker, context._dispatcher.mongo_db) + '\n' + \
+                  reduce(
+                      lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''),
+                      diffs, '')
 
-            msg_holder.delete()
-            Bot.send_long_message(update.message.reply_text, f"{title}\n{msg}", parse_mode=telegram.ParseMode.MARKDOWN)
+            if len(msg) > Bot.MAX_MESSAGE_LENGTH:
+                pending_message.delete()
+                Bot.__send_long_message(message.reply_text, msg, parse_mode=telegram.ParseMode.MARKDOWN)
+            else:
+                pending_message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
+            message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
 
         return ConversationHandler.END
 
     @staticmethod
-    def format_message(messages, diff):
-        # Add date and blank lines
-        return f"{messages[diff.get('_id')]}\n_{arrow.get(diff.get('date')).to('Asia/Jerusalem').format()}_\n\n"
+    def info_command(update, context):
+        user = update.message.from_user
+        ticker = Bot.__extract_ticker(context)
+
+        if not ticker:
+            update.message.reply_text("Couldn't detect ticker, Please try again by the format: /info TICKR")
+
+        elif not Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
+            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+
+        else:
+            Bot.print_info(update.message,
+                           update.message.from_user,
+                           ticker,
+                           context)
 
     @staticmethod
-    def get_topic(update, context):
+    def info_callback(update, context):
         ticker = update.message.text.upper()
-        context.user_data["ticker"] = ticker
 
-        keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("Dilution", callback_data='dilution'),
-             telegram.InlineKeyboardButton("Company Profile", callback_data='profile')]])
+        Bot.print_info(update.message,
+                       update.message.from_user,
+                       ticker,
+                       context)
 
-        update.message.reply_text('Please Choose a topic:',
-                                  reply_markup=keyboard)
-
-        return PRINT_DD
+        return CONVERSATION_CALLBACK
 
     @staticmethod
-    def dd_request(update, context):
-        topic = update.callback_query.data
-        update.callback_query.answer()
-        ticker = context.user_data["ticker"]
-        user = update.callback_query.from_user
+    def print_info(message, from_user, ticker, context):
+        try:
+            context._dispatcher.logger.info(
+                "{user_name} of {chat_id} have used /info on ticker: {ticker}".format(
+                    user_name=from_user.name,
+                    chat_id=from_user.id,
+                    ticker=ticker
+                ))
 
-        context._dispatcher.logger.info("{user_name} of {chat_id} have used /dd on {ticker}, {topic}".format(
-            user_name=user.name,
-            chat_id=user.id,
-            ticker=ticker,
-            topic=topic
-        ))
+            # Escaping irrelevant markdown characters
+            message.reply_text(Client.info(context._dispatcher.mongo_db, ticker),
+                               parse_mode=telegram.ParseMode.MARKDOWN)
+
+        except Exception as e:
+            context._dispatcher.logger.exception(e, exc_info=True)
+            message.reply_text("Couldn't produce info for {ticker}".format(ticker=ticker))
+
+    @staticmethod
+    def dilution_command(update, context):
+        user = update.message.from_user
+        ticker = Bot.__extract_ticker(context)
+
+        if not ticker:
+            update.message.reply_text("Couldn't detect ticker, Please try again by the format: /dilution TICKR")
+
+        elif not Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
+            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+
+        else:
+            Bot.print_dilution(update.message,
+                               update.message.from_user,
+                               ticker,
+                               context)
+
+    @staticmethod
+    def dilution_callback(update, context):
+        ticker = update.message.text.upper()
+
+        Bot.print_dilution(update.message,
+                           update.message.from_user,
+                           ticker,
+                           context)
+
+        return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def print_dilution(message, from_user, ticker, context):
+        pending_message = message.reply_text("This operation might take some time...")
 
         try:
-            msg_holder = update.callback_query.message.reply_text("This operation might take some time...")
+            context._dispatcher.logger.info(
+                "{user_name} of {chat_id} have used /dilution on ticker: {ticker}".format(
+                    user_name=from_user.name,
+                    chat_id=from_user.id,
+                    ticker=ticker
+                ))
 
-            if topic == 'dilution':
-                securities_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
-                    .get_sorted_history(filter_rows=True, filter_cols=True)
-                fig = px.line(securities_df, x="date", y=[key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns],
-                              title=ticker)
-                Bot.send_df(securities_df, ticker, update.callback_query.message.reply_document,
-                            plotly_fig=fig, reply_markup=telegram.ReplyKeyboardRemove())
-
-            elif topic == 'profile':
-                profile_df = readers.Profile(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
-                    .get_sorted_history(filter_rows=True, filter_cols=True)
-                symbols_df = readers.Symbols(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
-                    .get_sorted_history(filter_rows=True, filter_cols=True)
-
-                # TODO: date_1?
-                dd_df = profile_df.join(symbols_df, how='outer', lsuffix='_1')
-                Bot.send_df(dd_df, ticker, update.callback_query.message.reply_document,
-                            reply_markup=telegram.ReplyKeyboardRemove())
-
-            msg_holder.delete()
+            securities_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
+                .get_sorted_history(filter_rows=True, filter_cols=True)
+            fig = px.line(securities_df, x="date",
+                          y=[key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns],
+                          title=ticker)
+            Bot.send_df(securities_df, ticker, message.reply_document,
+                        plotly_fig=fig, reply_markup=telegram.ReplyKeyboardRemove())
 
         except Exception as e:
-            context._dispatcher.logger.warning(
-                "Couldn't generate /dd for {ticker} on {topic} topic".format(ticker=ticker, topic=topic))
             context._dispatcher.logger.exception(e, exc_info=True)
-            update.callback_query.message.reply_text("Couldn't produce {topic} for {ticker}".format(ticker=ticker,
-                                                                                                    topic=topic))
+            message.reply_text("Couldn't produce dilution for {ticker}".format(ticker=ticker))
 
+        pending_message.delete()
         return ConversationHandler.END
-
-    @staticmethod
-    def dd(update, context):
-        user = update.message.from_user
-
-        if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            update.message.reply_text('Insert a valid OTC ticker')
-
-            return GET_TOPIC
-        else:
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
-            return ConversationHandler.END
 
     @staticmethod
     def send_df(df, ticker, func, plotly_fig=None, **kwargs):
@@ -365,10 +439,6 @@ class Bot(Runnable):
         os.remove(image_path)
 
     @staticmethod
-    def __is_registered(mongo_db, user_name, chat_id):
-        return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id}))
-
-    @staticmethod
     def broadcast(update, context):
         try:
             update.message.reply_text('Insert broadcast message please')
@@ -378,40 +448,6 @@ class Bot(Runnable):
                 '{user_name} couldn\'t register, please contact the support team'.format(
                     user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
-
-    @staticmethod
-    def info(update, context):
-        user = update.message.from_user
-
-        if Bot.__is_registered(context._dispatcher.mongo_db, user.name, user.id):
-            update.message.reply_text('Insert a valid OTC ticker')
-
-            return PRINT_INFO
-        else:
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
-            return ConversationHandler.END
-
-    @staticmethod
-    def info_request(update, context):
-        user = update.message.from_user
-        ticker = update.message.text.upper()
-
-        try:
-            context._dispatcher.logger.info("{user_name} of {chat_id} have used /info on ticker: {ticker}".format(
-                user_name=user.name,
-                chat_id=user.id,
-                ticker=ticker
-            ))
-
-            # Escaping irrelevant markdown characters
-            update.message.reply_text(Client.info(context._dispatcher.mongo_db, ticker),
-                                      parse_mode=telegram.ParseMode.MARKDOWN)
-
-        except Exception as e:
-            context._dispatcher.logger.exception(e, exc_info=True)
-            update.message.reply_text("Couldn't produce info for {ticker}".format(ticker=ticker))
-
-        return ConversationHandler.END
 
     @staticmethod
     def send_broadcast_msg(update, context):
@@ -443,9 +479,28 @@ class Bot(Runnable):
             mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id, 'permissions': 'high'}))
 
     @staticmethod
-    def send_long_message(func, msg, *args, **kwargs):
+    def __send_long_message(func, msg, *args, **kwargs):
         for msg in [msg[i: i + Bot.MAX_MESSAGE_LENGTH] for i in range(0, len(msg), Bot.MAX_MESSAGE_LENGTH)]:
             func(msg, *args, **kwargs)
+
+    @staticmethod
+    def __is_registered(mongo_db, user_name, chat_id):
+        return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id}))
+
+    @staticmethod
+    def __format_message(messages, diff):
+        # Add date and blank lines
+        return f"{messages[diff.get('_id')]}\n_{arrow.get(diff.get('date')).to('Asia/Jerusalem').format()}_\n\n"
+
+    @staticmethod
+    def __extract_ticker(context):
+        if len(context.args) == 1:
+            ticker = context.args[0]
+            if 4 <= len(ticker) <= 5 and all([char.isalpha() for char in ticker]):
+                return ticker.upper()
+
+        return None
+
 
 def main():
     try:
