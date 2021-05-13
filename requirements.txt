@@ -18,4 +18,3 @@ google-cloud-pubsub
 retry
 plotly
 kaleido
-difflib
