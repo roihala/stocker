@@ -1,3 +1,4 @@
+import difflib
 import logging
 import phonenumbers
 from copy import deepcopy
@@ -28,20 +29,34 @@ class Profile(TickerAlerter):
                 'is12g32b', 'isBankThrift', 'isInternationalReporting', 'isNonBankRegulated', 'isOtherReporting',
                 'regulatoryAgencyId', 'regulatoryAgencyName', 'traderRssdId', 'yearOfIncorporation']
 
-    def _check_diff(self, diff):
+    def _is_valid_diff(self, diff):
         if diff.get('changed_key') == "buisnessDesc":
-            return diff.get('new').isascii()
+            return self.__compare_description(diff.get('old'), diff.get('new'))
         elif diff.get('changed_key') == "phone":
-            return diff.get('old').strip() and diff.get('new').strip() and \
-                not self._compare_phones(diff.get('old'), diff.get('new'))
+            return self.__compare_phones(diff.get('old'), diff.get('new'))
+        else:
+            return super()._is_valid_diff(diff)
 
-    def _compare_phones(self, phone1, phone2):
+    @staticmethod
+    def __compare_description(old, new):
+        '''
+        Returning False for changes of only non-ascii characters
+        '''
+        for i in difflib.ndiff(old, new):
+            # ndiff encodes every diff by adding +, - or whitespace to the character, separated by whitespace
+            # e.g: "- Ã", "+ w"
+            if i[0] in ['+', '-'] and i[2].isascii():
+                    return True
+        return True
+
+    @staticmethod
+    def __compare_phones(old, new):
         def parse_phone(phone, region="US"):
             try:
                 return phonenumbers.parse(phone)
             except phonenumbers.NumberParseException:
                 return phonenumbers.parse(phone, region)
-        return parse_phone(phone1) == parse_phone(phone2)
+        return parse_phone(old) == parse_phone(new)
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)

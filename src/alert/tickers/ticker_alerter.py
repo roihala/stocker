@@ -91,7 +91,7 @@ class TickerAlerter(AlerterBase):
         """
         key = diff.get('changed_key')
 
-        if key is None or key == '' or key in self.filter_keys:
+        if key is None or key == '' or key in self.filter_keys or not self._is_valid_diff(diff):
             return None
 
         elif key in self.get_hierarchy().keys():
@@ -103,3 +103,8 @@ class TickerAlerter(AlerterBase):
                 logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=diff.get('ticker')))
                 logger.exception(e)
         return diff
+
+    def _is_valid_diff(self, diff):
+        if diff.get('old').strip().lower() == diff.get('new').strip().lower():
+            return False
+        return True
