@@ -173,7 +173,9 @@ class ReaderBase(ABC):
             else:
                 logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
                 return 0
-        except JSONDecodeError:
+        except Exception as e:
+            logger.warning("Couldn't get last price of {ticker}".format(ticker=ticker))
+            logging.exception(e)
             return 0
 
     @staticmethod
