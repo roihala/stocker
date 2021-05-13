@@ -25,14 +25,16 @@ LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
 class Bot(Runnable):
-    START_MESSAGE = '''   
-    Please use one of the following commands:
+    START_MESSAGE = '''
+The following commands will make me sing:
 
 /register - Register to get alerts on updates straight to your telegram account.
-/alerts - Previously detected alerts for a given ticker.
-/dd - Dig in to updates that weren't alerted.
-/info - View the LATEST information for a given ticker.
+/tools - A user friendly interface for reaching our tools  
+
+/alerts - Resend previously detected alerts for a given ticker.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*.
+/dilution - A graph of changes in AS/SS/unrestricted over time
+/info - View the LATEST information for a given ticker.
     '''
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
