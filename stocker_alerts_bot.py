@@ -53,8 +53,8 @@ class Bot(Runnable):
         setattr(dp, 'debug', self._debug)
 
         tools_conv = ConversationHandler(
-            entry_points=[CommandHandler('tools', Bot.tools_command),
-                          CommandHandler('start', Bot.start_command)],
+            entry_points=[CommandHandler('Tools', Bot.tools_command),
+                          CommandHandler('Start', Bot.start_command)],
             states={
                 # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
                 CONVERSATION_CALLBACK: [CallbackQueryHandler(Bot.conversation_callback)],
