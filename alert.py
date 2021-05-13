@@ -50,7 +50,7 @@ class Alert(Runnable):
 
     def alert_batch(self, batch: PubSubMessage):
         diffs = json.loads(batch.data)
-        self.logger.info('alerting diffs: {diffs}'.format(diffs=diffs))
+        self.logger.info('detected batch: {diffs}'.format(diffs=diffs))
 
         # Removing _id column from diffs that are going to be inserted to db
         raw_diffs = [{key: value for key, value in diff.items() if key != '_id'} for diff in diffs]
@@ -58,7 +58,6 @@ class Alert(Runnable):
         try:
             ticker, price = self.__extract_ticker(diffs)
             if not self.is_relevant(ticker, price):
-                self.logger.info('irrelevant {ticker}'.format(ticker=ticker))
                 batch.ack()
                 return
 
@@ -113,7 +112,7 @@ class Alert(Runnable):
             tier_hierarchy = Securities.get_hierarchy()['tierDisplayName']
             relevant_tier = tier_hierarchy.index(tier) < tier_hierarchy.index('OTCQB')
 
-        except ValueError:
+        except (ValueError, AttributeError):
             relevant_tier = True
 
         # Will we alert this ticker?

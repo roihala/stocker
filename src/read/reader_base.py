@@ -13,6 +13,7 @@ from itertools import tee
 import requests
 from pymongo.database import Database
 
+from runnable import Runnable
 from src import factory
 from src.find.site import Site
 
@@ -142,6 +143,9 @@ class ReaderBase(ABC):
                 return {k: v for k, v in latest.items() if v == v}
             else:
                 return latest
+
+        except IndexError:
+            logger.info(f"No latest data for {self.ticker}")
         except Exception as e:
             logger.warning(f"Couldn't get latest of {self.ticker}")
             logger.exception(e)
@@ -160,7 +164,7 @@ class ReaderBase(ABC):
                    'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                    is_otc=True).get_ticker_url(ticker)
 
-        response = requests.get(url)
+        response = requests.get(url, proxies=Runnable.proxy)
         try:
             if response.json().get('lastSale'):
                 return float(response.json().get('lastSale'))

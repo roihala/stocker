@@ -5,19 +5,11 @@ from copy import deepcopy
 from json import JSONDecodeError
 from retry import retry
 
+from runnable import Runnable
 from src.collect.tickers.ticker_collector import TickerCollector
 from src.find.site import InvalidTickerExcpetion
 
 logger = logging.getLogger('Collect')
-
-username = "yonisoli"
-password = "5ff06d-6ecc98-91006b-86dd29-388b2c"
-
-PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
-proxy_url = "http://{}:{}@{}".format(username, password, PROXY_RACK_DNS)
-proxy = {"http": proxy_url,
-         'https': proxy_url}
-
 
 class SiteCollector(TickerCollector, ABC):
     @property
@@ -48,7 +40,7 @@ class SiteCollector(TickerCollector, ABC):
 
             # Trying with proxy
             if response.status_code == 429:
-                response = requests.get(self.site.get_ticker_url(self.ticker), proxies=proxy)
+                response = requests.get(self.site.get_ticker_url(self.ticker), proxies=Runnable.proxy)
 
             if response.status_code != 200:
                 logger.warning("Can't collect {ticker}: {url} -> responsne code: {code}".format(

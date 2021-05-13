@@ -14,6 +14,14 @@ DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', '
 
 
 class Runnable(ABC):
+    PROXY_USERNAME = "yonisoli"
+    PROXY_PASSWORD = "5ff06d-6ecc98-91006b-86dd29-388b2c"
+    PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
+
+    proxy_url = "http://{}:{}@{}".format(PROXY_USERNAME, PROXY_PASSWORD, PROXY_RACK_DNS)
+    proxy = {"http": proxy_url,
+             'https': proxy_url}
+
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":
             self._debug = os.getenv('DEBUG', 'false').lower() == 'true'
