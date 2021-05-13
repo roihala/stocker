@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import List
 
 
 class AlerterBase(ABC):
@@ -14,5 +14,6 @@ class AlerterBase(ABC):
         self._ticker = ticker
 
     @abstractmethod
-    def get_alert_msg(self, diffs: Iterable[dict], as_dict=False):
-        pass
+    def get_alert_msg(self, diffs: List[dict], as_dict=False):
+        if as_dict and '_id' not in diffs[0]:
+            raise ValueError("Can't generate dict for diffs with no _id")

@@ -30,10 +30,12 @@ class Profile(TickerAlerter):
                 'regulatoryAgencyId', 'regulatoryAgencyName', 'traderRssdId', 'yearOfIncorporation']
 
     def _is_valid_diff(self, diff):
-        if diff.get('changed_key') == "buisnessDesc":
-            return self.__compare_description(diff.get('old'), diff.get('new'))
+        old, new = diff.get('old'), diff.get('new')
+
+        if diff.get('changed_key') == "businessDesc":
+            return self.__compare_description(old, new)
         elif diff.get('changed_key') == "phone":
-            return self.__compare_phones(diff.get('old'), diff.get('new'))
+            return self.__parse_phone(old) != self.__parse_phone(new)
         else:
             return super()._is_valid_diff(diff)
 
@@ -47,16 +49,14 @@ class Profile(TickerAlerter):
             # e.g: "- Ã", "+ w"
             if i[0] in ['+', '-'] and i[2].isascii():
                     return True
-        return True
+        return False
 
     @staticmethod
-    def __compare_phones(old, new):
-        def parse_phone(phone, region="US"):
-            try:
-                return phonenumbers.parse(phone)
-            except phonenumbers.NumberParseException:
-                return phonenumbers.parse(phone, region)
-        return parse_phone(old) == parse_phone(new)
+    def __parse_phone(phone, region="US"):
+        try:
+            return phonenumbers.parse(phone)
+        except phonenumbers.NumberParseException:
+            return phonenumbers.parse(phone, region)
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)
@@ -70,6 +70,14 @@ class Profile(TickerAlerter):
         if diff.get('changed_key') in self.OTCIQ_KEYS:
             diff = self.update_otciq(self._mongo_db, diff)
 
+        if diff.get('changed_key') == 'phone':
+            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+
+        if diff.get('changed_key') in self.EXTRA_DATA:
+            diff['new'] = self.__get_extra_data(diff)
+
+        self.__get_extra_data
         return diff
 
     @staticmethod
@@ -88,9 +96,10 @@ class Profile(TickerAlerter):
         return diff
 
     def generate_msg(self, diff, *args, **kwargs):
-        return super().generate_msg(diff, new=self.__get_extra_data(diff))
+        return super().generate_msg(diff)
 
     def __get_extra_data(self, diff):
+        #TODO
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
 
         extra_data_field = diff.get('new')

@@ -1,6 +1,6 @@
 import logging
 from operator import itemgetter
-from typing import Iterable
+from typing import Iterable, List
 
 from src import factory
 from src.alert.alerter_base import AlerterBase
@@ -27,15 +27,21 @@ class TickerAlerter(AlerterBase):
         # List of keys to ignore
         return []
 
-    def get_alert_msg(self, diffs: Iterable[dict], as_dict=False):
-        messages = {}
+    def get_alert_msg(self, diffs: List[dict], as_dict=False):
+        super().get_alert_msg(diffs, as_dict)
 
+        messages = {} if as_dict else []
         for diff in self._edit_batch(diffs):
             msg = self.generate_msg(diff)
-            if msg:
-                messages[diff.get('_id')] = msg
+            if not msg:
+                continue
 
-        return messages if as_dict else '\n\n'.join([msg for msg in messages.values()])
+            elif as_dict:
+                messages[diff['_id']] = msg
+            else:
+                messages.append(msg)
+
+        return messages if as_dict else '\n\n'.join([msg for msg in messages])
 
     def generate_msg(self, diff, old=None, new=None):
         diff = self._edit_diff(diff)
@@ -58,7 +64,7 @@ class TickerAlerter(AlerterBase):
                                                        new=new)
         else:
             verb = 'changed'
-            body = '{red_circle_emoji}{old}\n' \
+            body = '{red_circle_emoji} {old}\n' \
                    '{green_circle_emoji} {new}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
@@ -91,10 +97,10 @@ class TickerAlerter(AlerterBase):
         """
         key = diff.get('changed_key')
 
-        if key is None or key == '' or key in self.filter_keys or not self._is_valid_diff(diff):
+        if key in self.filter_keys + [None, ''] or self._is_valid_diff(diff) is False:
             return None
 
-        elif key in self.get_hierarchy().keys():
+        if key in self.get_hierarchy().keys():
             try:
                 if self.get_hierarchy()[key].index(diff['new']) < self.get_hierarchy()[key].index(diff['old']):
                     return None
@@ -105,6 +111,6 @@ class TickerAlerter(AlerterBase):
         return diff
 
     def _is_valid_diff(self, diff):
-        if diff.get('old').strip().lower() == diff.get('new').strip().lower():
+        if str(diff.get('old')).strip().lower() == str(diff.get('new')).strip().lower():
             return False
         return True

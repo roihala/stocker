@@ -308,9 +308,7 @@ The following commands will make me sing:
             messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
             msg = Alert.generate_title(ticker, context._dispatcher.mongo_db) + '\n' + \
-                  reduce(
-                      lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''),
-                      diffs, '')
+                  reduce(lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''), diffs, '')
 
             if len(msg) > Bot.MAX_MESSAGE_LENGTH:
                 pending_message.delete()

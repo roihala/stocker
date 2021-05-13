@@ -85,18 +85,20 @@ class Alert(Runnable):
         :param alerter_args: e.g: {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
                             'ticker': ticker, 'debug': self._debug}
         """
-        messages = {}
+        messages = {} if as_dict else []
 
         for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
             try:
                 alerter = Factory.alerters_factory(source, **alerter_args)
-                messages.update(alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=True))
+                alerts = alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=as_dict)
+
+                messages.update(alerts) if as_dict else messages.append(alerts)
             except Exception as e:
                 logger = logging.getLogger(Factory.get_alerter(source).__class__.__name__)
                 logger.warning(f"Couldn't generate msg {diffs}: {source}")
                 logger.exception(e)
 
-        return messages if as_dict else '\n\n'.join([value for value in messages.values()])
+        return messages if as_dict else '\n\n'.join([value for value in messages])
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -163,13 +165,20 @@ class Alert(Runnable):
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
+        try:
+            tier = readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName')
+        except Exception as e:
+            logging.warning(f"Couldn't get tier of {ticker}")
+            logging.exception(e)
+            tier = ''
+
         return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):'.format(
             alert_emoji=Alert.ALERT_EMOJI_UNICODE,
             ticker=ticker,
             money_emoji=Alert.MONEY_BAG_EMOJI_UNICODE,
             last_price=price if price else ReaderBase.get_last_price(ticker),
             trophy_emoji=Alert.TROPHY_EMOJI_UNICODE,
-            tier=readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName'))
+            tier=tier)
 
 
 if __name__ == '__main__':
