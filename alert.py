@@ -98,7 +98,7 @@ class Alert(Runnable):
                 logger.warning(f"Couldn't generate msg {diffs}: {source}")
                 logger.exception(e)
 
-        return messages if as_dict else '\n\n'.join([value for value in messages])
+        return messages if as_dict else '\n\n'.join([value for value in messages if value])
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])

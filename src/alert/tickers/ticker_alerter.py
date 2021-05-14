@@ -41,7 +41,7 @@ class TickerAlerter(AlerterBase):
             else:
                 messages.append(msg)
 
-        return messages if as_dict else '\n\n'.join([msg for msg in messages])
+        return messages if as_dict else '\n\n'.join([msg for msg in messages if msg])
 
     def generate_msg(self, diff, old=None, new=None):
         diff = self._edit_diff(diff)
