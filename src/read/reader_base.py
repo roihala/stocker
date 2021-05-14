@@ -158,7 +158,7 @@ class ReaderBase(ABC):
             return value
 
     @staticmethod
-    @retry(JSONDecodeError, tries=3, delay=1)
+    @retry((JSONDecodeError, requests.exceptions.ProxyError), tries=5, delay=1)
     def get_last_price(ticker):
         url = Site('prices',
                    'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
