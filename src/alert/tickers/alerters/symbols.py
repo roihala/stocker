@@ -6,8 +6,32 @@ from src.alert.tickers.ticker_alerter import TickerAlerter
 
 class Symbols(TickerAlerter):
     @property
-    def filter_keys(self):
-        return ['isPennyStockExempt', 'verifiedDate']
+    def keys_translation(self):
+        return {
+            "hasControlDispute": "Control Dispute",
+            "hasPromotion": "Promotion",
+            "isBankrupt": "Bankrupt",
+            "isCaveatEmptor": "Caveat Emptor",
+            "isDark": "Dark of Defunct",
+            "isDelinquent": "Delinquent SEC Reporting",
+            "isLinkedToProhibitedSP": "Prohibited Service Provider",
+            "isPennyStockExempt": "Penny Stock Exempt",
+            "isShell": "Shell",
+            "isShellRisk": "Shell Risk",
+            "transferAgentVerified": "Transfer Agent Verified",
+            "unableToContact": "Unable to Contact",
+            "verifiedProfile": "Verified Profile"
+        }
+
+    @property
+    def relevant_keys(self):
+        return ['hasControlDispute', 'isBankrupt', 'isCaveatEmptor', 'isDark', 'isDelinquent', 'isLinkedToProhibitedSP',
+                'isPennyStockExempt', 'isShell', 'isShellRisk', 'transferAgentVerified', 'unableToContact',
+                'verifiedProfile']
+
+    @property
+    def extended_keys(self):
+        return ['isHotSector', 'hasPromotion']
 
     @staticmethod
     def get_hierarchy() -> dict:
@@ -16,6 +40,7 @@ class Symbols(TickerAlerter):
                 'hasPromotion': [False, True],
                 'transferAgentVerified': [False, True],
 
+                'isShell': [True, False],
                 'isShellRisk': [True, False],
                 'isDelinquent': [True, False],
                 'isDark': [True, False],
@@ -24,30 +49,6 @@ class Symbols(TickerAlerter):
                 'isBankrupt': [True, False],
                 'hasControlDispute': [True, False],
                 'isLinkedToProhibitedSP': [True, False]}
-
-    def generate_msg(self, diff, *args, **kwargs):
-        original_diff = deepcopy(diff)
-        diff = self._edit_diff(diff)
-
-        if not diff:
-            return ''
-
-        msg = None
-
-        if diff.get('diff_type') == 'change':
-            if diff.get('old') is False:
-                msg = '{green_circle_emoji} *{key}* added'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                                key=diff.get('changed_key'))
-            elif diff.get('old') is True:
-                msg = '{red_circle_emoji} *{key}* removed'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                                key=diff.get('changed_key'))
-
-        # If managed to generate boolean-type alert message
-        if msg:
-            return msg
-        else:
-            # Falling back to regular format
-            super().get_alert_msg(original_diff)
 
     def _edit_diff(self, diff):
         diff = super()._edit_diff(diff)

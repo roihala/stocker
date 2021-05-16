@@ -23,9 +23,13 @@ class TickerAlerter(AlerterBase):
         return {}
 
     @property
-    def filter_keys(self):
+    def relevant_keys(self):
         # List of keys to ignore
         return []
+
+    @property
+    def keys_translation(self) -> dict:
+        return {}
 
     def get_alert_msg(self, diffs: List[dict], as_dict=False):
         super().get_alert_msg(diffs, as_dict)
@@ -43,14 +47,24 @@ class TickerAlerter(AlerterBase):
 
         return messages if as_dict else '\n\n'.join([msg for msg in messages if msg])
 
-    def generate_msg(self, diff, old=None, new=None):
+    def generate_msg(self, diff):
         diff = self._edit_diff(diff)
 
         if not diff:
             return ''
 
-        old = old or diff.get('old')
-        new = new or diff.get('new')
+        try:
+            # Treating the new value as the most accurate piece of information
+            if type(diff.get('new')) is bool:
+                return self.generate_bool_msg(diff)
+        except Exception as e:
+            logging.warning(f"Couldn't generate custom message for {diff}")
+            logging.exception(e)
+
+        return self.generate_default_msg(diff)
+
+    def generate_default_msg(self, diff):
+        old, new = self._edit_values(diff.get('old'), diff.get('new'))
 
         title = '*{key}* {verb}:'
 
@@ -75,6 +89,23 @@ class TickerAlerter(AlerterBase):
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
 
+    def generate_bool_msg(self, diff):
+        msg = ''
+
+        if diff.get('new') is True or diff.get('diff_type') == 'add':
+            msg = '{green_circle_emoji} *{key}* added'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                              key=diff.get('changed_key'))
+        elif diff.get('new') is False or diff.get('diff_type') == 'remove':
+            msg = '{red_circle_emoji} *{key}* removed'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
+                                                              key=diff.get('changed_key'))
+
+        return msg
+
+    def _edit_values(self, old, new):
+        if type(new) == type(old) and type(new) is int:
+            return f'{old:,}', f'{new:,}'
+        return old, new
+
     def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
         return sorted(diffs, key=itemgetter('changed_key'))
 
@@ -97,7 +128,7 @@ class TickerAlerter(AlerterBase):
         """
         key = diff.get('changed_key')
 
-        if key in self.filter_keys + [None, ''] or self._is_valid_diff(diff) is False:
+        if key not in self.relevant_keys or self._is_valid_diff(diff) is False:
             return None
 
         if key in self.get_hierarchy().keys():
@@ -108,6 +139,9 @@ class TickerAlerter(AlerterBase):
             except ValueError as e:
                 logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=diff.get('ticker')))
                 logger.exception(e)
+
+        diff['changed_key'] = self.keys_translation[key] if key in self.keys_translation else key.capitalize()
+
         return diff
 
     def _is_valid_diff(self, diff):

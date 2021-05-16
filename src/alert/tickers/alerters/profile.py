@@ -1,5 +1,7 @@
 import difflib
 import logging
+import pandas
+
 import phonenumbers
 from copy import deepcopy
 
@@ -12,22 +14,43 @@ logger = logging.getLogger('Alert')
 class Profile(TickerAlerter):
     # TODO: MAYBE more keys
     OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
-    ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country']]
+    ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country', 'zip']]
     EXTRA_DATA = ['officers']
 
     @property
-    def filter_keys(self):
-        return ['estimatedMarketCapAsOfDate', 'estimatedMarketCap', 'latestFilingDate', 'zip',
-                'numberOfRecordShareholdersDate', 'countryId', 'hasLatestFiling',
-                'profileVerifiedAsOfDate', 'id', 'numberOfEmployeesAsOf', 'reportingStandard', 'latestFilingType',
-                'latestFilingUrl', 'isUnsolicited', 'stateOfIncorporation', 'stateOfIncorporationName', 'venue',
-                'tierGroup', 'edgarFilingStatus', 'edgarFilingStatusId', 'deregistered', 'isAlternativeReporting',
-                'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes', 'reportingStandardMin',
-                'auditStatus', 'auditedStatusDisplay', 'countryOfIncorporation', 'countryOfIncorporationName',
-                'audited', 'bankId', 'blankCheck', 'blindPool', 'cik', 'companyLogoUrl', 'deregistrationDate',
-                'filingCycle', 'fiscalYearEnd', 'hasLogo', 'id', 'investmentBanks', 'investorRelationFirms',
-                'is12g32b', 'isBankThrift', 'isInternationalReporting', 'isNonBankRegulated', 'isOtherReporting',
-                'regulatoryAgencyId', 'regulatoryAgencyName', 'traderRssdId', 'yearOfIncorporation']
+    def keys_translation(self):
+        return {
+            "businessDesc": "Business Description",
+            "numberOfEmployees": "Employees Count",
+            "primarySicCode": "Sic Code",
+            "officers": "Officer",
+            "auditors": "Auditor",
+            "standardDirectorList": "Director",
+            "premierDirectorList": "Director",
+
+            "is12g32b": "12g3-2(b) rule compliant",
+            "corporateBrokers":  "Corporate Brokers",
+            "countryOfIncorporationName": "Country of Incorporation",
+            "investmentBanks": "Investment Banks",
+            "investorRelationFirms": "Investor Relation Firms",
+            "isBankThrift": "Bank Thrift",
+            "legalCounsels": "Legal Counsels",
+            "regulatoryAgencyName": "Regulatory Agency",
+            "stateOfIncorporationName": "State of Incorporation",
+            "yearOfIncorporation": "Year of Incorporation"
+        }
+
+    @property
+    def relevant_keys(self):
+        return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email', 'facebook', 'fax',
+                'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'primarySicCode', 'standardDirectorList',
+                'state', 'twitter', 'website', 'zip']
+
+    @property
+    def extended_keys(self):
+        return ['audited', 'corporateBrokers', 'countryOfIncorporationName', 'deregistered', 'investmentBanks',
+                'investorRelationFirms', 'is12g32b', 'isBankThrift', 'legalCounsels', 'regulatoryAgencyName', 'spac',
+                'stateOfIncorporationName', 'yearOfIncorporation']
 
     def _is_valid_diff(self, diff):
         old, new = diff.get('old'), diff.get('new')
@@ -77,7 +100,6 @@ class Profile(TickerAlerter):
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
 
-        self.__get_extra_data
         return diff
 
     @staticmethod
@@ -94,9 +116,6 @@ class Profile(TickerAlerter):
             diff['diff_appendix'] = 'otciq'
 
         return diff
-
-    def generate_msg(self, diff, *args, **kwargs):
-        return super().generate_msg(diff)
 
     def __get_extra_data(self, diff):
         #TODO
@@ -126,8 +145,12 @@ class Profile(TickerAlerter):
             to_squash = [diff for diff in diffs if diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
 
             if any(to_squash):
-                # TODO: pull the exact diff by date
-                old, new = self._reader.get_sorted_history().tail(2).to_dict('records')
+                date = set([diff.get('date') for diff in diffs])
+                if len(date) != 1:
+                    raise AttributeError("Address diffs from different dates, falling back")
+
+                date = date.pop()
+                old, new = self._reader.get_entry_by_date(date)
 
                 return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
 

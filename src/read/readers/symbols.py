@@ -30,6 +30,6 @@ class Symbols(ReaderBase):
             else:
                 red_or_green = AlerterBase.RED_CIRCLE_EMOJI_UNICODE
 
-            return f'{red_or_green} {symbol} {"[" + arrow.get(self._latest.get("verifiedDate")).format("MM/YY") + "]" if symbol == "verifiedProfile" else ""}'
+            return f'{red_or_green} {symbol} {"[" + arrow.get(self.get_latest().get("verifiedDate")).format("MM/YY") + "]" if symbol == "verifiedProfile" else ""}'
         except ValueError:
             return symbol

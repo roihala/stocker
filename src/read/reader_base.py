@@ -36,7 +36,8 @@ class ReaderBase(ABC):
 
         self._collector = factory.Factory.get_collector(self.name)
         self._alerter = factory.Factory.get_alerter(self.name)
-        self._latest = self.get_latest()
+        self._latest = None
+        self._sorted_history = None
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
         """
@@ -49,6 +50,9 @@ class ReaderBase(ABC):
         :param ignore_latest: Ignore the latest entry
         :return: df
         """
+        if isinstance(self._sorted_history, pandas.DataFrame):
+            return self._sorted_history
+
         history = pandas.DataFrame(
             self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))\
             .drop(self._collector.get_drop_keys(), axis='columns', errors='ignore')
@@ -78,7 +82,20 @@ class ReaderBase(ABC):
         # Resetting index
         history.reset_index(inplace=True)
 
+        self._sorted_history = history
         return history
+
+    def get_entry_by_date(self, date, prev=False):
+        self.get_sorted_history()
+
+        idx = self._sorted_history.index[self._sorted_history['date'] == date].tolist()
+        if len(idx) != 1:
+            raise AttributeError("There should be a single index for each date")
+
+        idx = idx[0]
+
+        entry = self._sorted_history.loc[idx].to_dict()
+        return entry if not prev else entry, self._sorted_history.loc[idx - 1].to_dict()
 
     def flatten(self, history):
         for column, layers in self._collector.get_nested_keys().items():
@@ -133,19 +150,19 @@ class ReaderBase(ABC):
         return history
 
     def get_latest(self, clear_nans=True):
-        if hasattr(self, '_latest'):
+        if isinstance(self, pandas.DataFrame):
             return self._latest
         try:
             latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.DESCENDING).limit(1)[0]
 
             if clear_nans:
-                # NaN does not equal to Nan
-                return {k: v for k, v in latest.items() if v == v}
-            else:
-                return latest
+                latest = {k: v for k, v in latest.items() if v == v}
+
+            self._latest = latest
+            return latest
 
         except IndexError:
-            logger.info(f"No latest data for {self.ticker}")
+            logger.info(f"No latest {self.name} for {self.ticker}")
         except Exception as e:
             logger.warning(f"Couldn't get latest of {self.ticker}")
             logger.exception(e)
