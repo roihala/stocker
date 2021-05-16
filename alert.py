@@ -167,9 +167,8 @@ class Alert(Runnable):
     def generate_title(ticker, mongo_db, price=None):
         try:
             tier = readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName')
-        except Exception as e:
+        except AttributeError:
             logging.warning(f"Couldn't get tier of {ticker}")
-            logging.exception(e)
             tier = ''
 
         return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):'.format(

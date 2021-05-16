@@ -150,19 +150,19 @@ class ReaderBase(ABC):
         return history
 
     def get_latest(self, clear_nans=True):
-        if isinstance(self._latest, pandas.DataFrame):
+        if isinstance(self, pandas.DataFrame):
             return self._latest
         try:
             latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.DESCENDING).limit(1)[0]
 
             if clear_nans:
-                # NaN does not equal to Nan
-                return {k: v for k, v in latest.items() if v == v}
-            else:
-                return latest
+                latest = {k: v for k, v in latest.items() if v == v}
+
+            self._latest = latest
+            return latest
 
         except IndexError:
-            logger.info(f"No latest data for {self.ticker}")
+            logger.info(f"No latest {self.name} for {self.ticker}")
         except Exception as e:
             logger.warning(f"Couldn't get latest of {self.ticker}")
             logger.exception(e)
