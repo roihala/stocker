@@ -126,7 +126,7 @@ The following commands will make me sing:
             start_msg += '\n/broadcast - Send meesages to all users'
 
         keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("register", callback_data='register'),
+            [telegram.InlineKeyboardButton("Register", callback_data='register'),
              telegram.InlineKeyboardButton("tools", callback_data='tools')]])
 
         if edit_text:
