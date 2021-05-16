@@ -1,5 +1,7 @@
 import difflib
 import logging
+import pandas
+
 import phonenumbers
 from copy import deepcopy
 
@@ -126,8 +128,12 @@ class Profile(TickerAlerter):
             to_squash = [diff for diff in diffs if diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
 
             if any(to_squash):
-                # TODO: pull the exact diff by date
-                old, new = self._reader.get_sorted_history().tail(2).to_dict('records')
+                date = set([diff.get('date') for diff in diffs])
+                if len(date) != 1:
+                    raise AttributeError("Address diffs from different dates, falling back")
+
+                date = date.pop()
+                old, new = self._reader.get_entry_by_date(date)
 
                 return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
 
