@@ -52,6 +52,8 @@ class TickerAlerter(AlerterBase):
             return ''
 
         diff = self.edit_diff(diff)
+        key = diff['key']
+        diff['key'] = self.keys_translation[key] if key in self.keys_translation else key.capitalize()
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:
@@ -67,7 +69,6 @@ class TickerAlerter(AlerterBase):
 
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
-        key = diff['changed_key']
 
         title = '*{key}* {verb}:'
 
@@ -86,7 +87,7 @@ class TickerAlerter(AlerterBase):
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
-        title = title.format(key=self.keys_translation[key] if key in self.keys_translation else key.capitalize(), verb=verb)
+        title = title.format(key=diff['changed_key'], verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
