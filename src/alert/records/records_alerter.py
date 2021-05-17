@@ -21,7 +21,7 @@ class RecordsAlerter(AlerterBase, ABC):
         super().get_alert_msg(diffs, as_dict)
         prev = self.__get_previous_date(diffs)
 
-        if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
+        if not prev or (arrow.utcnow() - arrow.get(prev)).days > 60:
             return {diffs[0]['_id']: self.generate_msg(diffs)} if as_dict else self.generate_msg(diffs)
         else:
             return {} if as_dict else ''
