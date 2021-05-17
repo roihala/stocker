@@ -49,11 +49,3 @@ class Symbols(TickerAlerter):
                 'isBankrupt': [True, False],
                 'hasControlDispute': [True, False],
                 'isLinkedToProhibitedSP': [True, False]}
-
-    def _edit_diff(self, diff):
-        diff = super()._edit_diff(diff)
-
-        if diff and diff.get('changed_key') in Profile.OTCIQ_KEYS:
-            diff = Profile.update_otciq(self._mongo_db, diff)
-
-        return diff

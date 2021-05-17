@@ -48,11 +48,10 @@ class TickerAlerter(AlerterBase):
         return messages if as_dict else '\n\n'.join([msg for msg in messages if msg])
 
     def generate_msg(self, diff):
-        diff = self._edit_diff(diff)
-
-        if not diff:
+        if not self.is_relevant_diff(diff):
             return ''
 
+        diff = self.edit_diff(diff)
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:
@@ -63,8 +62,12 @@ class TickerAlerter(AlerterBase):
 
         return self.generate_default_msg(diff)
 
+    def edit_diff(self, diff) -> dict:
+        return diff
+
     def generate_default_msg(self, diff):
-        old, new = self._edit_values(diff.get('old'), diff.get('new'))
+        old, new = diff['old'], diff['new']
+        key = diff['changed_key']
 
         title = '*{key}* {verb}:'
 
@@ -83,8 +86,7 @@ class TickerAlerter(AlerterBase):
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
-
-        title = title.format(key=diff.get('changed_key'), verb=verb)
+        title = title.format(key=self.keys_translation[key] if key in self.keys_translation else key.capitalize(), verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
@@ -101,15 +103,10 @@ class TickerAlerter(AlerterBase):
 
         return msg
 
-    def _edit_values(self, old, new):
-        if type(new) == type(old) and type(new) is int:
-            return f'{old:,}', f'{new:,}'
-        return old, new
-
     def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
         return sorted(diffs, key=itemgetter('changed_key'))
 
-    def _edit_diff(self, diff) -> dict:
+    def is_relevant_diff(self, diff) -> bool:
         """
         This function is for editing or deleting an existing diff.
         It will be called with every diff that has been found while maintaining the diff structure of:
@@ -129,20 +126,18 @@ class TickerAlerter(AlerterBase):
         key = diff.get('changed_key')
 
         if key not in self.relevant_keys or self._is_valid_diff(diff) is False:
-            return None
+            return False
 
         if key in self.get_hierarchy().keys():
             try:
                 if self.get_hierarchy()[key].index(diff['new']) < self.get_hierarchy()[key].index(diff['old']):
-                    return None
+                    return False
 
             except ValueError as e:
                 logger.warning('Incorrect hierarchy for {ticker}.'.format(ticker=diff.get('ticker')))
                 logger.exception(e)
 
-        diff['changed_key'] = self.keys_translation[key] if key in self.keys_translation else key.capitalize()
-
-        return diff
+        return True
 
     def _is_valid_diff(self, diff):
         if str(diff.get('old')).strip().lower() == str(diff.get('new')).strip().lower():
