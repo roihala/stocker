@@ -127,7 +127,7 @@ The following commands will make me sing:
 
         keyboard = InlineKeyboardMarkup([
             [telegram.InlineKeyboardButton("Register", callback_data='register'),
-             telegram.InlineKeyboardButton("tools", callback_data='tools')]])
+             telegram.InlineKeyboardButton("Tools", callback_data='tools')]])
 
         if edit_text:
             message.edit_text(start_msg,

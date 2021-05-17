@@ -13,7 +13,6 @@ logger = logging.getLogger('Alert')
 
 class Profile(TickerAlerter):
     # TODO: MAYBE more keys
-    OTCIQ_KEYS = ['businessDesc', 'officers', 'directors', 'website', 'email', 'phone', 'city']
     ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country', 'zip']]
     EXTRA_DATA = ['officers']
 
@@ -81,17 +80,8 @@ class Profile(TickerAlerter):
         except phonenumbers.NumberParseException:
             return phonenumbers.parse(phone, region)
 
-    def _edit_diff(self, diff):
-        diff = super()._edit_diff(diff)
-
-        if not diff:
-            return diff
-
-        if diff.get('changed_key') in self.ADDRESS_LINES:
-            return None
-
-        if diff.get('changed_key') in self.OTCIQ_KEYS:
-            diff = self.update_otciq(self._mongo_db, diff)
+    def edit_diff(self, diff):
+        diff = super().edit_diff(diff)
 
         if diff.get('changed_key') == 'phone':
             diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
@@ -99,21 +89,6 @@ class Profile(TickerAlerter):
 
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
-
-        return diff
-
-    @staticmethod
-    def update_otciq(mongo_db, diff):
-        """
-        Updating diff with otciq payload if detected first otciq account approach
-        """
-
-        profile = readers.Profile(mongo_db=mongo_db, ticker=diff.get('ticker'))
-        symbols = readers.Symbols(mongo_db=mongo_db, ticker=diff.get('ticker'))
-
-        if len(profile.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1 and \
-                len(symbols.get_sorted_history(filter_rows=True, ignore_latest=True).index) == 1:
-            diff['diff_appendix'] = 'otciq'
 
         return diff
 
