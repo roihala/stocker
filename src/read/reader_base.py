@@ -86,8 +86,6 @@ class ReaderBase(ABC):
         return history
 
     def get_entry_by_date(self, date, prev=False):
-        self.get_sorted_history()
-
         idx = self._sorted_history.index[self._sorted_history['date'] == date].tolist()
         if len(idx) != 1:
             raise AttributeError("There should be a single index for each date")
@@ -134,7 +132,7 @@ class ReaderBase(ABC):
             # Dropping monogemic columns where every row has the same value
             nunique = history.apply(pandas.Series.nunique)
             cols_to_drop = nunique[nunique == 1].index
-            history = history.drop(cols_to_drop, axis=1).dropna(axis='columns')
+            history = history.drop(cols_to_drop, axis=1)
 
         if filter_rows:
             shifted_history = history.apply(lambda x: pandas.Series(x.dropna().values), axis=1).fillna('')

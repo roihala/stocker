@@ -409,7 +409,8 @@ The following commands will make me sing:
                 ))
 
             securities_df = readers.Securities(mongo_db=context._dispatcher.mongo_db, ticker=ticker) \
-                .get_sorted_history(filter_rows=True, filter_cols=True)
+                .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
+
             fig = px.line(securities_df, x="date",
                           y=[key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns],
                           title=ticker)
