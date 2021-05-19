@@ -27,8 +27,8 @@ class TickerAlerter(AlerterBase):
         # List of keys to ignore
         return []
 
-    @property
-    def keys_translation(self) -> dict:
+    @staticmethod
+    def get_keys_translation() -> dict:
         return {}
 
     def get_alert_msg(self, diffs: List[dict], as_dict=False):
@@ -52,6 +52,7 @@ class TickerAlerter(AlerterBase):
             return ''
 
         diff = self.edit_diff(diff)
+
         key = diff['changed_key']
         diff['changed_key'] = self.keys_translation[key] if key in self.keys_translation else key.capitalize()
         try:

@@ -19,8 +19,8 @@ class Profile(TickerAlerter):
     ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country', 'zip']]
     EXTRA_DATA = ['officers']
 
-    @property
-    def keys_translation(self):
+    @staticmethod
+    def get_keys_translation():
         return {
             "businessDesc": "Business Description",
             "numberOfEmployees": "Employees Count",
