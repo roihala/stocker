@@ -5,8 +5,8 @@ from src.alert.tickers.ticker_alerter import TickerAlerter
 
 
 class Symbols(TickerAlerter):
-    @property
-    def keys_translation(self):
+    @staticmethod
+    def get_keys_translation():
         return {
             "hasControlDispute": "Control Dispute",
             "hasPromotion": "Promotion",

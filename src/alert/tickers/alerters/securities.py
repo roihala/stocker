@@ -5,8 +5,8 @@ class Securities(TickerAlerter):
     # A list of keys that allowed to be alerted
     WHITE_LIST = ['tierDisplayName']
 
-    @property
-    def keys_translation(self):
+    @staticmethod
+    def get_keys_translation():
         return {"tierDisplayName": "Tier",
                 "authorizedShares": "Authorized Shares",
                 "outstandingShares": "Outstanding Shares",

@@ -1,3 +1,4 @@
+starlette
 arrow
 pandas
 pause
@@ -21,3 +22,8 @@ kaleido
 phonenumbers
 inflection
 validators
+fastapi
+uvicorn
+numpy
+dash
+dash_bootstrap_components
