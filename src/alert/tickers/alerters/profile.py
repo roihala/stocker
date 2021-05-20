@@ -125,7 +125,7 @@ class Profile(TickerAlerter):
                     raise AttributeError("Address diffs from different dates, falling back")
 
                 date = date.pop()
-                old, new = self._reader.get_entry_by_date(date)
+                old, new = self._reader.get_entry_by_date(date, prev=True)
 
                 return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
 

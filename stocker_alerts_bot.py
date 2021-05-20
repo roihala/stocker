@@ -29,7 +29,7 @@ class Bot(Runnable):
 The following commands will make me sing:
 
 /register - Register to get alerts on updates straight to your telegram account.
-/tools - A user friendly interface for reaching our tools  
+/tools - User friendly interface for reaching our tools  
 
 /alerts - Resend previously detected alerts for a given ticker.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*.
