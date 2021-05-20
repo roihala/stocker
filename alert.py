@@ -23,7 +23,7 @@ from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
-    MONEY_BAG_EMOJI_UNICODE = u'\U0001F4B0'
+    DOLLAR_EMOJI_UNICODE = u'\U0001F4B2'
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
@@ -171,10 +171,10 @@ class Alert(Runnable):
             logging.warning(f"Couldn't get tier of {ticker}")
             tier = ''
 
-        return '{alert_emoji} {ticker} ({money_emoji}{last_price}, {trophy_emoji}{tier}):'.format(
+        return '{alert_emoji} *{ticker}*\n{money_emoji}{last_price}\n{trophy_emoji}{tier}):'.format(
             alert_emoji=Alert.ALERT_EMOJI_UNICODE,
             ticker=ticker,
-            money_emoji=Alert.MONEY_BAG_EMOJI_UNICODE,
+            money_emoji=Alert.DOLLAR_EMOJI_UNICODE,
             last_price=price if price else ReaderBase.get_last_price(ticker),
             trophy_emoji=Alert.TROPHY_EMOJI_UNICODE,
             tier=tier)
