@@ -8,18 +8,11 @@ import arrow
 import requests
 from retry import retry
 
+from runnable import Runnable
 from src.collect.collector_base import CollectorBase
 
 
 logger = logging.getLogger('RecordsCollect')
-
-username = "yonisoli"
-password = "5ff06d-6ecc98-91006b-86dd29-388b2c"
-
-PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
-proxy_url = "http://{}:{}@{}".format(username, password, PROXY_RACK_DNS)
-proxy = {"http": proxy_url,
-         'https': proxy_url}
 
 
 class RecordsCollector(CollectorBase, ABC):
@@ -54,7 +47,7 @@ class RecordsCollector(CollectorBase, ABC):
 
         # Trying with proxy
         if response.status_code == 429:
-            response = requests.get(self.url, proxies=proxy)
+            response = requests.get(self.url, proxies=Runnable.proxy)
 
         if response.status_code != 200:
             logger.warning("Couldn't collect record at {url}, bad status code: {code}".format(
