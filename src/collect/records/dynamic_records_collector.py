@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import pymongo
 import requests
+from retry import retry
 
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
@@ -30,6 +31,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             self.collection.insert_many(self.__generate_documents(responses))
             return self.__generate_diffs(responses)
 
+    @retry(requests.exceptions.ProxyError, tries=3, delay=0.1)
     def fetch_data(self, index) -> requests.models.Response:
         url = self.url.format(id=self.record_id + index)
         response = requests.get(url)

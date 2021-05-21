@@ -37,7 +37,7 @@ class RecordsCollect(Runnable):
 
         self.disable_apscheduler_logs()
 
-        trigger = OrTrigger([IntervalTrigger(seconds=1, jitter=300), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(seconds=1), DateTrigger()])
 
         scheduler.add_job(self.collect_records,
                           args=[],
