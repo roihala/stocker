@@ -28,6 +28,7 @@ class Alert(Runnable):
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
     PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
+    YOAV_GAY_BOT_TOKEN = '1825479583:AAG0YBgm5NgCWa3eWRmXOnUS0R7kz3DVllQ'
 
     def __init__(self):
         super().__init__()
@@ -57,7 +58,9 @@ class Alert(Runnable):
 
         try:
             ticker, price = self.__extract_ticker(diffs)
-            if not self.is_relevant(ticker, price):
+
+            # TODO: filings_pdf doesnt contain ticker, remove this
+            if ticker and not self.is_relevant(ticker, price):
                 batch.ack()
                 return
 
@@ -69,6 +72,14 @@ class Alert(Runnable):
             if msg:
                 self._mongo_db.diffs.insert_many(raw_diffs)
                 delay = False if any([diff.get('source') == 'filings' for diff in raw_diffs]) else True
+
+                # TODO: remove this debug alert when finished
+                if not ticker:
+                    [self.init_telegram(self.YOAV_GAY_BOT_TOKEN).sendMessage(chat_id=user.get("chat_id"), text=msg,
+                                                                             parse_mode=telegram.ParseMode.MARKDOWN)
+                     for user in self._mongo_db.telegram_users.find({"filings_pdf": True})]
+                    batch.ack()
+                    return
                 self.__send_or_delay(self.__add_title(ticker, price, msg), delay=delay)
 
             batch.ack()
@@ -90,7 +101,8 @@ class Alert(Runnable):
         for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
             try:
                 alerter = Factory.alerters_factory(source, **alerter_args)
-                alerts = alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source], as_dict=as_dict)
+                alerts = alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source],
+                                               as_dict=as_dict)
 
                 messages.update(alerts) if as_dict else messages.append(alerts)
             except Exception as e:
@@ -102,6 +114,7 @@ class Alert(Runnable):
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
+
         if not len(tickers) == 1:
             raise ValueError("Batch consists more than one ticker: {tickers}".format(tickers=tickers))
 

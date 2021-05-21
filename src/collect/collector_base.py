@@ -1,6 +1,7 @@
 from typing import Dict
 
 import arrow
+import inflection
 from pymongo.database import Database
 from abc import ABC, abstractmethod
 
@@ -15,7 +16,7 @@ class CollectorBase(ABC):
         :param date: date key
         :param debug: is debug?
         """
-        self.name = self.__class__.__name__.lower()
+        self.name = inflection.underscore(self.__class__.__name__)
         self.collection = mongo_db.get_collection(self.name)
         self._raw_data = None
         self._mongo_db = mongo_db

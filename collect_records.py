@@ -37,7 +37,7 @@ class RecordsCollect(Runnable):
 
         self.disable_apscheduler_logs()
 
-        trigger = OrTrigger([IntervalTrigger(seconds=10, jitter=300), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(seconds=1, jitter=300), DateTrigger()])
 
         scheduler.add_job(self.collect_records,
                           args=[],
@@ -63,6 +63,11 @@ class RecordsCollect(Runnable):
 
     def _publish_diffs(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
+
+        if not tickers:
+            data = json.dumps(diffs, default=json_util.default).encode('utf-8')
+            self.publisher.publish(self.topic_name, data)
+            return
 
         # Separating publish by tickers
         for ticker in tickers:
