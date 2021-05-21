@@ -184,7 +184,7 @@ class Alert(Runnable):
             logging.warning(f"Couldn't get tier of {ticker}")
             tier = ''
 
-        return '{alert_emoji} *{ticker}*\n{money_emoji}{last_price}\n{trophy_emoji}{tier}):'.format(
+        return '{alert_emoji} *{ticker}*\n{money_emoji}{last_price}\n{trophy_emoji}{tier}\n'.format(
             alert_emoji=Alert.ALERT_EMOJI_UNICODE,
             ticker=ticker,
             money_emoji=Alert.DOLLAR_EMOJI_UNICODE,
