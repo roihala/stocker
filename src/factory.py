@@ -23,7 +23,7 @@ class Factory(object):
 
     RECORDS_COLLECTIONS = {
         'filings': (records_collectors.Filings, records_alerters.Filings),
-        'filings_pdf': (records_collectors.FilingsPdf, None),
+        'filings_pdf': (records_collectors.FilingsPdf, records_alerters.FilingsPdf),
         'secfilings': (None, records_alerters.SecFilings)
     }
 

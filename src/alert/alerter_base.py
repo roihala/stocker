@@ -1,13 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import List
 
+import inflection
+
 
 class AlerterBase(ABC):
     GREEN_CIRCLE_EMOJI_UNICODE = u'\U0001F7E2'
     RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
 
     def __init__(self, mongo_db, telegram_bot, ticker, debug=None):
-        self.name = self.__class__.__name__.lower()
+        self.name = inflection.underscore(self.__class__.__name__)
         self._mongo_db = mongo_db
         self._telegram_bot = telegram_bot
         self._debug = debug

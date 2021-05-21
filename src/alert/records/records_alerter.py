@@ -19,7 +19,7 @@ class RecordsAlerter(AlerterBase, ABC):
 
     def get_alert_msg(self, diffs: List[dict], as_dict=False):
         super().get_alert_msg(diffs, as_dict)
-        prev = self.__get_previous_date(diffs)
+        prev = self._get_previous_date(diffs)
 
         if not prev or (arrow.utcnow() - arrow.get(prev)).days > 60:
             return {diffs[0]['_id']: self.generate_msg(diffs)} if as_dict else self.generate_msg(diffs)
@@ -27,12 +27,15 @@ class RecordsAlerter(AlerterBase, ABC):
             return {} if as_dict else ''
 
     def generate_msg(self, diffs):
-        return '*{name}* added:\n' \
-               '{green_circle_emoji} {titles}'.format(name=self.name,
-                                                      green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                      titles=', '.join([diff.get('title') for diff in diffs]))
+        msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                               title=self._get_record_title(diff)) for diff in diffs])
 
-    def __get_previous_date(self, diffs):
+        return f'*{self.name}* added:\n{msg}'
+
+    def _get_record_title(self, diff):
+        return diff.get('title')
+
+    def _get_previous_date(self, diffs):
         prev_record = self.get_previous_record(diffs)
         return self.get_release_date(prev_record)
 
