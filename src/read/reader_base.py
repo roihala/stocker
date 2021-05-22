@@ -86,7 +86,7 @@ class ReaderBase(ABC):
         return history
 
     def get_entry_by_date(self, date, prev=False):
-        idx = self._sorted_history.index[self._sorted_history['date'] == date].tolist()
+        idx = self._sorted_history.index[self.get_sorted_history()['date'] == date].tolist()
         if len(idx) != 1:
             raise AttributeError("There should be a single index for each date")
 
