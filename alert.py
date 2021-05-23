@@ -71,7 +71,9 @@ class Alert(Runnable):
             if msg:
                 self._mongo_db.diffs.insert_many(raw_diffs)
                 delay = False if any([diff.get('source') == 'filings' for diff in raw_diffs]) else True
-                self.__send_or_delay(self.__add_title(ticker, price, msg), delay=delay)
+                price = ReaderBase.get_last_price(ticker)
+                user_group = self.__get_configured_users(ticker, price)
+                self.__send_or_delay(user_group, self.__add_title(ticker, price, msg), delay=delay)
 
             batch.ack()
         except Exception as e:
@@ -110,9 +112,9 @@ class Alert(Runnable):
 
         return alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source])
 
-    def __send_or_delay(self, msg, delay=True):
+    def __send_or_delay(self, user_group, msg, delay=True):
         if self._debug:
-            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            self.__send_msg(user_group, msg)
             return
 
         if delay:
@@ -148,6 +150,40 @@ class Alert(Runnable):
 
         return '{title}\n' \
                '{alert_msg}'.format(title=self.generate_title(ticker, price, self._mongo_db), alert_msg=alert_msg)
+
+    def get_configured_users(self, diff, price):
+        if not diff:
+            return []
+
+        configured_users = []
+
+        for user in self._mongo_db.telegram_users.find():
+            if user.get("configure"):
+                if not self.__is_in_user_price_range(user, price):
+                    continue
+                if not self.__is_in_user_watchlist(user, price):
+                    continue
+
+            configured_users.append(user)
+        
+        return configured_users
+
+    
+    def __is_in_user_price_range(self, user, price):
+        if not user["configure"].get("price_range"):
+            return True
+        for start, end in user["configure"]["price_range"]:
+            if start == -1 or start < price < end:
+                return True
+        return False
+
+    def __is_in_user_watchlist(self, user, ticker):
+        if not user["configure"].get("watchlist"):
+            return True
+        for watched_ticker in csv.reader([user["configure"]["watchlist"]], delimiter=','):
+            if ticker == watched_ticker:
+                return True
+        return False
 
     @staticmethod
     def generate_title(ticker, price, mongo_db):

@@ -15,6 +15,8 @@ from src.read import readers
 
 PRINT_DD, GET_TOPIC, PRINT_ALERTS, PRINT_INFO, VALIDATE_PASSWORD, BROADCAST_MSG, REGISTER = range(7)
 
+GET_KEY, PRICE_RANGE_OPT, WATCHLIST_OPT = range(3)
+
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
@@ -91,12 +93,25 @@ class Bot(Runnable):
             fallbacks=[],
         )
 
+        configure_conv = ConversationHandler(
+            entry_points=[CommandHandler('configure', Bot.configure)],
+            states={
+                # Allowing letters and whitespaces
+                GET_KEY: [CallbackQueryHandler(Bot.price_range_menu, pattern=r'^price_range$'),
+                          CallbackQueryHandler(Bot.watchlist_menu, pattern=r'^watchlist$')],
+                PRICE_RANGE_OPT: [CallbackQueryHandler(Bot.set_price_range, pattern=r'^[0-9]+[.][0-9]+[,][0-9]+[.][0-9]+|unlimited$')],
+                WATCHLIST_OPT: [MessageHandler(Filters.regex('^[a-zA-Z_ ]*$'), Bot.set_watchlist)]
+            },
+            fallbacks=[],
+        )
+
         dp.add_handler(start_conv)
         dp.add_handler(alerts_conv)
         dp.add_handler(info_conv)
         dp.add_handler(register_conv)
         dp.add_handler(dd_conv)
         dp.add_handler(broadcast_conv)
+        dp.add_handler(configure_conv)
 
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
@@ -117,6 +132,7 @@ class Bot(Runnable):
 
 /register - Register to get alerts on updates straight to your telegram account.
 /alerts - Previously detected alerts for a given ticker.
+/configure - Get personalize ticker alerts
 /dd - Dig in to updates that weren't alerted.
 /info - View the LATEST information for a given ticker.
 /deregister - Do this to stop getting alerts from stocker. *not recommended*.
@@ -405,6 +421,67 @@ class Bot(Runnable):
     def __is_high_permission_user(mongo_db, user_name, chat_id):
         return bool(
             mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id, 'permissions': 'high'}))
+    
+    @staticmethod
+    def configure(update, context):
+        keyboard = telegram.InlineKeyboardMarkup([[telegram.InlineKeyboardButton('Price range', callback_data='price_range')],
+                                                  [telegram.InlineKeyboardButton('Watchlist', callback_data='watchlist')]])
+
+        update.message.reply_text('Please choose ticker alert configuration to set:',
+                                   reply_markup=keyboard)
+        return GET_KEY
+
+    @staticmethod
+    def price_range_menu(update, context):
+        query = update.callback_query
+        val = query.data
+
+        keyboard = telegram.InlineKeyboardMarkup([[telegram.InlineKeyboardButton('0.0001 - 0.01', callback_data="0.0001,0.01")],
+                                                  [telegram.InlineKeyboardButton('0.01 - 0.5', callback_data="0.01,0.5")],
+                                                  [telegram.InlineKeyboardButton('0.5 - 1', callback_data="0.5,1")], 
+                                                  [telegram.InlineKeyboardButton('Unlimited', callback_data="unlimited")]])
+
+        query.edit_message_text(text="Please choose price range from the list:",
+                                reply_markup=keyboard)
+        
+
+        return PRICE_RANGE_OPT
+
+    @staticmethod
+    def set_price_range(update, context):
+        user = update.effective_user
+        query = update.callback_query
+        val = query.data if not query.data == "unlimited" else "-1,-1"
+        user_record = context._dispatcher.mongo_db.telegram_users.find_one({'user_name': user.name})
+
+        new_config = user_record.get("configure") or {}
+        price_range = [float(num) for num in val.split(',')]
+        if new_config.get("price_range"):
+            if price_range not in new_config["price_range"]:
+                new_config["price_range"].append(price_range)
+        else:
+            new_config["price_range"] = [price_range]
+        context._dispatcher.mongo_db.telegram_users.find_one_and_update({'_id': user_record['_id']}, {'$set': {"configure": new_config}})
+        query.edit_message_text(text=f'Price range {val} has been configured successfully')
+        return ConversationHandler.END
+
+
+    @staticmethod
+    def watchlist_menu(update, context):
+        query = update.callback_query
+        val = query.data
+
+        query.edit_message_text(text="Please type your ticker watchlist:")
+        print("SETTING WATCHLIST")
+        return WATCHLIST_OPT
+
+    @staticmethod
+    def set_watchlist(update, context):
+        from_user = update.message.from_user
+        watchlist_msg = update.message.text
+
+        update.message.reply_text(f'{watchlist_msg} received')
+        return ConversationHandler.END
 
 
 def main():
