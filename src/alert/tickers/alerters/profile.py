@@ -5,8 +5,11 @@ import pandas
 import phonenumbers
 from copy import deepcopy
 
+import validators
+
 from src.alert.tickers.ticker_alerter import TickerAlerter
 from src.read import readers
+from src.read.reader_base import ReaderBase
 
 logger = logging.getLogger('Alert')
 
@@ -90,6 +93,11 @@ class Profile(TickerAlerter):
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
 
+        try:
+            diff['new'] = ReaderBase.escape_markdown(diff['new']) if validators.url(diff['new']) else diff['new']
+            diff['old'] = ReaderBase.escape_markdown(diff['old']) if validators.url(diff['old']) else diff['old']
+        except TypeError:
+            pass
         return diff
 
     def __get_extra_data(self, diff):

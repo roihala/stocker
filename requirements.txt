@@ -20,3 +20,4 @@ plotly
 kaleido
 phonenumbers
 inflection
+validators
