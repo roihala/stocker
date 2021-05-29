@@ -21,8 +21,9 @@ class Rest(Runnable):
         super().__init__(*args, **kwargs)
 
         if os.getenv("ENV") == "production":
-            #TODO: yoni
-            pass
+            self.titan_mail = os.environ['TITAN_MAIL']
+            self.titan_pass = os.environ['TITAN_PASS']
+            self.stocker_key = os.environ['STOCKER_KEY']
         else:
             self.titan_mail = self.args.titan_mail
             self.titan_pass = self.args.titan_pass
