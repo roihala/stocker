@@ -1,111 +1,142 @@
-import dash_core_components as dcc
-import dash_html_components as html
-import dash_bootstrap_components as dbc
+import os
+
+from cryptography.fernet import Fernet
+
+import smtplib, ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 
 import uvicorn
-import dash
-from starlette.middleware.wsgi import WSGIMiddleware
 
-import plotly.express as px
 from fastapi import FastAPI
 
-from src.factory import Factory
-from src.alert.tickers import alerters
 from runnable import Runnable
-from src.read import readers
+from src.rest.dilution import init_dash
+from src.rest.wix_payload import WixPayload
 
 
 class Rest(Runnable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if os.getenv("ENV") == "production":
+            #TODO: yoni
+            pass
+        else:
+            self.titan_mail = self.args.titan_mail
+            self.titan_pass = self.args.titan_pass
+            self.stocker_key = self.args.stocker_key
+
     def run(self):
-        update_dash()
-        app.mount("/dilution", WSGIMiddleware(dash_app.server))
+        # update_dash(dash_app)
+        # app.mount("/dilution", WSGIMiddleware(dash_app.server))
         uvicorn.run(app)
+
+    def create_parser(self):
+        parser = super().create_parser()
+        parser.add_argument('--titan_mail', dest='titan_mail', help='Titan email address', required=True)
+        parser.add_argument('--titan_password', dest='titan_pass', help='Titan mail password', required=True)
+        parser.add_argument('--stocker_key', dest='stocker_key', help='Stocker secret key', required=True)
+        return parser
 
 
 rest = Rest()
 app = FastAPI()
-dash_app = dash.Dash(__name__, requests_pathname_prefix="/dilution/")
+dash_app = init_dash(rest._mongo_db)
 
-
-def update_dash():
-    ticker = 'SOAN'
-    securities_df = readers.Securities(mongo_db=rest._mongo_db, ticker=ticker) \
-        .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
-
-    keys_translation = {key: translation for key, translation in alerters.Securities.get_keys_translation().items() if
-                        key in securities_df.columns}
-    securities_df = securities_df.rename(columns=keys_translation)
-
-    fig = px.line(securities_df, x="date",
-                  y=list(keys_translation.values()),
-                  title=ticker)
-    fig.update_traces(mode="markers+lines", hovertemplate=None)
-    fig.update_layout(clickmode='event+select', hovermode='x')
-
-    styles = {
-        'pre': {
-            'border': 'thin lightgrey solid',
-            'overflowX': 'scroll'
-        }
-    }
-
-    dash_app.layout = html.Div([
-        dcc.Graph(figure=fig),
-
-        html.Div([
-            dcc.Markdown("""
-                        **Hover Data**
-
-                        Mouse over values in the graph.
-                    """),
-            html.Pre(id='hover-data', style=styles['pre'])
-        ], className='three columns')
-    ],
-        [
-            html.Div([
-                # represents the URL bar, doesn't render anything
-                dcc.Location(id='url', refresh=False),
-
-                dcc.Link('Navigate to "/"', href='/'),
-                html.Br(),
-                dcc.Link('Navigate to "/page-2"', href='/page-2'),
-
-                # content will be rendered in this element
-                html.Div(id='page-content')
-            ])
-        ]
-    )
-
-    # app.layout = html.Div([
-    #     # represents the URL bar, doesn't render anything
-    #     dcc.Location(id='url', refresh=False),
-    #
-    #     dcc.Link('Navigate to "/"', href='/'),
-    #     html.Br(),
-    #     dcc.Link('Navigate to "/page-2"', href='/page-2'),
-    #
-    #     # content will be rendered in this element
-    #     html.Div(id='page-content')
-    # ])
-
-    return dash_app
-
-
-@dash_app.callback(dash.dependencies.Output('page-content', 'children'),
-                   [dash.dependencies.Input('url', 'pathname')])
-def display_page(pathname):
-    if pathname == '/kaki':
-        return html.Div([
-            dbc.Alert("This is a danger alert. Scary!", color="danger", dismissable=True, is_open=True)
-        ])
-
-    return html.Div([
-        html.H3('You are on page {}'.format(pathname))
-    ])
 
 @app.get('/')
-def root():
+async def root():
     return {'kaki': 'pipi'}
+
+
+@app.post('/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
+async def subscription_activate(*, payload: WixPayload):
+    # we will be encryting the below string.
+    email = payload.data.contact_email
+
+    # generate a key for encryptio and decryption
+    # You can use fernet to generate
+    # the key or use random key generator
+    # here I'm using fernet to generate key
+
+    key = rest.stocker_key
+
+    # Instance the Fernet class with the key
+
+    fernet = Fernet(key)
+
+    # then use the Fernet class instance
+    # to encrypt the string string must must
+    # be encoded to byte string before encryption
+    activation_code = fernet.encrypt(email.encode())
+
+    __send_email(payload.data.contact_first_name + ' ' + payload.data.contact_last_name, email, activation_code)
+
+    # decrypt the encrypted string with the
+    # Fernet instance of the key,
+    # that was used for encrypting the string
+    # encoded byte string is returned by decrypt method,
+    # so decode it to string with decode methos
+
+    return {'success': True}
+
+
+@app.post('51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
+async def subscription_cancel():
+    pass
+
+
+def __send_email(name, receiver_email, activation_code):
+    receiver_email ='gcygmfvbvbiuarpuao@twzhhq.com'
+    password = 'P2b!$mH!tmwKGKY'
+    sender_email = 'roihalamish@stocker.watch'
+
+    # Create a secure SSL context
+    context = ssl.create_default_context()
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "Stocker activation code"
+    message["From"] = 'admin@stocker.watch'
+    message["To"] = receiver_email
+
+    # Create the plain-text and HTML version of your message
+    text = f"""\
+    Hi {name} and  welcome to stocker alerts!
+
+    Here is your activation code:
+    {activation_code}
+    don't share this code with anyone copy it to your chat with http://t.me/stocker_alerts_bot 
+    in order to activate your new subscription<br>
+
+    Please feel free to contact us at any matter, either by this mail or via telegram: http://t.me/EyesOnMarket"""
+    html = f"""\
+    <html>
+      <body>
+        <p>Hi {name} and  welcome to stocker alerts!<br>
+           Here is your activation code:<br>
+           {activation_code} <br>
+           don't share this code with anyone copy it to your chat with <a href="http://t.me/stocker_alerts_bot">Stocker alerts bot</a> 
+           in order to activate your new subscription<br> 
+
+           Please feel free to contact us for any matter, either by this mail or <a href="http://t.me/EyesOnMarket">by telegram</a> or <a href="https://twitter.com/EyesOnMarket">by twitter</a>
+        </p>
+      </body>
+    </html>
+    """
+
+    # Turn these into plain/html MIMEText objects
+    part1 = MIMEText(text, "plain")
+    part2 = MIMEText(html, "html")
+
+    message.attach(part1)
+    message.attach(part2)
+
+    # Port 465 for SSL
+    with smtplib.SMTP_SSL("smtp.titan.email", 465, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message.as_string())
 
 
 if __name__ == "__main__":
