@@ -1,4 +1,7 @@
 starlette
+cryptography
+paypalrestsdk
+pydantic
 arrow
 pandas
 pause
