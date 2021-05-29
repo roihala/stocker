@@ -46,52 +46,38 @@ app = FastAPI()
 dash_app = init_dash(rest._mongo_db)
 
 
-@app.get('/')
+@app.get('/rest')
 async def root():
-    return {'kaki': 'pipi'}
+    return {'success': True}
 
 
-@app.post('/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
+@app.post('/rest/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
 async def subscription_activate(*, payload: WixPayload):
     # we will be encryting the below string.
     email = payload.data.contact_email
 
-    # generate a key for encryptio and decryption
-    # You can use fernet to generate
-    # the key or use random key generator
-    # here I'm using fernet to generate key
-
     key = rest.stocker_key
-
-    # Instance the Fernet class with the key
-
-    fernet = Fernet(key)
-
-    # then use the Fernet class instance
-    # to encrypt the string string must must
-    # be encoded to byte string before encryption
-    activation_code = fernet.encrypt(email.encode())
+    activation_code = Fernet(key).encrypt(email.encode())
 
     __send_email(payload.data.contact_first_name + ' ' + payload.data.contact_last_name, email, activation_code)
-
-    # decrypt the encrypted string with the
-    # Fernet instance of the key,
-    # that was used for encrypting the string
-    # encoded byte string is returned by decrypt method,
-    # so decode it to string with decode methos
 
     return {'success': True}
 
 
-@app.post('51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
+@app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
 async def subscription_cancel():
-    pass
+    return {'success': True}
 
 
 def __send_email(name, receiver_email, activation_code):
-    receiver_email ='gcygmfvbvbiuarpuao@twzhhq.com'
-    password = 'P2b!$mH!tmwKGKY'
-    sender_email = 'roihalamish@stocker.watch'
+    password = rest.titan_pass
+    sender_email = rest.titan_mail
+    smtp_domain = "smtp.titan.email"
+
+    # password = r'9qz*xFSTh&3588*'
+    # sender_email = 'support@stocker.watch'
+
+    # smtp_domain = "smtp.gmail.com"
 
     # Create a secure SSL context
     context = ssl.create_default_context()
@@ -120,7 +106,8 @@ def __send_email(name, receiver_email, activation_code):
            don't share this code with anyone copy it to your chat with <a href="http://t.me/stocker_alerts_bot">Stocker alerts bot</a> 
            in order to activate your new subscription<br> 
 
-           Please feel free to contact us for any matter, either by this mail or <a href="http://t.me/EyesOnMarket">by telegram</a> or <a href="https://twitter.com/EyesOnMarket">by twitter</a>
+           Please feel free to contact us for any matter, either by this mail or <a href="http://t.me/EyesOnMarket">by telegram</a> or <a href="https://twitter.com/EyesOnMarket">by twitter</a><br>
+
         </p>
       </body>
     </html>
@@ -134,7 +121,7 @@ def __send_email(name, receiver_email, activation_code):
     message.attach(part2)
 
     # Port 465 for SSL
-    with smtplib.SMTP_SSL("smtp.titan.email", 465, context=context) as server:
+    with smtplib.SMTP_SSL(smtp_domain, 465, context=context) as server:
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, message.as_string())
 
