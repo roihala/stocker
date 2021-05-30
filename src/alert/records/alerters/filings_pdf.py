@@ -1,5 +1,6 @@
 from src.alert.records.records_alerter import RecordsAlerter
 from src.find.site import Site
+from src.read.reader_base import ReaderBase
 
 
 class FilingsPdf(RecordsAlerter):
@@ -13,4 +14,4 @@ class FilingsPdf(RecordsAlerter):
         return None
 
     def _get_record_title(self, diff):
-        return diff.get('url')
+        return ReaderBase.escape_markdown(diff.get('url'))
