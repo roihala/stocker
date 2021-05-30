@@ -77,7 +77,6 @@ async def subscription_cancel():
 
 
 def __send_email(name, plan_title, receiver_email, activation_link):
-    receiver_email = 'oqpwbukhrwpamleimm@upived.online'
     password = rest.titan_pass
     sender_email = rest.titan_mail
     smtp_domain = "smtp.titan.email"
