@@ -86,7 +86,7 @@ rest_build_push:
 	docker push eu.gcr.io/stocker-300519/rest:latest
 
 rest_update_deployment: get_gcp_cluster
-	kubectl apply -f kubefiles/rest_deployment.yaml
+	kubectl apply -f kubefiles\rest
 
 rest_deploy: get_gcp_cluster
 	kubectl patch deployment rest-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
