@@ -20,7 +20,7 @@ class WixData(BaseModel):
     description: Optional[str] = Query(None, alias="paidplan.description")
     order_id: Optional[str] = Query(None, alias="paidplan.orderid")
     id: Optional[str] = Query(None, alias="paidplan.id")
-    title: Optional[str] = Query(None, alias="paidplan.title")
+    plan_title: Optional[str] = Query(None, alias="paidplan.title")
     valid_for: Optional[str] = Query(None, alias="paidplan.validfor")
     paidplan_start_date: Optional[str] = Query(None, alias="paidplan.startdate")
     price: Optional[str] = Query(None, alias="paidplan.price")

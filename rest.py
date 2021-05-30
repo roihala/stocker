@@ -1,3 +1,4 @@
+import codecs
 import os
 
 from cryptography.fernet import Fernet
@@ -14,6 +15,11 @@ from fastapi import FastAPI
 from runnable import Runnable
 from src.rest.dilution import init_dash
 from src.rest.wix_payload import WixPayload
+
+
+NAME_TAG = 'STOCKER_NAME_TAG'
+ACTIVATION_BUTTON_TAG = 'STOCKER_ACTIVATION_BUTTON_TAG'
+PLAN_TAG = 'STOCKER_PLAN_TAG'
 
 
 class Rest(Runnable):
@@ -60,17 +66,18 @@ async def subscription_activate(*, payload: WixPayload):
     key = rest.stocker_key
     activation_code = Fernet(key).encrypt(email.encode())
 
-    __send_email(payload.data.contact_first_name + ' ' + payload.data.contact_last_name, email, activation_code)
+    name = payload.data.contact_first_name + ' ' + payload.data.contact_last_name
 
-    return {'success': True}
+    __send_email(name, payload.data.plan_title, email,generate_activation_link(activation_code))
 
 
 @app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
 async def subscription_cancel():
-    return {'success': True}
+    pass
 
 
-def __send_email(name, receiver_email, activation_code):
+def __send_email(name, plan_title, receiver_email, activation_link):
+    receiver_email = 'oqpwbukhrwpamleimm@upived.online'
     password = rest.titan_pass
     sender_email = rest.titan_mail
     smtp_domain = "smtp.titan.email"
@@ -90,29 +97,17 @@ def __send_email(name, receiver_email, activation_code):
 
     # Create the plain-text and HTML version of your message
     text = f"""\
-    Hi {name} and  welcome to stocker alerts!
+Hello {name},
+We are happy to tell you that you can immediately start recieving our alerts, just click the link below:
+{activation_link}
 
-    Here is your activation code:
-    {activation_code}
-    don't share this code with anyone copy it to your chat with http://t.me/stocker_alerts_bot 
-    in order to activate your new subscription<br>
+Please feel free to contact us at any matter, either by this mail or via telegram: http://t.me/EyesOnMarket"""
 
-    Please feel free to contact us at any matter, either by this mail or via telegram: http://t.me/EyesOnMarket"""
-    html = f"""\
-    <html>
-      <body>
-        <p>Hi {name} and  welcome to stocker alerts!<br>
-           Here is your activation code:<br>
-           {activation_code} <br>
-           don't share this code with anyone copy it to your chat with <a href="http://t.me/stocker_alerts_bot">Stocker alerts bot</a> 
-           in order to activate your new subscription<br> 
-
-           Please feel free to contact us for any matter, either by this mail or <a href="http://t.me/EyesOnMarket">by telegram</a> or <a href="https://twitter.com/EyesOnMarket">by twitter</a><br>
-
-        </p>
-      </body>
-    </html>
-    """
+    with codecs.open(os.path.join(os.path.dirname(__file__), 'src/rest/activation_email.html')) as activation_email:
+        html = activation_email.read()\
+            .replace(NAME_TAG, name)\
+            .replace(ACTIVATION_BUTTON_TAG, activation_link)\
+            .replace(PLAN_TAG, plan_title)
 
     # Turn these into plain/html MIMEText objects
     part1 = MIMEText(text, "plain")
@@ -125,6 +120,10 @@ def __send_email(name, receiver_email, activation_code):
     with smtplib.SMTP_SSL(smtp_domain, 465, context=context) as server:
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, message.as_string())
+
+
+def generate_activation_link(activation_code):
+    return 'https://stocker.watch'
 
 
 if __name__ == "__main__":
