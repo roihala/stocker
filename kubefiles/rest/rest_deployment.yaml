@@ -28,3 +28,18 @@ spec:
               value: "P2b!$mH!tmwKGKY"
             - name: STOCKER_KEY
               value: "KG1M7Uwwpko_CSfI0c9hHj0K_YfbhF3c5X6oDW993A="
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rest-service
+  labels:
+    run: rest-app
+spec:
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 8000
+  selector:
+    run: rest-app
+  type: ClusterIP
