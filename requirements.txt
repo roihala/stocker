@@ -30,3 +30,6 @@ uvicorn
 numpy
 dash
 dash_bootstrap_components
+secrets
+argon2
+cryptography
