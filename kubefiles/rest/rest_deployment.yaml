@@ -42,4 +42,4 @@ spec:
       targetPort: 8000
   selector:
     run: rest-app
-  type: ClusterIP
+  type: LoadBalancer
