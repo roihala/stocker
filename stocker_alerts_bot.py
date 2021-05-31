@@ -12,6 +12,7 @@ import telegram
 from src.factory import Factory
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup
+from telegram.utils import helpers
 
 from client import Client
 from runnable import Runnable
@@ -82,6 +83,8 @@ The following commands will make me sing:
             },
             fallbacks=[],
         )
+        # Deep linking should be added before the regular start command, which is added in tools_conv
+        dp.add_handler(CommandHandler('start', Bot.start_deep_linked))
 
         dp.add_handler(tools_conv)
         dp.add_handler(broadcast_conv)
@@ -117,6 +120,19 @@ The following commands will make me sing:
         Bot.start(update.message, update.message.from_user, context)
 
         return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def start_deep_linked(update, context) -> None:
+        print('deep linked', update.message)
+
+        bot = context.bot
+        url = helpers.create_deep_linked_url(bot.username, 'kaki')
+        text = (
+            "Awesome, you just accessed hidden functionality! "
+            "Now let's get back to the private chat.\n" + url
+        )
+
+        update.message.reply_text(text)
 
     @staticmethod
     def start(message, from_user, context, edit_text=False):
