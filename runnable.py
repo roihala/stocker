@@ -96,13 +96,17 @@ class Runnable(ABC):
             raise ValueError("Couldn't connect to telegram, check your credentials")
 
     @staticmethod
-    def extract_tickers(csv=None):
+    def extract_tickers(csv=None, all_columns=False):
         try:
             if not csv:
                 csv = DEFAULT_CSV_PATH
 
             df = pandas.read_csv(csv)
-            return df.Symbol.apply(lambda ticker: ticker.upper())
+            df.Symbol = df.Symbol.apply(lambda ticker: ticker.upper())
+            if all_columns:
+                return df
+            else:
+                return df.Symbol
         except Exception:
             raise ValueError(
                 'Invalid csv file - validate the path and that the tickers are under a column named symbol')
