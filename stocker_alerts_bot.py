@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from typing import Tuple, Optional
-
 import argon2
 import logging
 import os
@@ -21,14 +19,12 @@ from client import Client
 from runnable import Runnable
 from src.read import readers
 from alert import Alert
+from src.rest import ActivationCodes
 
 CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(7)
 
 # Actions
 FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE = ('free_trial', 'tools', 'back', 'info', 'alerts', 'dilution', 'activate')
-
-# Activation codes
-TRIAL, ACTIVE, CANCEL, UNREGISTER, PENDING = ('frial', 'active', 'cancel', 'unregister', 'pending')
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -50,6 +46,9 @@ The following commands will make me sing:
     PAYMENT_URL = 'https://www.stocker.watch/plans-pricing'
     STOCKER_URL = 'https://www.stocker.watch'
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
+
+    FREE_TRIAL_4_WEEKS = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
+    FREE_TRIAL_DEFAULT = 'free_trial'
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
@@ -139,7 +138,12 @@ The following commands will make me sing:
     def start_command(update, context):
         # This is how we support deep linking
         if len(update.message.text.split(' ')) == 2:
-            Bot.activate_token(update, update.message.text.split(' ')[1], context._dispatcher.mongo_db)
+            value = update.message.text.split(' ')[1]
+            if value in [Bot.FREE_TRIAL_4_WEEKS, Bot.FREE_TRIAL_DEFAULT]:
+                weeks = 4 if Bot.FREE_TRIAL_4_WEEKS else 2
+                Bot.free_trial(update.message, update.message.from_user, context, edit_message=False, weeks=weeks)
+            else:
+                Bot.activate_token(update, update.message.text.split(' ')[1], context._dispatcher.mongo_db)
         else:
             Bot.start(update.message, update.message.from_user, context)
 
@@ -154,7 +158,7 @@ The following commands will make me sing:
         msg = Bot.__get_registration_message(token_verified, token_occupied, from_user, mongo_db, token)
 
         if token_verified and not token_occupied:
-            mongo_db.telegram_users.update_one(user_document, {'$set': Bot.__new_user_document(from_user, ACTIVE)})
+            mongo_db.telegram_users.update_one(user_document, {'$set': Bot.__new_user_document(from_user, ActivationCodes.ACTIVE)})
 
             keyboard = InlineKeyboardMarkup([
                     [telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)]])
@@ -186,9 +190,8 @@ The following commands will make me sing:
     def deregister(update, context):
         user = update.message.from_user
         try:
-            # Using private attr because of bad API
-            context._dispatcher.mongo_db.telegram_users.delete_one({'user_name': user.name})
-            context._dispatcher.mongo_db.telegram_users.delete_one({'chat_id': user.id})
+            context._dispatcher.mongo_db.telegram_users.update_one({'chat_id': user.id},
+                                                                   {'$set': {'activation': ActivationCodes.DEREGISTER}})
 
             context._dispatcher.logger.info(
                 "{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
@@ -197,7 +200,7 @@ The following commands will make me sing:
 
         except Exception as e:
             update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(user_name=user.name))
+                '{user_name} couldn\'t deregister, please contact the support team'.format(user_name=user.name))
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
@@ -276,35 +279,46 @@ The following commands will make me sing:
         return DO_FREE_TRIAL
 
     @staticmethod
-    def free_trial(message, from_user, context):
+    def free_trial(message, from_user, context, edit_message=True, weeks=2):
         try:
             user = context._dispatcher.mongo_db.telegram_users.find({'chat_id': from_user.id}).limit(1)[0]
-            if user.get('activation') in [TRIAL, ACTIVE]:
-                msg = f'{from_user.name} is already registered!\n' \
-                       'Try our tools for some cool stuff!'
-                keyboard = Bot.TOOLS_KEYBOARD
-            elif user.get('activation') == CANCEL:
-                msg = f'{from_user.name} subscription has ended, please renew your subscription'
-                keyboard = Bot.SUBSCRIBE_KEYBOARD
-            elif user.get('activation') == UNREGISTER:
-                msg = f'{from_user.name} free trial has ended, please purchase subscription plan'
-                keyboard = Bot.SUBSCRIBE_KEYBOARD
-
-            else:
-                raise ValueError("Logic shouldn't get here")
-
         except IndexError:
+            user = None
+
+        if not user:
             context._dispatcher.mongo_db.telegram_users.insert_one(
-                Bot.__new_user_document(from_user, activation=TRIAL))
+                Bot.__new_user_document(from_user, activation=ActivationCodes.TRIAL, appendix={'weeks': weeks}))
 
             msg = f'{Bot.CHECK_MARK_EMOJI_UNICODE} {from_user.name} *Registered successfully*\n' \
-                f'Your 1 week free trial has started.\n\n' \
+                f'Your {weeks} weeks free trial has started.\n\n' \
                 f"Please send us your feedbacks and suggestions, we won't' bite"
 
             keyboard = InlineKeyboardMarkup([
                 [Bot.CONTACT_BUTTON, Bot.TOOLS_BUTTON]])
 
-        message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+        else:
+            if user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
+                msg = f'{from_user.name} is already registered!\n' \
+                       'Try our tools for some cool stuff!'
+                keyboard = Bot.TOOLS_KEYBOARD
+            elif user.get('activation') in [ActivationCodes.CANCEL, ActivationCodes.DEREGISTER]:
+                msg = f'{from_user.name} subscription has ended, please renew your subscription'
+                keyboard = Bot.SUBSCRIBE_KEYBOARD
+            elif user.get('activation') == ActivationCodes.UNREGISTER:
+                msg = f'{from_user.name} free trial has ended\n' \
+                    f'Please purchase subscription plan'
+                keyboard = Bot.SUBSCRIBE_KEYBOARD
+            elif user.get('activation') == ActivationCodes.PENDING:
+                msg = f'{from_user.name} has pending subscription plan\n' \
+                    f'Please check your email for activation'
+                keyboard = InlineKeyboardMarkup([[Bot.CONTACT_BUTTON]])
+            else:
+                raise ValueError("Logic shouldn't get here")
+        if edit_message:
+            message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+        else:
+            message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+
 
     @staticmethod
     def alerts_command(update, context):
@@ -598,7 +612,7 @@ The following commands will make me sing:
         return token_verified, token_occupied, None
 
     @staticmethod
-    def __new_user_document(user, activation):
+    def __new_user_document(user, activation, appendix: dict = None):
         """
 
         :param user:
@@ -610,9 +624,10 @@ The following commands will make me sing:
         return {
             'user_name': user.name,
             'chat_id': user.id,
-            'date': arrow.utcnow().format(),
+            f'{activation}_date': arrow.utcnow().format(),
             'delay': True,
-            'activation': activation
+            'activation': activation,
+            'appendix': appendix
         }
 
 

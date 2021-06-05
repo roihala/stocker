@@ -54,7 +54,7 @@ class TickerAlerter(AlerterBase):
         diff = self.edit_diff(diff)
 
         key = diff['changed_key']
-        diff['changed_key'] = self.keys_translation[key] if key in self.keys_translation else key.capitalize()
+        diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:

@@ -26,8 +26,6 @@ spec:
               value: "roihalamish@stocker.watch"
             - name: TITAN_PASS
               value: "P2b!$mH!tmwKGKY"
-            - name: STOCKER_KEY
-              value: "KG1M7Uwwpko_CSfI0c9hHj0K_YfbhF3c5X6oDW993A="
 ---
 apiVersion: v1
 kind: Service

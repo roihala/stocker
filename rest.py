@@ -1,21 +1,24 @@
+import argon2
 import codecs
 import os
+import secrets
 
-from cryptography.fernet import Fernet
+import arrow
+from pydantic import BaseModel
+from telegram.utils import helpers
 
 import smtplib, ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
 
 import uvicorn
 
 from fastapi import FastAPI
 
 from runnable import Runnable
+from src.rest import ActivationCodes
 from src.rest.dilution import init_dash
-from src.rest.wix_payload import WixPayload
-
+from src.rest.wix_payload import WixPayLoad
 
 NAME_TAG = 'STOCKER_NAME_TAG'
 ACTIVATION_BUTTON_TAG = 'STOCKER_ACTIVATION_BUTTON_TAG'
@@ -29,11 +32,9 @@ class Rest(Runnable):
         if os.getenv("ENV") == "production":
             self.titan_mail = os.environ['TITAN_MAIL']
             self.titan_pass = os.environ['TITAN_PASS']
-            self.stocker_key = os.environ['STOCKER_KEY']
         else:
             self.titan_mail = self.args.titan_mail
             self.titan_pass = self.args.titan_pass
-            self.stocker_key = self.args.stocker_key
 
     def run(self):
         # update_dash(dash_app)
@@ -44,46 +45,55 @@ class Rest(Runnable):
         parser = super().create_parser()
         parser.add_argument('--titan_mail', dest='titan_mail', help='Titan email address', required=True)
         parser.add_argument('--titan_password', dest='titan_pass', help='Titan mail password', required=True)
-        parser.add_argument('--stocker_key', dest='stocker_key', help='Stocker secret key', required=True)
         return parser
 
 
 rest = Rest()
 app = FastAPI()
-dash_app = init_dash(rest._mongo_db)
 
 
-@app.get('/rest')
-async def root():
-    return {'success': True}
+# dash_app = init_dash(rest._mongo_db)
 
 
 @app.post('/rest/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
-async def subscription_activate(*, payload: WixPayload):
-    # we will be encryting the below string.
-    email = payload.data.contact_email
+async def subscription_activate(*, payload: WixPayLoad):
+    __log_webhook(payload, 'subscription_activate')
 
-    key = rest.stocker_key
-    activation_code = Fernet(key).encrypt(email.encode())
+    try:
+        # Creating a unique token for the given email
+        token = secrets.token_urlsafe()
 
-    name = payload.data.contact_first_name + ' ' + payload.data.contact_last_name
+        email = payload.data.email
+        __create_user(email, token, payload.data.order_id)
 
-    __send_email(name, payload.data.plan_title, email,generate_activation_link(activation_code))
+        name = payload.data.first_name + ' ' + payload.data.last_name
+
+        __send_email(name, payload.data.plan_name, email, token)
+    except Exception as e:
+        rest.logger.warning(f"Subscription activate failed for {payload.data.order_id}")
+        rest.logger.error(e)
 
 
-@app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
-async def subscription_cancel():
-    pass
+def __create_user(email, token, order_id):
+    ph = argon2.PasswordHasher()
+    rest._mongo_db.telegram_users.insert_one(
+        {'email': email,
+         'order_id': order_id,
+         'token': ph.hash(token),
+         'date': arrow.utcnow().format(),
+         'activation': ActivationCodes.PENDING})
 
 
-def __send_email(name, plan_title, receiver_email, activation_link):
+def __send_email(name, plan_title, receiver_email, token):
+    rest.logger.info(f"Sending email to: {receiver_email}")
+
     password = rest.titan_pass
     sender_email = rest.titan_mail
     smtp_domain = "smtp.titan.email"
+    activation_link = helpers.create_deep_linked_url(rest._telegram_bot.username, token)
 
     # password = r'9qz*xFSTh&3588*'
     # sender_email = 'support@stocker.watch'
-
     # smtp_domain = "smtp.gmail.com"
 
     # Create a secure SSL context
@@ -103,9 +113,9 @@ We are happy to tell you that you can immediately start recieving our alerts, ju
 Please feel free to contact us at any matter, either by this mail or via telegram: http://t.me/EyesOnMarket"""
 
     with codecs.open(os.path.join(os.path.dirname(__file__), 'src/rest/activation_email.html')) as activation_email:
-        html = activation_email.read()\
-            .replace(NAME_TAG, name)\
-            .replace(ACTIVATION_BUTTON_TAG, activation_link)\
+        html = activation_email.read() \
+            .replace(NAME_TAG, name) \
+            .replace(ACTIVATION_BUTTON_TAG, activation_link) \
             .replace(PLAN_TAG, plan_title)
 
     # Turn these into plain/html MIMEText objects
@@ -121,8 +131,26 @@ Please feel free to contact us at any matter, either by this mail or via telegra
         server.sendmail(sender_email, receiver_email, message.as_string())
 
 
-def generate_activation_link(activation_code):
-    return 'https://stocker.watch'
+@app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')
+async def subscription_cancel(*, payload: WixPayLoad):
+    __log_webhook(payload, 'subscription_cancel')
+
+    rest.logger.info(f"Subscription cancel with payload: {payload.dict()}")
+    try:
+        result = rest._mongo_db.telegram_users.update_one({'order_id': payload.data.order_id},
+                                                          {'$set': {'activation': ActivationCodes.CANCEL}})
+        if result.modified_count != 1:
+            raise ValueError("Couldn't cancel subscription")
+    except Exception as e:
+        rest.logger.warning(f"Subscription cancel failed for {payload.data.order_id}")
+        rest.logger.error(e)
+
+
+def __log_webhook(payload: BaseModel, webhook_type: str):
+    data = payload.dict()
+    rest.logger.info(f"{webhook_type} with payload: {data}")
+    data.update({'date': arrow.utcnow().format(), 'type': webhook_type})
+    rest._mongo_db.webhooks.insert_one(data)
 
 
 if __name__ == "__main__":
