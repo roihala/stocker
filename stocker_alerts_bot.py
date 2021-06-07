@@ -57,6 +57,7 @@ The following commands will make me sing:
     TWITTER_URL = 'https://twitter.com/EyesOnMarket'
 
     JUDIT_FREE_TRIAL = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
+    TWO_MONTHS_FREE_TRIAL = 'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f'
     WEBSITE_FREE_TRIAL = 'free_trial'
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
@@ -159,11 +160,15 @@ The following commands will make me sing:
         if len(update.message.text.split(' ')) == 2:
             value = update.message.text.split(' ')[1]
             if value in [Bot.JUDIT_FREE_TRIAL, Bot.WEBSITE_FREE_TRIAL]:
-                weeks = 4 if Bot.JUDIT_FREE_TRIAL else 2
+                weeks = 2
                 if value == Bot.JUDIT_FREE_TRIAL:
                     source = 'judit'
+                    weeks = 4
                 elif value == Bot.WEBSITE_FREE_TRIAL:
                     source = 'website'
+                elif value == Bot.TWO_MONTHS_FREE_TRIAL:
+                    source = 'special'
+                    weeks = 8
                 else:
                     source = 'default'
 
@@ -593,10 +598,10 @@ LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FI
             msg = f"""Dear users {Bot.PUNCH_EMOJI_UNICODE} 
 I'm excited to tell you that great things are happening, and the greatest among them started because of your feedbacks, so thank you guys, *you are all marked as VIP users* {Bot.HEART_EMOJI_UNICODE}
 
-Starting from today, Stocker Alerts will not remain a free bot! 
+Starting from today, Stocker Alerts will not remain a free bot in order to allow those great things to happen. 
 But for now, you can just click on free trial to get ADDITIONAL TWO WEEKS of free usage
 
-Love you all and please keep sending us feedbacks, *We wont bite*"""
+Love you all and please keep sending us feedbacks, *we won't bite*"""
             keyboard = InlineKeyboardMarkup(
                 [[Bot.FREE_TRIAL_BUTTON, telegram.InlineKeyboardButton("Stocker website", url=Bot.STOCKER_URL)]])
 
