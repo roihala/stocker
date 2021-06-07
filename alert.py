@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from typing import Dict, List, Iterable
 
 import pandas
 import pymongo
@@ -80,7 +81,7 @@ class Alert(Runnable):
                      for user in self._mongo_db.telegram_users.find({"filings_pdf": True})]
                     batch.ack()
                     return
-                self.__send_or_delay(self.__add_title(ticker, price, msg), delay=delay)
+                self.__send_or_delay(self.__add_title(ticker, price, msg), is_delay=delay)
 
             batch.ack()
         except Exception as e:
@@ -137,16 +138,22 @@ class Alert(Runnable):
             return True
         return False
 
-    def __send_or_delay(self, msg, delay=True):
+    def __send_or_delay(self, msg, is_delay=True):
         if self._debug:
-            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            self.__send_msg(self.__get_users(ignore_delay=True), msg)
             return
 
-        if delay:
-            self.__send_msg(self._mongo_db.telegram_users.find({'delay': False}), msg)
-            self.__send_delayed(self._mongo_db.telegram_users.find({'delay': True}), msg)
+        if is_delay:
+            self.__send_msg(self.__get_users(delay=False), msg)
+            self.__send_delayed(self.__get_users(delay=True), msg)
         else:
-            self.__send_msg(self._mongo_db.telegram_users.find(), msg)
+            self.__send_msg(self.__get_users(), msg)
+
+    def __get_users(self, delay=True, ignore_delay=False):
+        users = self._mongo_db.telegram_users.find({'delay': delay}) if not ignore_delay \
+            else self._mongo_db.telegram_users.find()
+
+        return [user for user in users if ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
 
     def __send_delayed(self, delayed_users, msg):
         trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
@@ -155,7 +162,7 @@ class Alert(Runnable):
                                 args=[delayed_users, msg],
                                 trigger=trigger)
 
-    def __send_msg(self, users_group, msg):
+    def __send_msg(self, users_group: Iterable[Dict], msg):
         for user in users_group:
             try:
                 self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
