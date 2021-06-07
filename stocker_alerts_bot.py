@@ -25,10 +25,10 @@ from src.read import readers
 from alert import Alert
 from src.rest import ActivationCodes
 
-CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(7)
+CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, TWEET_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(8)
 
 # Actions
-FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE, AGREE_ACTIVATE = (
+FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE, AGREE = (
     'free_trial', 'tools', 'back', 'info', 'alerts', 'dilution', 'activate', 'agree')
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
@@ -38,6 +38,7 @@ class Bot(Runnable):
     CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
     HEART_EMOJI_UNICODE = u'\U00002764'
     PUNCH_EMOJI_UNICODE = u'\U0001F44A'
+    FIRE_EMOJI_UNICODE = u'\U0001F525'
 
     START_MESSAGE = '''
 The following commands will make me sing:
@@ -62,6 +63,7 @@ The following commands will make me sing:
     MAX_MESSAGE_LENGTH = 4096
 
     CONTACT_BUTTON = telegram.InlineKeyboardButton("Contact", url=MARKET_EYES_URL)
+    TERMS_BUTTON = telegram.InlineKeyboardButton("Terms and conditions", url="http://tinyurl.com/agreemant")
     TOOLS_BUTTON = telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)
     SUBSCRIBE_BUTTON = telegram.InlineKeyboardButton("Subscribe", url=PAYMENT_URL)
     FREE_TRIAL_BUTTON = telegram.InlineKeyboardButton("Free trial", callback_data=FREE_TRIAL)
@@ -107,10 +109,12 @@ The following commands will make me sing:
         )
 
         broadcast_conv = ConversationHandler(
-            entry_points=[CommandHandler('broadcast', Bot.broadcast)],
+            entry_points=[CommandHandler('broadcast', Bot.broadcast),
+                          CommandHandler('launch_tweet', Bot.launch_tweet)],
             states={
                 # Allowing letters and whitespaces
-                BROADCAST_MSG: [MessageHandler(Filters.text, Bot.broadcast_callback)]
+                BROADCAST_MSG: [MessageHandler(Filters.text, Bot.broadcast_callback)],
+                TWEET_MSG: [MessageHandler(Filters.text, Bot.tweet_callback)]
             },
             fallbacks=[],
         )
@@ -185,15 +189,10 @@ The following commands will make me sing:
             for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if user.get('chat_id') == from_user.id and user != user_document]:
                 context._dispatcher.mongo_db.telegram_users.delete_one(document)
 
-            Bot.__create_user(context, from_user.name, from_user.id, ActivationCodes.ACTIVE,
-                              update_query=user_document)
+            Bot.__user_agreemant(update.message, context, args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document})
 
-            keyboard = InlineKeyboardMarkup([
-                [telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)]])
         else:
-            keyboard = Bot.SUBSCRIBE_KEYBOARD
-
-        update.message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+            update.message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=Bot.SUBSCRIBE_KEYBOARD)
 
     @staticmethod
     def start(message, from_user, context, edit_message=False):
@@ -245,7 +244,7 @@ The following commands will make me sing:
             [telegram.InlineKeyboardButton("Alerts", callback_data=ALERTS),
              telegram.InlineKeyboardButton("Dilution", callback_data=DILUTION),
              telegram.InlineKeyboardButton("Info", callback_data=INFO)],
-            [telegram.InlineKeyboardButton("« Back to start menu", callback_data=BACK)]
+            [Bot.BACK_BUTTON]
         ])
 
         if edit_text:
@@ -283,6 +282,10 @@ The following commands will make me sing:
             Bot.start(query.message, query.from_user, context, edit_message=True)
             return CONVERSATION_CALLBACK
 
+        elif update.callback_query.data == AGREE:
+            Bot.__create_user(context, query.from_user.name, query.from_user.id, **context._dispatcher.activate_args)
+            return CONVERSATION_CALLBACK
+
         query.message.reply_text('Please insert valid OTC ticker')
         if update.callback_query.data == INFO:
             return PRINT_INFO
@@ -312,15 +315,7 @@ The following commands will make me sing:
             user = None
 
         if not user:
-            Bot.__create_user(context, from_user.name, from_user.id,
-                              activation=ActivationCodes.TRIAL, appendix={'weeks': weeks, 'source': source})
-
-            msg = f'{Bot.CHECK_MARK_EMOJI_UNICODE} {from_user.name} *Registered successfully*\n' \
-                f'Your {weeks} weeks free trial has started.\n\n' \
-                f"Please send us your feedbacks and suggestions, *we won't' bite*"
-
-            keyboard = InlineKeyboardMarkup([
-                [Bot.CONTACT_BUTTON, Bot.TOOLS_BUTTON]])
+            Bot.__user_agreemant(message, context, {'activation': ActivationCodes.TRIAL, 'appendix': {'weeks': weeks, 'source': source}})
 
         else:
             if user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
@@ -343,7 +338,7 @@ The following commands will make me sing:
                 msg = f'An error has occurred, please contact us for further information'
                 keyboard = InlineKeyboardMarkup([[Bot.CONTACT_BUTTON]])
 
-        message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+            message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
 
     @staticmethod
     def alerts_command(update, context):
@@ -530,13 +525,13 @@ The following commands will make me sing:
             return BROADCAST_MSG
         except Exception as e:
             update.message.reply_text(
-                '{user_name} couldn\'t register, please contact the support team'.format(
+                '{user_name} couldn\'t broadcast, please contact the support team'.format(
                     user_name=update.message.from_user))
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
     def broadcast_callback(update, context):
-        Bot.send_broadcast_msg(update, context, update.message.text, keyboard=Bot.TOOLS_KEYBOARD)
+        Bot.send_broadcast_msg(update.message, update.message.from_user, context, keyboard=Bot.TOOLS_KEYBOARD)
         pass
 
     @staticmethod
@@ -563,7 +558,19 @@ The following commands will make me sing:
 
     @staticmethod
     def launch_tweet(update, context):
-        pass
+        update.message.reply_text('Insert tweet link')
+        return TWEET_MSG
+
+    @staticmethod
+    def tweet_callback(update, context):
+        msg = f"""Dear users, *I need your help*!
+I uploaded a tweet about this launch and it would really help me if you could retweet :) 
+
+LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE}"""
+
+        keyboard = InlineKeyboardMarkup([[telegram.InlineKeyboardButton("Tweet", url=update.message.text)]])
+
+        Bot.send_broadcast_msg(update.message, update.message.from_user, context, msg=msg, keyboard=keyboard)
 
     @staticmethod
     def vip_user(update, context):
@@ -767,16 +774,19 @@ e.g:
 
 Good luck {Bot.HEART_EMOJI_UNICODE}
 """
-        msg = context._dispatcher.telegram_bot.send_message(chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN)
+        msg = context._dispatcher.telegram_bot.send_message(chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=Bot.TOOLS_KEYBOARD)
         context._dispatcher.telegram_bot.pin_chat_message(chat_id=1151317792, message_id=msg.message_id)
 
     @staticmethod
-    def __user_agreemant(message):
+    def __user_agreemant(message, context, args):
+        setattr(context._dispatcher, 'activate_args', args)
         keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("Agree", callback_data=AGREE_ACTIVATE), Bot.BACK_BUTTON, Bot.TERMS_BUTTON]])
+            [telegram.InlineKeyboardButton("Agree", callback_data=AGREE),
+             Bot.TERMS_BUTTON], [Bot.BACK_BUTTON]])
 
-        message.reply_text(r"By clicking on \"Agree\" you agree to Stocker's terms of service, "
-                           r"which can be viewed by clicking on \"Terms and conditions\"", reply_markup=keyboard)
+        message.reply_text("By clicking on \"Agree\" you agree to Stocker's terms of service, "
+                           "which can be viewed by clicking on \"Terms and conditions\"", reply_markup=keyboard)
+
 
 def main():
     try:
