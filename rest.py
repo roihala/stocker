@@ -64,7 +64,7 @@ async def subscription_activate(*, payload: WixPayLoad):
         token = secrets.token_urlsafe()
 
         email = payload.data.email
-        __create_user(email, token, payload.data.order_id)
+        create_user(email, token, payload.data.order_id)
 
         name = payload.data.first_name + ' ' + payload.data.last_name
 
@@ -74,7 +74,7 @@ async def subscription_activate(*, payload: WixPayLoad):
         rest.logger.error(e)
 
 
-def __create_user(email, token, order_id):
+def create_user(email, token, order_id):
     ph = argon2.PasswordHasher()
     rest._mongo_db.telegram_users.insert_one(
         {'email': email,

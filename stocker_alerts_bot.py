@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import secrets
+
 import argon2
 import logging
 import os
@@ -9,8 +11,10 @@ from functools import reduce
 import dataframe_image as dfi
 import plotly.express as px
 import telegram
+from telegram.utils import helpers as telegram_helpers
 from argon2.exceptions import VerifyMismatchError, VerificationError
 
+from src.alert.alerter_base import AlerterBase
 from src.factory import Factory
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup
@@ -24,13 +28,16 @@ from src.rest import ActivationCodes
 CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(7)
 
 # Actions
-FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE = ('free_trial', 'tools', 'back', 'info', 'alerts', 'dilution', 'activate')
+FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE, AGREE_ACTIVATE = (
+    'free_trial', 'tools', 'back', 'info', 'alerts', 'dilution', 'activate', 'agree')
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
 
 class Bot(Runnable):
     CHECK_MARK_EMOJI_UNICODE = u'\U00002705'
+    HEART_EMOJI_UNICODE = u'\U00002764'
+    PUNCH_EMOJI_UNICODE = u'\U0001F44A'
 
     START_MESSAGE = '''
 The following commands will make me sing:
@@ -46,9 +53,10 @@ The following commands will make me sing:
     PAYMENT_URL = 'https://www.stocker.watch/plans-pricing'
     STOCKER_URL = 'https://www.stocker.watch'
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
+    TWITTER_URL = 'https://twitter.com/EyesOnMarket'
 
-    FREE_TRIAL_4_WEEKS = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
-    FREE_TRIAL_DEFAULT = 'free_trial'
+    JUDIT_FREE_TRIAL = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
+    WEBSITE_FREE_TRIAL = 'free_trial'
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
@@ -56,9 +64,11 @@ The following commands will make me sing:
     CONTACT_BUTTON = telegram.InlineKeyboardButton("Contact", url=MARKET_EYES_URL)
     TOOLS_BUTTON = telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)
     SUBSCRIBE_BUTTON = telegram.InlineKeyboardButton("Subscribe", url=PAYMENT_URL)
+    FREE_TRIAL_BUTTON = telegram.InlineKeyboardButton("Free trial", callback_data=FREE_TRIAL)
+    BACK_BUTTON = telegram.InlineKeyboardButton("« Back to start menu", callback_data=BACK)
 
+    START_KEYBOARD = InlineKeyboardMarkup([[FREE_TRIAL_BUTTON, TOOLS_BUTTON]])
     SUBSCRIBE_KEYBOARD = InlineKeyboardMarkup([[CONTACT_BUTTON, SUBSCRIBE_BUTTON]])
-
     TOOLS_KEYBOARD = InlineKeyboardMarkup([[TOOLS_BUTTON]])
 
     def run(self):
@@ -77,7 +87,8 @@ The following commands will make me sing:
 
         tools_conv = ConversationHandler(
             entry_points=[CommandHandler('Tools', Bot.tools_command),
-                          CommandHandler('Start', Bot.start_command)],
+                          CommandHandler('Start', Bot.start_command),
+                          CommandHandler('launch', Bot.launch_command)],
             states={
                 # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
                 CONVERSATION_CALLBACK: [CallbackQueryHandler(Bot.conversation_callback)],
@@ -99,7 +110,7 @@ The following commands will make me sing:
             entry_points=[CommandHandler('broadcast', Bot.broadcast)],
             states={
                 # Allowing letters and whitespaces
-                BROADCAST_MSG: [MessageHandler(Filters.text, Bot.send_broadcast_msg)]
+                BROADCAST_MSG: [MessageHandler(Filters.text, Bot.broadcast_callback)]
             },
             fallbacks=[],
         )
@@ -114,6 +125,10 @@ The following commands will make me sing:
         dp.add_handler(CommandHandler('info', Bot.info_command))
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
+        dp.add_handler(CommandHandler('launch', Bot.launch_command))
+        dp.add_handler(CommandHandler('vip_user', Bot.vip_user))
+
+
 
         # Start the Bot
         updater.start_polling()
@@ -139,32 +154,44 @@ The following commands will make me sing:
         # This is how we support deep linking
         if len(update.message.text.split(' ')) == 2:
             value = update.message.text.split(' ')[1]
-            if value in [Bot.FREE_TRIAL_4_WEEKS, Bot.FREE_TRIAL_DEFAULT]:
-                weeks = 4 if Bot.FREE_TRIAL_4_WEEKS else 2
-                Bot.free_trial(update.message, update.message.from_user, context, edit_message=False, weeks=weeks)
+            if value in [Bot.JUDIT_FREE_TRIAL, Bot.WEBSITE_FREE_TRIAL]:
+                weeks = 4 if Bot.JUDIT_FREE_TRIAL else 2
+                if value == Bot.JUDIT_FREE_TRIAL:
+                    source = 'judit'
+                elif value == Bot.WEBSITE_FREE_TRIAL:
+                    source = 'website'
+                else:
+                    source = 'default'
+
+                Bot.free_trial(update.message, update.message.from_user, context, weeks=weeks, source=source)
             else:
-                Bot.activate_token(update, update.message.text.split(' ')[1], context._dispatcher.mongo_db)
+                Bot.activate_token(update, update.message.text.split(' ')[1], context)
         else:
             Bot.start(update.message, update.message.from_user, context)
 
         return CONVERSATION_CALLBACK
 
     @staticmethod
-    def activate_token(update, token, mongo_db) -> None:
+    def activate_token(update, token, context) -> None:
         from_user = update.message.from_user
+        mongo_db = context._dispatcher.mongo_db
 
         token_verified, token_occupied, user_document = Bot.__verify_token(token, mongo_db)
 
         msg = Bot.__get_registration_message(token_verified, token_occupied, from_user, mongo_db, token)
 
         if token_verified and not token_occupied:
-            mongo_db.telegram_users.update_one(user_document, {'$set': Bot.__new_user_document(from_user, ActivationCodes.ACTIVE)})
+            # Removing irrelevant documents
+            for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if user.get('chat_id') == from_user.id and user != user_document]:
+                context._dispatcher.mongo_db.telegram_users.delete_one(document)
+
+            Bot.__create_user(context, from_user.name, from_user.id, ActivationCodes.ACTIVE,
+                              update_query=user_document)
 
             keyboard = InlineKeyboardMarkup([
-                    [telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)]])
+                [telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)]])
         else:
-            keyboard = InlineKeyboardMarkup([
-                    [telegram.InlineKeyboardButton("Subscribe", url=Bot.PAYMENT_URL)]])
+            keyboard = Bot.SUBSCRIBE_KEYBOARD
 
         update.message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
 
@@ -176,8 +203,7 @@ The following commands will make me sing:
             start_msg += '\n/broadcast - Send meesages to all users'
 
         keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("Free trial", callback_data=FREE_TRIAL),
-             telegram.InlineKeyboardButton("Tools", callback_data=TOOLS)]])
+            [Bot.FREE_TRIAL_BUTTON, Bot.TOOLS_BUTTON]])
 
         if edit_message:
             message.delete()
@@ -279,19 +305,19 @@ The following commands will make me sing:
         return DO_FREE_TRIAL
 
     @staticmethod
-    def free_trial(message, from_user, context, edit_message=True, weeks=2):
+    def free_trial(message, from_user, context, weeks=2, source='default'):
         try:
             user = context._dispatcher.mongo_db.telegram_users.find({'chat_id': from_user.id}).limit(1)[0]
         except IndexError:
             user = None
 
         if not user:
-            context._dispatcher.mongo_db.telegram_users.insert_one(
-                Bot.__new_user_document(from_user, activation=ActivationCodes.TRIAL, appendix={'weeks': weeks}))
+            Bot.__create_user(context, from_user.name, from_user.id,
+                              activation=ActivationCodes.TRIAL, appendix={'weeks': weeks, 'source': source})
 
             msg = f'{Bot.CHECK_MARK_EMOJI_UNICODE} {from_user.name} *Registered successfully*\n' \
                 f'Your {weeks} weeks free trial has started.\n\n' \
-                f"Please send us your feedbacks and suggestions, we won't' bite"
+                f"Please send us your feedbacks and suggestions, *we won't' bite*"
 
             keyboard = InlineKeyboardMarkup([
                 [Bot.CONTACT_BUTTON, Bot.TOOLS_BUTTON]])
@@ -299,7 +325,7 @@ The following commands will make me sing:
         else:
             if user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
                 msg = f'{from_user.name} is already registered!\n' \
-                       'Try our tools for some cool stuff!'
+                    'Try our tools for some cool stuff!'
                 keyboard = Bot.TOOLS_KEYBOARD
             elif user.get('activation') in [ActivationCodes.CANCEL, ActivationCodes.DEREGISTER]:
                 msg = f'{from_user.name} subscription has ended, please renew your subscription'
@@ -313,12 +339,11 @@ The following commands will make me sing:
                     f'Please check your email for activation'
                 keyboard = InlineKeyboardMarkup([[Bot.CONTACT_BUTTON]])
             else:
-                raise ValueError("Logic shouldn't get here")
-        if edit_message:
-            message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
-        else:
-            message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+                context._dispatcher.logger.warning(f"No activation for user: {user}")
+                msg = f'An error has occurred, please contact us for further information'
+                keyboard = InlineKeyboardMarkup([[Bot.CONTACT_BUTTON]])
 
+        message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
 
     @staticmethod
     def alerts_command(update, context):
@@ -365,7 +390,9 @@ The following commands will make me sing:
             messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
             msg = Alert.generate_title(ticker, context._dispatcher.mongo_db) + '\n' + \
-                  reduce(lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''), diffs, '')
+                  reduce(
+                      lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''),
+                      diffs, '')
 
             if len(msg) > Bot.MAX_MESSAGE_LENGTH:
                 pending_message.delete()
@@ -508,28 +535,113 @@ The following commands will make me sing:
             context._dispatcher.logger.exception(e.__traceback__)
 
     @staticmethod
-    def send_broadcast_msg(update, context):
-        from_user = update.message.from_user
-        broadcast_msg = update.message.text
+    def broadcast_callback(update, context):
+        Bot.send_broadcast_msg(update, context, update.message.text, keyboard=Bot.TOOLS_KEYBOARD)
+        pass
 
-        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, from_user.name, from_user.id):
+    @staticmethod
+    def send_broadcast_msg(message, from_user, context, msg=None, keyboard=None):
+        msg = msg if msg else message.text
+
+        if Bot.__validate_permissions(message, from_user, context):
             for to_user in context._dispatcher.mongo_db.telegram_users.find():
-                bot_instance = update.message.bot
                 try:
-                    bot_instance.sendMessage(chat_id=to_user['chat_id'], text=broadcast_msg)
+                    if keyboard:
+                        context._dispatcher.telegram_bot.send_message(
+                            chat_id=to_user['chat_id'], text=msg,
+                            parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+                    else:
+                        context._dispatcher.telegram_bot.send_message(chat_id=to_user['chat_id'], text=msg)
                 except telegram.error.BadRequest:
                     context._dispatcher.logger.warning(
                         "{user_name} of {chat_id} not found during broadcast message sending.".format(
                             user_name=to_user['user_name'],
                             chat_id=to_user['chat_id']))
-            update.message.reply_text('Your message have been sent to all of the stocker bot users.')
+            message.reply_text('Your message have been sent to all of the stocker bot users.')
+
+        return ConversationHandler.END
+
+    @staticmethod
+    def launch_tweet(update, context):
+        pass
+
+    @staticmethod
+    def vip_user(update, context):
+        if not Bot.__is_high_permission_user(context._dispatcher.mongo_db, update.message.from_user.name, update.message.from_user.id):
+            update.message.reply_text('This operation is only supported for high permission users')
+            return
+
+        token = secrets.token_urlsafe()
+
+        document = {
+            'token': argon2.PasswordHasher().hash(token),
+            'date': arrow.utcnow().format(),
+            'activation': ActivationCodes.PENDING
+        }
+
+        context._dispatcher.mongo_db.telegram_users.insert_one(document)
+
+        update.message.reply_text(
+            text=telegram_helpers.create_deep_linked_url(context._dispatcher.telegram_bot.username, token))
+
+    @staticmethod
+    def launch_command(update, context):
+        if Bot.__validate_permissions(update.message, update.message.from_user, context):
+            msg = f"""Dear users {Bot.PUNCH_EMOJI_UNICODE} 
+I'm excited to tell you that great things are happening, and the greatest among them started because of your feedbacks, so thank you guys, *you are all marked as VIP users* {Bot.HEART_EMOJI_UNICODE}
+
+Starting from today, Stocker Alerts will not remain a free bot! 
+But for now, you can just click on free trial to get ADDITIONAL TWO WEEKS of free usage
+
+Love you all and please keep sending us feedbacks, *We wont bite*"""
+            keyboard = InlineKeyboardMarkup(
+                [[Bot.FREE_TRIAL_BUTTON, telegram.InlineKeyboardButton("Stocker website", url=Bot.STOCKER_URL)]])
+
+            Bot.send_broadcast_msg(update.message, update.message.from_user, context, msg=msg, keyboard=keyboard)
+            Bot.__purge_telegram_users(context)
+
+        return CONVERSATION_CALLBACK
+
+    @staticmethod
+    def __purge_telegram_users(context):
+        mongo_db = context._dispatcher.mongo_db
+
+        # nati, penny, balla
+        vip_chat_ids = [480181908, 452073423, 907488369]
+        # yoav, hala, mek
+        non_delayed_vips = [564105605, 1151317792, 745230781]
+
+        vip_users = []
+        for user in mongo_db.telegram_users.find(
+                {'chat_id': {'$in': vip_chat_ids + non_delayed_vips}}):
+            if user.get('chat_id') in non_delayed_vips:
+                delay = False
+            else:
+                delay = True
+
+            document = Bot.__create_user(context, user.get('user_name'), user.get('chat_id'),
+                                         delay=delay, activation=ActivationCodes.ACTIVE, create=False)
+            # hala
+            if user.get('chat_id') == 1151317792:
+                document.update({'permissions': 'high'})
+
+            vip_users.append(document)
+
+        # Removing all users
+        mongo_db.telegram_users.remove()
+        mongo_db.telegram_users.insert_many(vip_users)
+
+    @staticmethod
+    def __validate_permissions(message, from_user, context):
+        if Bot.__is_high_permission_user(context._dispatcher.mongo_db, from_user.name, from_user.id):
+            return True
         else:
-            update.message.reply_text('Your user do not have the sufficient permissions to run this command.')
+            message.reply_text('Your user do not have the sufficient permissions to run this command.')
             context._dispatcher.logger.warning(
                 "{user_name} of {chat_id} have tried to run an high permission user command".format(
                     user_name=from_user.name,
                     chat_id=from_user.id))
-        return ConversationHandler.END
+            return False
 
     @staticmethod
     def __is_high_permission_user(mongo_db, user_name, chat_id):
@@ -577,9 +689,10 @@ The following commands will make me sing:
             if not token_occupied:
                 Bot.__log_telegram_action(mongo_db, from_user, ACTIVATE, is_success=True, payload=token)
                 return f'{Bot.CHECK_MARK_EMOJI_UNICODE} {from_user.name} *Verified successfully*.\n\n' \
-                    "Please send us your feedbacks and suggestions, we won't bite"
+                    "Please send us your feedbacks and suggestions, *we won't bite*"
             else:
-                Bot.__log_telegram_action(mongo_db, from_user, ACTIVATE, is_success=True, payload=token, appendix='already_activated')
+                Bot.__log_telegram_action(mongo_db, from_user, ACTIVATE, is_success=True, payload=token,
+                                          appendix='already_activated')
                 return "This token was already activated, You may buy a new one or:\n" \
                        "Contact https://t.me/EyesOnMarket if you don't know why you're seeing this message"
         else:
@@ -612,7 +725,7 @@ The following commands will make me sing:
         return token_verified, token_occupied, None
 
     @staticmethod
-    def __new_user_document(user, activation, appendix: dict = None):
+    def __create_user(context, user_name, chat_id, activation, delay=True, appendix: dict = None, update_query=None, create=True):
         """
 
         :param user:
@@ -621,15 +734,49 @@ The following commands will make me sing:
         TRIAL, ACTIVE, CANCEL, UNREGISTER, PENDING = ('frial', 'active', 'cancel', 'unregister', 'pending')
         :return:
         """
-        return {
-            'user_name': user.name,
-            'chat_id': user.id,
+        user_document = {
+            'user_name': user_name,
+            'chat_id': chat_id,
             f'{activation}_date': arrow.utcnow().format(),
-            'delay': True,
-            'activation': activation,
-            'appendix': appendix
+            'delay': delay,
+            'activation': activation
         }
+        if appendix:
+            user_document.update({'appendix': appendix})
 
+        if not create:
+            return user_document
+
+        if isinstance(update_query, dict):
+            context._dispatcher.mongo_db.telegram_users.update_one(update_query, {'$set': user_document})
+        else:
+            context._dispatcher.mongo_db.telegram_users.insert_one(user_document)
+
+        text = f"""Welcome to Stocker alerts, here's a quick how-to guide: 
+1. The main part - our alerts:
+From now on you will start getting alerts to this chat where: 
+{AlerterBase.RED_CIRCLE_EMOJI_UNICODE} Means old value
+{AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE} Means new value
+
+2. Our tools:
+You may use them in different ways, the most popular is through /tools command.
+For the more technical of you - there's a list of our supported commands in /start command
+e.g:
+/dilution SOAN
+/alerts ggii
+
+Good luck {Bot.HEART_EMOJI_UNICODE}
+"""
+        msg = context._dispatcher.telegram_bot.send_message(chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN)
+        context._dispatcher.telegram_bot.pin_chat_message(chat_id=1151317792, message_id=msg.message_id)
+
+    @staticmethod
+    def __user_agreemant(message):
+        keyboard = InlineKeyboardMarkup([
+            [telegram.InlineKeyboardButton("Agree", callback_data=AGREE_ACTIVATE), Bot.BACK_BUTTON, Bot.TERMS_BUTTON]])
+
+        message.reply_text(r"By clicking on \"Agree\" you agree to Stocker's terms of service, "
+                           r"which can be viewed by clicking on \"Terms and conditions\"", reply_markup=keyboard)
 
 def main():
     try:

@@ -18,6 +18,7 @@ LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floate
 LOW_FLOATERS_003_250M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters003_250M.csv')
 TICKERS_0006_3B_CURRENT_PATH = os.path.join(os.path.dirname(__file__), 'tickers_0006_3B_current.csv')
 EV_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'ev_tickers.csv')
+FLORIDA_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'florida_tickers.csv')
 
 
 class Client(Runnable):
@@ -134,6 +135,7 @@ class Client(Runnable):
 
     @staticmethod
     def get_low_floaters(mongo_db, tickers_list):
+        florida_tickers = []
         tickers_001_1B = pandas.DataFrame(columns=['Symbol'])
         tickers_001_500M = pandas.DataFrame(columns=['Symbol'])
         tickers_003_250M = pandas.DataFrame(columns=['Symbol'])
@@ -144,35 +146,42 @@ class Client(Runnable):
             try:
                 logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
 
-                securities = readers.Securities(mongo_db, ticker).get_latest()
-                outstanding, tier_code = int(securities['outstandingShares']), securities['tierCode']
+                # securities = readers.Securities(mongo_db, ticker).get_latest()
+                # outstanding, tier_code = int(securities['outstandingShares']), securities['tierCode']
                 last_price = ReaderBase.get_last_price(ticker)
-                description = readers.Profile(mongo_db, ticker).get_latest()['businessDesc']
+                # description = readers.Profile(mongo_db, ticker).get_latest()['businessDesc']
 
-                if last_price <= 0.001 and outstanding <= 1000000000:
-                    tickers_001_1B = tickers_001_1B.append({'Symbol': ticker}, ignore_index=True)
-                if last_price <= 0.001 and outstanding <= 500000000:
-                    tickers_001_500M = tickers_001_500M.append({'Symbol': ticker}, ignore_index=True)
-                if last_price <= 0.003 and outstanding <= 250000000:
-                    tickers_003_250M = tickers_003_250M.append({'Symbol': ticker}, ignore_index=True)
-                if last_price <= 0.0006 and outstanding >= 3000000000 and tier_code == 'PC':
-                    tickers_0006_3B_current = tickers_0006_3B_current.append({'Symbol': ticker}, ignore_index=True)
-                if Client.is_substring(description, 'electric vehicle', 'golf car', 'lithium'):
-                    ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
+                # if last_price <= 0.001 and outstanding <= 1000000000:
+                #     tickers_001_1B = tickers_001_1B.append({'Symbol': ticker}, ignore_index=True)
+                # if last_price <= 0.001 and outstanding <= 500000000:
+                #     tickers_001_500M = tickers_001_500M.append({'Symbol': ticker}, ignore_index=True)
+                # if last_price <= 0.003 and outstanding <= 250000000:
+                #     tickers_003_250M = tickers_003_250M.append({'Symbol': ticker}, ignore_index=True)
+                # if last_price <= 0.0006 and outstanding >= 3000000000 and tier_code == 'PC':
+                #     tickers_0006_3B_current = tickers_0006_3B_current.append({'Symbol': ticker}, ignore_index=True)
+                # if Client.is_substring(description, 'electric vehicle', 'golf car', 'lithium'):
+                #     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
+                if last_price <= 0.003 and readers.Profile(mongo_db, ticker).get_latest().get('state') == 'FL':
+                    print('found one!', ticker)
+                    florida_tickers.append((ticker, last_price))
 
             except Exception as e:
                 logging.getLogger('Client').exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
 
-        with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
-            tickers_001_1B.to_csv(tmp)
-        with open(LOW_FLOATERS_001_500M_PATH, 'w') as tmp:
-            tickers_001_500M.to_csv(tmp)
-        with open(LOW_FLOATERS_003_250M_PATH, 'w') as tmp:
-            tickers_003_250M.to_csv(tmp)
-        with open(TICKERS_0006_3B_CURRENT_PATH, 'w') as tmp:
-            tickers_0006_3B_current.to_csv(tmp)
-        with open(EV_TICKERS_PATH, 'w') as tmp:
-            ev_tickers.to_csv(tmp)
+        # with open(LOW_FLOATERS_001_1B_PATH, 'w') as tmp:
+        #     tickers_001_1B.to_csv(tmp)
+        # with open(LOW_FLOATERS_001_500M_PATH, 'w') as tmp:
+        #     tickers_001_500M.to_csv(tmp)
+        # with open(LOW_FLOATERS_003_250M_PATH, 'w') as tmp:
+        #     tickers_003_250M.to_csv(tmp)
+        # with open(TICKERS_0006_3B_CURRENT_PATH, 'w') as tmp:
+        #     tickers_0006_3B_current.to_csv(tmp)
+        # with open(EV_TICKERS_PATH, 'w') as tmp:
+        #     ev_tickers.to_csv(tmp)
+        pandas.set_option('display.expand_frame_repr', False)
+        print(florida_tickers)
+        # with open(FLORIDA_TICKERS_PATH, 'w') as tmp:
+        #     florida_tickers.to_csv(tmp)
 
     @staticmethod
     def is_substring(text, *args):
