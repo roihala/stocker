@@ -185,11 +185,7 @@ The following commands will make me sing:
         msg = Bot.__get_registration_message(token_verified, token_occupied, from_user, mongo_db, token)
 
         if token_verified and not token_occupied:
-            # Removing irrelevant documents
-            for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if user.get('chat_id') == from_user.id and user != user_document]:
-                context._dispatcher.mongo_db.telegram_users.delete_one(document)
-
-            Bot.__user_agreemant(update.message, context, args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document})
+            Bot.__user_agreemant(update.message, context, args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document, 'delete_other_documents': True})
 
         else:
             update.message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=Bot.SUBSCRIBE_KEYBOARD)
@@ -662,7 +658,11 @@ Love you all and please keep sending us feedbacks, *We wont bite*"""
 
     @staticmethod
     def __is_registered(mongo_db, user_name, chat_id):
-        return bool(mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id}))
+        user = mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id})
+
+        if user and user.get('activation') in [ActivationCodes.ACTIVE, ActivationCodes.TRIAL]:
+            return True
+        return False
 
     @staticmethod
     def __format_message(messages, diff):
@@ -732,7 +732,8 @@ Love you all and please keep sending us feedbacks, *We wont bite*"""
         return token_verified, token_occupied, None
 
     @staticmethod
-    def __create_user(context, user_name, chat_id, activation, delay=True, appendix: dict = None, update_query=None, create=True):
+    def __create_user(context, user_name, chat_id, activation, delay=True, appendix: dict = None,
+                      update_query=None, create=True, delete_other_documents=False):
         """
 
         :param user:
@@ -758,6 +759,10 @@ Love you all and please keep sending us feedbacks, *We wont bite*"""
             context._dispatcher.mongo_db.telegram_users.update_one(update_query, {'$set': user_document})
         else:
             context._dispatcher.mongo_db.telegram_users.insert_one(user_document)
+
+        if delete_other_documents:
+            for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if user.get('chat_id') == chat_id and ('token' not in user)]:
+                context._dispatcher.mongo_db.telegram_users.delete_one(document)
 
         text = f"""Welcome to Stocker alerts, here's a quick how-to guide: 
 1. The main part - our alerts:
