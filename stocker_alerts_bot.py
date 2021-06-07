@@ -25,7 +25,8 @@ from src.read import readers
 from alert import Alert
 from src.rest import ActivationCodes
 
-CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, TWEET_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(8)
+CHOOSE_TOOL, PRINT_ALERTS, PRINT_INFO, BROADCAST_MSG, TWEET_MSG, DO_FREE_TRIAL, CONVERSATION_CALLBACK, PRINT_DILUTION = range(
+    8)
 
 # Actions
 FREE_TRIAL, TOOLS, BACK, INFO, ALERTS, DILUTION, ACTIVATE, AGREE = (
@@ -55,6 +56,7 @@ The following commands will make me sing:
     STOCKER_URL = 'https://www.stocker.watch'
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
     TWITTER_URL = 'https://twitter.com/EyesOnMarket'
+    FREE_TRIAL_URL = 'https://t.me/stocker_alerts_bot?start=free_trial'
 
     JUDIT_FREE_TRIAL = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
     TWO_MONTHS_FREE_TRIAL = 'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f'
@@ -91,7 +93,9 @@ The following commands will make me sing:
         tools_conv = ConversationHandler(
             entry_points=[CommandHandler('Tools', Bot.tools_command),
                           CommandHandler('Start', Bot.start_command),
-                          CommandHandler('launch', Bot.launch_command)],
+                          CommandHandler('launch', Bot.launch_command),
+                          CommandHandler('launch', Bot.launch_fix_command)
+                          ],
             states={
                 # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
                 CONVERSATION_CALLBACK: [CallbackQueryHandler(Bot.conversation_callback)],
@@ -131,9 +135,8 @@ The following commands will make me sing:
         dp.add_handler(CommandHandler('deregister', Bot.deregister))
         dp.add_handler(CommandHandler('broadcast', Bot.broadcast))
         dp.add_handler(CommandHandler('launch', Bot.launch_command))
+        dp.add_handler(CommandHandler('launch_fix', Bot.launch_fix_command))
         dp.add_handler(CommandHandler('vip_user', Bot.vip_user))
-
-
 
         # Start the Bot
         updater.start_polling()
@@ -190,7 +193,9 @@ The following commands will make me sing:
         msg = Bot.__get_registration_message(token_verified, token_occupied, from_user, mongo_db, token)
 
         if token_verified and not token_occupied:
-            Bot.__user_agreemant(update.message, context, args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document, 'delete_other_documents': True})
+            Bot.__user_agreemant(update.message, context,
+                                 args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document,
+                                       'delete_other_documents': True})
 
         else:
             update.message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=Bot.SUBSCRIBE_KEYBOARD)
@@ -316,7 +321,8 @@ The following commands will make me sing:
             user = None
 
         if not user:
-            Bot.__user_agreemant(message, context, {'activation': ActivationCodes.TRIAL, 'appendix': {'weeks': weeks, 'source': source}})
+            Bot.__user_agreemant(message, context,
+                                 {'activation': ActivationCodes.TRIAL, 'appendix': {'weeks': weeks, 'source': source}})
 
         else:
             if user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
@@ -536,11 +542,12 @@ The following commands will make me sing:
         pass
 
     @staticmethod
-    def send_broadcast_msg(message, from_user, context, msg=None, keyboard=None):
+    def send_broadcast_msg(message, from_user, context, users=None, msg=None, keyboard=None):
         msg = msg if msg else message.text
+        users = users if users else context._dispatcher.mongo_db.telegram_users.find()
 
         if Bot.__validate_permissions(message, from_user, context):
-            for to_user in context._dispatcher.mongo_db.telegram_users.find():
+            for to_user in users:
                 try:
                     if keyboard:
                         context._dispatcher.telegram_bot.send_message(
@@ -575,7 +582,8 @@ LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FI
 
     @staticmethod
     def vip_user(update, context):
-        if not Bot.__is_high_permission_user(context._dispatcher.mongo_db, update.message.from_user.name, update.message.from_user.id):
+        if not Bot.__is_high_permission_user(context._dispatcher.mongo_db, update.message.from_user.name,
+                                             update.message.from_user.id):
             update.message.reply_text('This operation is only supported for high permission users')
             return
 
@@ -591,6 +599,20 @@ LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FI
 
         update.message.reply_text(
             text=telegram_helpers.create_deep_linked_url(context._dispatcher.telegram_bot.username, token))
+
+    @staticmethod
+    def launch_fix_command(update, context):
+        if Bot.__validate_permissions(update.message, update.message.from_user, context):
+            msg = f"Dear users {Bot.PUNCH_EMOJI_UNICODE}\nYou need to re-register now in order to keep getting alerts." \
+                "* Note that this registration is for two-weeks of free trial"
+            keyboard = InlineKeyboardMarkup(
+                [[telegram.InlineKeyboardButton("Start free trial", url=Bot.FREE_TRIAL_URL)]])
+
+            mongo_db = context._dispatcher.mongo_db
+            users = [user for user in mongo_db.vip_users.find()
+                     if not Bot.__is_registered(mongo_db, user.get('user_name'), user.get('chat_id'))]
+
+            Bot.send_broadcast_msg(update.message, update.message.from_user, context, users=users, msg=msg, keyboard=keyboard)
 
     @staticmethod
     def launch_command(update, context):
@@ -766,7 +788,8 @@ Love you all and please keep sending us feedbacks, *we won't bite*"""
             context._dispatcher.mongo_db.telegram_users.insert_one(user_document)
 
         if delete_other_documents:
-            for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if user.get('chat_id') == chat_id and ('token' not in user)]:
+            for document in [user for user in context._dispatcher.mongo_db.telegram_users.find() if
+                             user.get('chat_id') == chat_id and ('token' not in user)]:
                 context._dispatcher.mongo_db.telegram_users.delete_one(document)
 
         text = f"""Welcome to Stocker alerts, here's a quick how-to guide: 
@@ -784,7 +807,9 @@ e.g:
 
 Good luck {Bot.HEART_EMOJI_UNICODE}
 """
-        msg = context._dispatcher.telegram_bot.send_message(chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=Bot.TOOLS_KEYBOARD)
+        msg = context._dispatcher.telegram_bot.send_message(chat_id=chat_id, text=text,
+                                                            parse_mode=telegram.ParseMode.MARKDOWN,
+                                                            reply_markup=Bot.TOOLS_KEYBOARD)
         context._dispatcher.telegram_bot.pin_chat_message(chat_id=1151317792, message_id=msg.message_id)
 
     @staticmethod
