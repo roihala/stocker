@@ -93,8 +93,7 @@ The following commands will make me sing:
         tools_conv = ConversationHandler(
             entry_points=[CommandHandler('Tools', Bot.tools_command),
                           CommandHandler('Start', Bot.start_command),
-                          CommandHandler('launch', Bot.launch_command),
-                          CommandHandler('launch', Bot.launch_fix_command)
+                          CommandHandler('launch', Bot.launch_command)
                           ],
             states={
                 # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
@@ -290,6 +289,11 @@ The following commands will make me sing:
 
         elif update.callback_query.data == AGREE:
             Bot.__create_user(context, query.from_user.name, query.from_user.id, **context._dispatcher.activate_args)
+            context._dispatcher.telegram_bot.edit_message_reply_markup(chat_id=query.from_user.id,
+                                                                       message_id=query.message.message_id,
+                                                                       reply_markup=InlineKeyboardMarkup(
+                                                                           [[Bot.BACK_BUTTON]]))
+
             return CONVERSATION_CALLBACK
 
         query.message.reply_text('Please insert valid OTC ticker')
@@ -316,7 +320,7 @@ The following commands will make me sing:
     @staticmethod
     def free_trial(message, from_user, context, weeks=2, source='default'):
         try:
-            user = context._dispatcher.mongo_db.telegram_users.find({'chat_id': from_user.id}).limit(1)[0]
+            user = context._dispatcher.mongo_db.telegram_users.find_one({'chat_id': from_user.id})
         except IndexError:
             user = None
 
@@ -612,7 +616,10 @@ LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FI
             users = [user for user in mongo_db.vip_users.find()
                      if not Bot.__is_registered(mongo_db, user.get('user_name'), user.get('chat_id'))]
 
-            Bot.send_broadcast_msg(update.message, update.message.from_user, context, users=users, msg=msg, keyboard=keyboard)
+            users.append({'user_name': "@EyesOnMarket", "chat_id": 1151317792})
+
+            Bot.send_broadcast_msg(update.message, update.message.from_user, context, users=users, msg=msg,
+                                   keyboard=keyboard)
 
     @staticmethod
     def launch_command(update, context):
