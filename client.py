@@ -18,6 +18,7 @@ LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floate
 LOW_FLOATERS_003_250M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters003_250M.csv')
 TICKERS_0006_3B_CURRENT_PATH = os.path.join(os.path.dirname(__file__), 'tickers_0006_3B_current.csv')
 EV_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'ev_tickers.csv')
+FLORIDA_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'florida_tickers.csv')
 
 
 class Client(Runnable):
@@ -139,6 +140,7 @@ class Client(Runnable):
         tickers_003_250M = pandas.DataFrame(columns=['Symbol'])
         tickers_0006_3B_current = pandas.DataFrame(columns=['Symbol'])
         ev_tickers = pandas.DataFrame(columns=['Symbol'])
+        florida_tickers = pandas.DataFrame(columns=['Symbol', 'Price'])
 
         for ticker in tickers_list:
             try:
@@ -159,6 +161,8 @@ class Client(Runnable):
                     tickers_0006_3B_current = tickers_0006_3B_current.append({'Symbol': ticker}, ignore_index=True)
                 if Client.is_substring(description, 'electric vehicle', 'golf car', 'lithium'):
                     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
+                if last_price <= 0.003 and readers.Profile(mongo_db, ticker).get_latest().get('state') == 'FL':
+                    florida_tickers.append({'Symbol': ticker, 'Price': last_price})
 
             except Exception as e:
                 logging.getLogger('Client').exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
@@ -173,6 +177,8 @@ class Client(Runnable):
             tickers_0006_3B_current.to_csv(tmp)
         with open(EV_TICKERS_PATH, 'w') as tmp:
             ev_tickers.to_csv(tmp)
+        with open(FLORIDA_TICKERS_PATH, 'w') as tmp:
+            florida_tickers.to_csv(tmp)
 
     @staticmethod
     def is_substring(text, *args):

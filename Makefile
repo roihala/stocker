@@ -2,7 +2,7 @@ get_gcp_cluster:
 	gcloud container clusters get-credentials stocker --zone europe-west2-a --project stocker-300519
 
 
-all: collector alerter telegram records
+all: collector alerter telegram records rest
 
 collector: collector_build_push collector_delete_pod
 
@@ -76,3 +76,20 @@ records_deploy: get_gcp_cluster
 
 records_delete_pod:
 	kubectl delete pods -l run=records-app || true
+
+
+rest: rest_build_push rest_delete_pod
+
+rest_build_push:
+	docker build -t stocker -f dockerfiles/rest.dockerfile .
+	docker tag stocker:latest eu.gcr.io/stocker-300519/rest:latest
+	docker push eu.gcr.io/stocker-300519/rest:latest
+
+rest_update_deployment: get_gcp_cluster
+	kubectl apply -f kubefiles\rest
+
+rest_deploy: get_gcp_cluster
+	kubectl patch deployment rest-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+
+rest_delete_pod:
+	kubectl delete pods -l run=rest-app || true
