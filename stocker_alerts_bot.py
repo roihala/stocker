@@ -58,9 +58,12 @@ The following commands will make me sing:
     TWITTER_URL = 'https://twitter.com/EyesOnMarket'
     FREE_TRIAL_URL = 'https://t.me/stocker_alerts_bot?start=free_trial'
 
-    JUDIT_FREE_TRIAL = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
-    TWO_MONTHS_FREE_TRIAL = 'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f'
-    WEBSITE_FREE_TRIAL = 'free_trial'
+    FREE_TRIALS = {
+        'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865': 'judit',
+        'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f': 'special',
+        'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
+        'free_trial': 'website'
+    }
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
@@ -160,19 +163,15 @@ The following commands will make me sing:
     def start_command(update, context):
         # This is how we support deep linking
         if len(update.message.text.split(' ')) == 2:
-            value = update.message.text.split(' ')[1]
-            if value in [Bot.JUDIT_FREE_TRIAL, Bot.WEBSITE_FREE_TRIAL]:
-                weeks = 2
-                if value == Bot.JUDIT_FREE_TRIAL:
-                    source = 'judit'
+            arg = update.message.text.split(' ')[1]
+            if arg in Bot.FREE_TRIALS.keys():
+                source = Bot.FREE_TRIALS[arg]
+                if source == 'judit':
                     weeks = 4
-                elif value == Bot.WEBSITE_FREE_TRIAL:
-                    source = 'website'
-                elif value == Bot.TWO_MONTHS_FREE_TRIAL:
-                    source = 'special'
+                elif source == 'special':
                     weeks = 8
                 else:
-                    source = 'default'
+                    weeks = 2
 
                 Bot.free_trial(update.message, update.message.from_user, context, weeks=weeks, source=source)
             else:
