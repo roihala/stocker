@@ -32,13 +32,7 @@ class Runnable(ABC):
             self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
             self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
             self._tickers_list = self.extract_tickers()
-
-            logger = logging.getLogger(self.__class__.__name__)
-            handler = logging.StreamHandler()
-            logger.setLevel(logging.INFO)
-            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-            logger.addHandler(handler)
-            self.logger = logger
+            self.logger = self._init_logging()
             self.disable_apscheduler_logs()
 
         else:
@@ -59,6 +53,14 @@ class Runnable(ABC):
             self.logger = logging.getLogger(self.__class__.__name__)
 
         self.logger.info('running {cls}'.format(cls=self.__class__))
+
+    def _init_logging(self):
+        logger = logging.getLogger(self.__class__.__name__)
+        handler = logging.StreamHandler()
+        logger.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+        return logger
 
     @abstractmethod
     def run(self):
