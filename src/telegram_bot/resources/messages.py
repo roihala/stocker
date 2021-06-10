@@ -32,13 +32,9 @@ Love you all and please keep sending us feedbacks, *we won't bite*"""
     START_MESSAGE = """
 The following commands will make me sing:
 
-
 /tools - User friendly interface for reaching our tools.
-
 /deregister - Do this to stop getting alerts from stocker. *not recommended*.
 /alerts - Resend previously detected alerts for a given ticker.
 /dilution - A graph of changes in AS/OS/unrestricted over time.
 /info - View the LATEST information for a given ticker.
 """
-
-# /register - Register to get alerts on updates straight to your telegram_bot account.
