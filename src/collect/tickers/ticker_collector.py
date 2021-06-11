@@ -48,7 +48,7 @@ class TickerCollector(CollectorBase, ABC):
     def collect(self, raw_data=None):
         current = self.fetch_data(raw_data)
         latest = self.cache[self.name].get(self.ticker, None)
-        latest = latest if latest else self._reader.get_latest()
+        latest = latest if latest else self._reader.get_latest(remove_index=True)
 
         diffs = []
 
