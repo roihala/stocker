@@ -22,6 +22,8 @@ logger = logging.getLogger('Collect')
 
 
 class ReaderBase(ABC):
+    INDEX_KEYS = ['_id', 'date', 'ticker']
+
     def __init__(self, mongo_db: Database, ticker):
         """
         :param mongo_db: mongo db connection
@@ -36,7 +38,6 @@ class ReaderBase(ABC):
 
         self._collector = factory.Factory.get_collector(self.name)
         self._alerter = factory.Factory.get_alerter(self.name)
-        self._latest = None
         self._sorted_history = None
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
@@ -149,16 +150,16 @@ class ReaderBase(ABC):
 
         return history
 
-    def get_latest(self, clear_nans=True):
-        if isinstance(self, pandas.DataFrame):
-            return self._latest
+    def get_latest(self, clear_nans=True, remove_index=False):
         try:
             latest = self.collection.find({"ticker": self.ticker}).sort("date", pymongo.DESCENDING).limit(1)[0]
 
             if clear_nans:
                 latest = {k: v for k, v in latest.items() if v == v}
 
-            self._latest = latest
+            if remove_index:
+                [latest.pop(key) for key in list(latest) if key in self.INDEX_KEYS]
+
             return latest
 
         except IndexError:
