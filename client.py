@@ -4,6 +4,7 @@ import re
 
 import pymongo
 import pandas
+import requests
 
 from alert import Alert
 from runnable import Runnable
@@ -19,6 +20,7 @@ LOW_FLOATERS_003_250M_PATH = os.path.join(os.path.dirname(__file__), 'low_floate
 TICKERS_0006_3B_CURRENT_PATH = os.path.join(os.path.dirname(__file__), 'tickers_0006_3B_current.csv')
 EV_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'ev_tickers.csv')
 FLORIDA_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'florida_tickers.csv')
+DELIQ_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'deliq_tickers.csv')
 
 
 class Client(Runnable):
@@ -65,7 +67,9 @@ class Client(Runnable):
         sites.append(latest_profile.get('website')) if latest_profile.get('website') else None
 
         links = '\n'.join(
-            [f'{Client.LINK_EMOJI_UNICODE} ' + site.get_ticker_url(ticker, strip=True) if isinstance(site, Site) else site for site in sites])
+            [f'{Client.LINK_EMOJI_UNICODE} ' + site.get_ticker_url(ticker, strip=True) if isinstance(site,
+                                                                                                     Site) else site for
+             site in sites])
         links = ReaderBase.escape_markdown(links) if escape_markdown else links
 
         return """{title}
@@ -141,10 +145,14 @@ class Client(Runnable):
         tickers_0006_3B_current = pandas.DataFrame(columns=['Symbol'])
         ev_tickers = pandas.DataFrame(columns=['Symbol'])
         florida_tickers = pandas.DataFrame(columns=['Symbol', 'Price'])
+        deliq_tickers = pandas.DataFrame(columns=['Symbol', 'Price'])
 
         for ticker in tickers_list:
             try:
                 logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
+
+                url = Site(name='sec_filings', url='https://backend.otcmarkets.com/otcapi/company/sec-filings/{ticker}?'
+                                                   'symbol={ticker}&page=1&pageSize=10', is_otc=True).get_ticker_url(ticker)
 
                 securities = readers.Securities(mongo_db, ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']), securities['tierCode']
@@ -163,6 +171,8 @@ class Client(Runnable):
                     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
                 if last_price <= 0.003 and readers.Profile(mongo_db, ticker).get_latest().get('state') == 'FL':
                     florida_tickers.append({'Symbol': ticker, 'Price': last_price})
+                if requests.get(url).json().get('records')[0].get('formType') == '15-12G' and readers.Symbols(mongo_db, ticker).get_latest()['isDelinquent']:
+                    deliq_tickers.append({'Symbol': ticker, 'Price': last_price}, ignore_index=True)
 
             except Exception as e:
                 logging.getLogger('Client').exception('ticker: {ticker}'.format(ticker=ticker), e, exc_info=True)
@@ -179,6 +189,9 @@ class Client(Runnable):
             ev_tickers.to_csv(tmp)
         with open(FLORIDA_TICKERS_PATH, 'w') as tmp:
             florida_tickers.to_csv(tmp)
+        with open(DELIQ_TICKERS_PATH, 'w') as tmp:
+            deliq_tickers.to_csv(tmp)
+
 
     @staticmethod
     def is_substring(text, *args):
@@ -204,10 +217,12 @@ class Client(Runnable):
 
         # Prettify timestamps
         alerts['new'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if row['changed_key'] == row['changed_key'] and 'date' in row['changed_key'].lower() else row['new'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['new']) if row['changed_key'] == row[
+                'changed_key'] and 'date' in row['changed_key'].lower() else row['new'],
             axis=1)
         alerts['old'] = alerts.apply(
-            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if ['changed_key'] == row['changed_key'] and 'date' in row['changed_key'].lower() else row['old'],
+            lambda row: ReaderBase.timestamp_to_datestring(row['old']) if ['changed_key'] == row[
+                'changed_key'] and 'date' in row['changed_key'].lower() else row['old'],
             axis=1)
 
         return alerts
@@ -226,8 +241,10 @@ class Client(Runnable):
                          'isAlternativeReporting',
                          'indexStatuses', 'otcAward', 'otherSecurities', 'corporateBrokers', 'notes',
                          'reportingStandardMin',
-                         'auditStatus', 'auditedStatusDisplay'] + ['outstandingSharesAsOfDate', 'outstandingShares', 'authorizedShares',
-                                                                   'authorizedSharesAsOfDate', 'dtcSharesAsOfDate', 'unrestrictedShares',
+                         'auditStatus', 'auditedStatusDisplay'] + ['outstandingSharesAsOfDate', 'outstandingShares',
+                                                                   'authorizedShares',
+                                                                   'authorizedSharesAsOfDate', 'dtcSharesAsOfDate',
+                                                                   'unrestrictedShares',
                                                                    'restrictedSharesAsOfDate',
                                                                    'unrestrictedSharesAsOfDate',
                                                                    'dtcShares', 'tierStartDate', 'tierId',
