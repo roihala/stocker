@@ -30,8 +30,6 @@ Check our website for pricing plans and more info."""
                 current_date = arrow.get(arrow.utcnow().date()).shift(hours=13)
                 days = (current_date - trial_date).days
 
-                print(days)
-                continue
                 if days in [14, 12, 7]:
 
                     if days == 14:
