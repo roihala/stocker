@@ -86,7 +86,7 @@ class ReaderBase(ABC):
         self._sorted_history = history
         return history
 
-    def get_entry_by_date(self, date, prev=False):
+    def get_entry_by_date(self, date):
         self.get_sorted_history()
 
         idx = self._sorted_history.index[self._sorted_history['date'] == date].tolist()
@@ -95,8 +95,7 @@ class ReaderBase(ABC):
 
         idx = idx[0]
 
-        entry = self._sorted_history.loc[idx].to_dict()
-        return entry if not prev else entry, self._sorted_history.loc[idx - 1].to_dict()
+        return self._sorted_history.loc[idx - 1].to_dict(), self._sorted_history.loc[idx].to_dict()
 
     def flatten(self, history):
         for column, layers in self._collector.get_nested_keys().items():

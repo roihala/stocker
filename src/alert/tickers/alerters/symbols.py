@@ -26,7 +26,7 @@ class Symbols(TickerAlerter):
     @property
     def relevant_keys(self):
         return ['hasControlDispute', 'isBankrupt', 'isCaveatEmptor', 'isDark', 'isDelinquent', 'isLinkedToProhibitedSP',
-                'isPennyStockExempt', 'isShell', 'isShellRisk', 'transferAgentVerified', 'unableToContact',
+                'isShell', 'isShellRisk', 'transferAgentVerified', 'unableToContact',
                 'verifiedProfile']
 
     @property
