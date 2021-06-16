@@ -181,8 +181,13 @@ class ReaderBase(ABC):
                    'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                    is_otc=True).get_ticker_url(ticker)
 
-        response = requests.get(url, proxies=Runnable.proxy)
+        response = requests.get(url)
+
         try:
+            # Trying with proxy
+            if response.status_code == 429:
+                response = requests.get(url, proxies=Runnable.proxy)
+
             if response.json().get('lastSale'):
                 return float(response.json().get('lastSale'))
             elif response.json().get('previousClose'):
