@@ -24,11 +24,15 @@ Check our website for pricing plans and more info."""
                     self._mongo_db.telegram_users.update_one(user, {'$set': {'trial_date': arrow.utcnow().format()}})
                     continue
 
-                trial_date = arrow.get(user['trial_date']) if arrow.get(user['trial_date']) > arrow.get('2021-06-08T13:00:00+00:00') else arrow.get('2021-06-08T12:00:00+00:00')
+                # Capping trial date
+                trial_date = arrow.get(user['trial_date']) if arrow.get(user['trial_date']) > arrow.get('2021-06-08T13:00:00+00:00') else arrow.get('2021-06-08T13:00:00+00:00')
 
-                days = (arrow.utcnow() - trial_date).days
+                current_date = arrow.get(arrow.utcnow().date()).shift(hours=13)
+                days = (current_date - trial_date).days
 
-                if days in [14, 12, 7] or user.get('vip'):
+                print(days)
+                continue
+                if days in [14, 12, 7]:
 
                     if days == 14:
                         self.logger.info(f"{user.get('user_name')} trial ended")
