@@ -60,8 +60,12 @@ class Alert(Runnable):
         try:
             ticker, price = self.__extract_ticker(diffs)
 
-            # TODO: filings_pdf doesnt contain ticker, remove this
-            if ticker and not self.is_relevant(ticker, price):
+            if not ticker:
+                self.logger.warning(f"Couldn't detect ticker in {diffs}")
+                batch.nack()
+                return
+
+            if not self.is_relevant(ticker, price):
                 batch.ack()
                 return
 
@@ -71,17 +75,14 @@ class Alert(Runnable):
             msg = self.generate_msg(diffs, alerter_args)
 
             if msg:
-                self._mongo_db.diffs.insert_many(raw_diffs)
-                delay = False if any([diff.get('source') == 'filings' for diff in raw_diffs]) else True
+                # TODO
+                if 'filings_pdf' in set([diff.get('source') for diff in raw_diffs if diff.get('source')]):
+                    self.__send_msg(self._mongo_db.telegram_users.find({'lion': True}), msg)
+                else:
+                    self._mongo_db.diffs.insert_many(raw_diffs)
+                    delay = False if any([diff.get('source') in ['filings', 'filings_pdf'] for diff in raw_diffs]) else True
 
-                # TODO: remove this debug alert when finished
-                if not ticker:
-                    [self.init_telegram(self.YOAV_GAY_BOT_TOKEN).sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                                                             parse_mode=telegram.ParseMode.MARKDOWN)
-                     for user in self._mongo_db.telegram_users.find({"filings_pdf": True})]
-                    batch.ack()
-                    return
-                self.__send_or_delay(self.__add_title(ticker, price, msg), is_delay=delay)
+                    self.__send_or_delay(self.__add_title(ticker, price, msg), is_delay=delay)
 
             batch.ack()
         except Exception as e:

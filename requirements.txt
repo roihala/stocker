@@ -1,3 +1,4 @@
+fitz
 starlette
 paypalrestsdk
 pydantic
