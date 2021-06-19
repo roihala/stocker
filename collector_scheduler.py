@@ -7,10 +7,10 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from google.cloud import pubsub_v1
 
-from runnable import Runnable
+from lighweight_runnable import LightRunnable
 
 
-class CollectScheduler(Runnable):
+class CollectScheduler(LightRunnable):
     PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-300519/topics/collector-tickers"
 
     def __init__(self, *args, **kwargs):
