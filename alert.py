@@ -37,7 +37,6 @@ class Alert(Runnable):
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
     PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
-    YOAV_GAY_BOT_TOKEN = '1825479583:AAG0YBgm5NgCWa3eWRmXOnUS0R7kz3DVllQ'
 
     def __init__(self):
         super().__init__()
@@ -179,20 +178,22 @@ class Alert(Runnable):
             media = [InputMediaDocument(media=open(file, 'rb'),
                                         filename=f"{ticker}.pdf",
                                         thumb=open(LOGO_PATH, 'rb')) for file in files]
-            media[-1].caption = text
-            media[-1].parse_mode = telegram.ParseMode.MARKDOWN
 
             try:
-                if any(record_ids):
+                if record_ids:
+                    media[-1].caption = text
+                    media[-1].parse_mode = telegram.ParseMode.MARKDOWN
+
                     if len(media) == 0:
                         raise ValueError("Media should contain at least one pdf location")
                     elif len(media) == 1:
+                        first_media = media[0]
                         self._telegram_bot.send_document(chat_id=user.get("chat_id"),
-                                                         document=open(files[0], 'rb'),
+                                                         document=first_media.media,
                                                          filename=f"{ticker}.pdf",
-                                                         thumb=open(LOGO_PATH, 'rb'),
-                                                         parse_mode=telegram.ParseMode.MARKDOWN,
-                                                         caption=text)
+                                                         thumb=first_media.thumb,
+                                                         parse_mode=first_media.parse_mode,
+                                                         caption=first_media.caption)
                     elif len(media) > 1:
                         self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
                                                             media=media)
@@ -216,7 +217,10 @@ class Alert(Runnable):
             alert_text = f'{self.BANG_EMOJI_UNICODE} First ever alert for this ticker\n{alert_text}'
 
         return '{title}\n' \
-               '{alert_msg}'.format(title=self.generate_title(ticker, self._mongo_db, price), alert_msg=alert_text)
+               '{alert_msg}\n' \
+               '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
+                               alert_msg=alert_text,
+                               date=sorted([value['date'] for value in msg.values()])[-1])
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
