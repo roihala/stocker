@@ -99,7 +99,7 @@ scheduler: scheduler_build_push scheduler_delete_pod
 
 scheduler_build_push:
 	docker build -t collector-scheduler -f dockerfiles/scheduler.dockerfile .
-	docker tag stocker:latest eu.gcr.io/stocker-300519/collector-scheduler:latest
+	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/collector-scheduler:latest
 	docker push eu.gcr.io/stocker-300519/collector-scheduler:latest
 
 scheduler_update_deployment: get_gcp_cluster
