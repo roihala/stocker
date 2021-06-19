@@ -281,7 +281,7 @@ class Client(Runnable):
                                 'ticker': record.get('ticker'), 'debug': True}
                 alerter = Factory.alerters_factory(record.get('source'), **alerter_args)
 
-                _, msg = alerter.get_alert_msg([record])
+                _, msg = alerter.generate_messages([record])
                 if not msg:
                     late_drop_ids.append(oid)
             except Exception as e:

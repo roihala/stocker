@@ -8,12 +8,12 @@ ticker_finder.exe
 .idea
 __pycache__
 go1.11.4.linux-amd64.tar.gz
-*.png
 low_floaters.csv
 low_floaters001_1B.csv
 low_floaters001_500M.csv
 low_floaters003_250M.csv
 src/games
-.gitignore
 .idea/**
 .ipynb_checkpoints/
+pdfs/
+.gitignore

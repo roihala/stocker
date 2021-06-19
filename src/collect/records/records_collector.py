@@ -41,7 +41,7 @@ class RecordsCollector(CollectorBase, ABC):
 
         return [self.__generate_diff(record) for record in new_records]
 
-    @retry(JSONDecodeError, tries=3, delay=1)
+    @retry((JSONDecodeError, requests.exceptions.ConnectionError), tries=3, delay=1)
     def fetch_data(self) -> List[Dict]:
         response = requests.get(self.url)
 

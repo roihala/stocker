@@ -33,8 +33,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         pass
 
     def collect(self):
-        responses = {self.record_id + i: self.fetch_data(i) for i in range(10)}
-
+        responses = self.__get_responses()
         diffs = []
 
         for record_id, response in {_: resp for _, resp in responses.items() if resp.ok}.items():
@@ -45,7 +44,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 logger.exception(e)
 
             document = self.__generate_document(record_id, response, ticker=ticker if ticker else '')
-            self.collection.insert_one(document)
+            self.collection.insert_one(deepcopy(document))
 
             if ticker:
                 diffs.append(self.__generate_diff(document))
@@ -81,8 +80,19 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                      })
         return diff
 
+    def __get_responses(self):
+        responses = {}
+        for i in range(10):
+            try:
+                responses[self.record_id + i] = self.fetch_data(i)
+            except Exception as e:
+                logger.warning(f"Couldn't collect record {self.record_id + i}")
+                logger.exception(e)
+
+        return responses
+
     def __guess_ticker(self, record_id, response):
-        with fitz.open(self.__get_pdf(record_id, response)) as doc:
+        with fitz.open(self.get_pdf(record_id, response)) as doc:
             ticker = self.__guess_by_company_name(doc)
 
             if ticker:
@@ -90,14 +100,6 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             else:
                 # TODO: Other guess
                 return None
-
-    def __get_pdf(self, record_id, response):
-        pdf_path = os.path.join(PDF_DIR, f"{record_id}.pdf")
-
-        with open(pdf_path, 'wb') as f:
-            f.write(response.content)
-
-        return pdf_path
 
     def __guess_by_company_name(self, doc):
         for page_number in range(0, MAX_PAGE_SEARCH):
@@ -156,3 +158,13 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 return symbol
 
         return None
+
+    @staticmethod
+    def get_pdf(record_id, response=None, base_url=None):
+        response = response if response else requests.get(base_url.format(id=record_id))
+        pdf_path = os.path.join(PDF_DIR, f"{record_id}.pdf")
+
+        with open(pdf_path, 'wb') as f:
+            f.write(response.content)
+
+        return pdf_path

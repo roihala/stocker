@@ -16,6 +16,13 @@ class AlerterBase(ABC):
         self._ticker = ticker
 
     @abstractmethod
-    def get_alert_msg(self, diffs: List[dict], as_dict=False):
-        if as_dict and '_id' not in diffs[0]:
-            raise ValueError("Can't generate dict for diffs with no _id")
+    def generate_messages(self, diffs: List[dict]) -> dict:
+        """
+        This function will generate a dict that describes the messages of the obtained diff,
+        while allowing customization at the alerter level, such as adding keys to the scheme and
+        handling them differently (e.g: send file instead of message)
+
+        Basic format:
+        ObjectId('60cc6a43096cb97b35b1ee3c'): {'message': 'kaki'}
+        """
+        pass

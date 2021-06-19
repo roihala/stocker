@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import secrets
+from operator import itemgetter
 
 import argon2
 import logging
@@ -392,18 +393,19 @@ The following commands will make me sing:
             diffs = Client.get_diffs(context._dispatcher.mongo_db, ticker).to_dict('records')
             alerter_args = {'mongo_db': context._dispatcher.mongo_db, 'telegram_bot': context._dispatcher.telegram_bot,
                             'ticker': ticker, 'debug': context._dispatcher.debug}
-            messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
+            sorted_messages = sorted([
+                {'date': value['date'],
+                 'message': value['message']
+                 } for value in Alert.get_msg(diffs, alerter_args).values()], key=itemgetter('date'))
 
-            msg = Alert.generate_title(ticker, context._dispatcher.mongo_db) + '\n' + \
-                  reduce(
-                      lambda _, diff: _ + (Bot.__format_message(messages, diff) if diff.get('_id') in messages else ''),
-                      diffs, '')
+            text = '\n\n'.join([Bot.__format_message(_['message'], _['date']) for _ in sorted_messages])
+            text = Alert.generate_title(ticker, context._dispatcher.mongo_db) + '\n' + text
 
-            if len(msg) > Bot.MAX_MESSAGE_LENGTH:
+            if len(text) > Bot.MAX_MESSAGE_LENGTH:
                 pending_message.delete()
-                Bot.__send_long_message(message.reply_text, msg, parse_mode=telegram.ParseMode.MARKDOWN)
+                Bot.__send_long_message(message.reply_text, text, parse_mode=telegram.ParseMode.MARKDOWN)
             else:
-                pending_message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN)
+                pending_message.edit_text(text, parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             context._dispatcher.logger.exception(e, exc_info=True)
@@ -698,9 +700,9 @@ Love you all and please keep sending us feedbacks, *we won't bite*"""
         return False
 
     @staticmethod
-    def __format_message(messages, diff):
+    def __format_message(text, date):
         # Add date and blank lines
-        return f"{messages[diff.get('_id')]}\n_{arrow.get(diff.get('date')).to('Asia/Jerusalem').format()}_\n\n"
+        return f"{text}\n_{arrow.get(date).to('Asia/Jerusalem').format()}_"
 
     @staticmethod
     def __extract_ticker(context):

@@ -2,6 +2,8 @@ import logging
 from operator import itemgetter
 from typing import Iterable, List
 
+from bson import ObjectId
+
 from src import factory
 from src.alert.alerter_base import AlerterBase
 
@@ -31,21 +33,19 @@ class TickerAlerter(AlerterBase):
     def get_keys_translation() -> dict:
         return {}
 
-    def get_alert_msg(self, diffs: List[dict], as_dict=False):
-        super().get_alert_msg(diffs, as_dict)
-
-        messages = {} if as_dict else []
+    def generate_messages(self, diffs: List[dict]):
+        messages = {}
         for diff in self._edit_batch(diffs):
             msg = self.generate_msg(diff)
             if not msg:
                 continue
 
-            elif as_dict:
-                messages[diff['_id']] = msg
+            if '_id' in diff:
+                messages[diff['_id']] = {'message': msg, 'date': diff.get('date')}
             else:
-                messages.append(msg)
+                messages[ObjectId()] = {'message': msg, 'date': diff.get('date')}
 
-        return messages if as_dict else '\n\n'.join([msg for msg in messages if msg])
+        return messages
 
     def generate_msg(self, diff):
         if not self.is_relevant_diff(diff):
