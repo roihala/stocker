@@ -1,9 +1,11 @@
 import logging
 from abc import abstractmethod, ABC
+from json import JSONDecodeError
 from typing import List
 
 import arrow
 import requests
+from retry import retry
 
 from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
@@ -38,11 +40,16 @@ class RecordsAlerter(AlerterBase, ABC):
         return f'*{self.name}* added:\n{msg}'
 
     def _get_previous_date(self, diffs):
-        prev_record = self.get_previous_record(diffs)
-        return self.get_release_date(prev_record)
+        try:
+            prev_record = self.get_previous_record(diffs)
+            return self.get_release_date(prev_record)
+        except Exception as e:
+            logger.warning(f"Couldn't get previous date for diffs {diffs}")
+            logger.exception(e)
 
+    @retry((JSONDecodeErrorre), tries=5, delay=1)
     def get_previous_record(self, diffs):
-        # Records should be sorted via url arguments (self.url)
+        # Records should be sorted in data source (self.site)
         records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
 
         try:
