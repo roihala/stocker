@@ -543,8 +543,7 @@ The following commands will make me sing:
 
     @staticmethod
     def broadcast_callback(update, context):
-        Bot.send_broadcast_msg(update.message, update.message.from_user, context, keyboard=Bot.TOOLS_KEYBOARD)
-        pass
+        return Bot.send_broadcast_msg(update.message, update.message.from_user, context)
 
     @staticmethod
     def send_broadcast_msg(message, from_user, context, users=None, msg=None, keyboard=None):
@@ -560,11 +559,12 @@ The following commands will make me sing:
                             parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
                     else:
                         context._dispatcher.telegram_bot.send_message(chat_id=to_user['chat_id'], text=msg)
-                except telegram.error.BadRequest:
+                except Exception as e:
                     context._dispatcher.logger.warning(
-                        "{user_name} of {chat_id} not found during broadcast message sending.".format(
+                        "Couldn't send broadcast to {user_name} of {chat_id}".format(
                             user_name=to_user['user_name'],
                             chat_id=to_user['chat_id']))
+                    context._dispatcher.logger.error(e)
             message.reply_text('Your message have been sent to all of the stocker bot users.')
 
         return ConversationHandler.END
@@ -583,7 +583,7 @@ LETS BURN THE TWITTER! {Bot.FIRE_EMOJI_UNICODE} {Bot.FIRE_EMOJI_UNICODE} {Bot.FI
 
         keyboard = InlineKeyboardMarkup([[telegram.InlineKeyboardButton("Tweet", url=update.message.text)]])
 
-        Bot.send_broadcast_msg(update.message, update.message.from_user, context, msg=msg, keyboard=keyboard)
+        return Bot.send_broadcast_msg(update.message, update.message.from_user, context, msg=msg, keyboard=keyboard)
 
     @staticmethod
     def vip_user(update, context):

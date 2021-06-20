@@ -47,7 +47,7 @@ class RecordsAlerter(AlerterBase, ABC):
             logger.warning(f"Couldn't get previous date for diffs {diffs}")
             logger.exception(e)
 
-    @retry((JSONDecodeErrorre), tries=5, delay=1)
+    @retry(JSONDecodeError, tries=5, delay=1)
     def get_previous_record(self, diffs):
         # Records should be sorted in data source (self.site)
         records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
