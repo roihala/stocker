@@ -1,9 +1,12 @@
 import json
 import logging
-
+import os
+import time
 import arrow
+import pandas as pd
 
 from bson import json_util
+
 from collect import Collect
 from runnable import Runnable
 from google.cloud import pubsub_v1
@@ -15,9 +18,12 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.factory import Factory
+from src.read import readers
 
 global records_cache
 records_cache = {}
+
+NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.csv'))
 
 
 class RecordsCollect(Runnable):
@@ -25,11 +31,13 @@ class RecordsCollect(Runnable):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = Collect.PUBSUB_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_TOPIC_NAME
+        self.tickers_mapping = self.__get_tickers_mapping()
 
     def run(self):
         if self._debug:
             while True:
                 self.collect_records()
+                time.sleep(1)
 
         scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(10000)
@@ -51,10 +59,12 @@ class RecordsCollect(Runnable):
         date = arrow.utcnow()
 
         for collection_name in Factory.RECORDS_COLLECTIONS.keys():
-            if collection_name == 'secfilings':
+            if collection_name in ['secfilings', 'filings']:
                 continue
             collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
                               'write': self._write}
+            if collection_name == 'filings_pdf':
+                collector_args.update({'tickers': self.tickers_mapping})
             collector = Factory.collectors_factory(collection_name, **collector_args)
             diffs = collector.collect()
 
@@ -65,6 +75,7 @@ class RecordsCollect(Runnable):
         tickers = set([diff.get('ticker') for diff in diffs])
 
         if not tickers:
+            self.logger.info(f'diffs: {diffs}')
             data = json.dumps(diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
             return
@@ -72,8 +83,23 @@ class RecordsCollect(Runnable):
         # Separating publish by tickers
         for ticker in tickers:
             ticker_diffs = [diff for diff in diffs if diff.get('ticker') == ticker]
+            self.logger.info(f'diffs: {ticker_diffs}')
             data = json.dumps(ticker_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
+
+    def __get_tickers_mapping(self):
+        if self._debug:
+            return pd.read_csv(NAMES_CSV, header=None, index_col=0, squeeze=True).to_dict()
+
+        tickers = pd.DataFrame({'Ticker': self._tickers_list})
+        tickers['CompanyName'] = tickers['Ticker'].apply(lambda row: self.__get_company_name(row))
+        return tickers.set_index('Ticker').to_dict()['CompanyName']
+
+    def __get_company_name(self, ticker):
+        try:
+            return readers.Profile(self._mongo_db, ticker).get_latest()['name']
+        except Exception:
+            return None
 
 
 def main():

@@ -1,17 +1,23 @@
 import datetime
 import json
 import logging
-from typing import Dict, List, Iterable
+import os
+from copy import deepcopy
+from functools import reduce
+from typing import Dict, Iterable
 
 import pandas
-import pymongo
 import telegram
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
+from bson import ObjectId
+from telegram import InputMediaDocument
 
 from runnable import Runnable
+from src.collect.records.dynamic_records_collector import DynamicRecordsCollector
+from src.collect.records.collectors.filings_pdf import FILINGS_PDF_URL
 
 from src.factory import Factory
 from src.read import readers
@@ -21,6 +27,8 @@ from src.alert.tickers.alerters import Securities
 from google.cloud.pubsub import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
+LOGO_PATH = os.path.join(os.path.dirname(__file__), 'img/profileS.png')
+
 
 class Alert(Runnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
@@ -29,7 +37,6 @@ class Alert(Runnable):
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
     PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
-    YOAV_GAY_BOT_TOKEN = '1825479583:AAG0YBgm5NgCWa3eWRmXOnUS0R7kz3DVllQ'
 
     def __init__(self):
         super().__init__()
@@ -54,34 +61,32 @@ class Alert(Runnable):
         diffs = json.loads(batch.data)
         self.logger.info('detected batch: {diffs}'.format(diffs=diffs))
 
-        # Removing _id column from diffs that are going to be inserted to db
-        raw_diffs = [{key: value for key, value in diff.items() if key != '_id'} for diff in diffs]
+        [diff.update({'_id': ObjectId()}) for diff in diffs if '_id' not in diff]
+
+        raw_diffs = deepcopy(diffs)
 
         try:
             ticker, price = self.__extract_ticker(diffs)
 
-            # TODO: filings_pdf doesnt contain ticker, remove this
-            if ticker and not self.is_relevant(ticker, price):
+            if not ticker:
+                self.logger.warning(f"Couldn't detect ticker in {diffs}")
+                batch.nack()
+                return
+
+            if not self.is_relevant(ticker, price):
                 batch.ack()
                 return
 
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
                             'ticker': ticker, 'debug': self._debug}
 
-            msg = self.generate_msg(diffs, alerter_args)
+            msg = self.get_msg(diffs, alerter_args)
 
             if msg:
-                self._mongo_db.diffs.insert_many(raw_diffs)
-                delay = False if any([diff.get('source') == 'filings' for diff in raw_diffs]) else True
+                self._mongo_db.diffs.insert_many([diff for diff in raw_diffs if diff.get('_id') in msg.keys()])
 
-                # TODO: remove this debug alert when finished
-                if not ticker:
-                    [self.init_telegram(self.YOAV_GAY_BOT_TOKEN).sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                                                             parse_mode=telegram.ParseMode.MARKDOWN)
-                     for user in self._mongo_db.telegram_users.find({"filings_pdf": True})]
-                    batch.ack()
-                    return
-                self.__send_or_delay(self.__add_title(ticker, price, msg), is_delay=delay)
+                delay = False if any([diff.get('source') in ['filings', 'filings_pdf'] for diff in raw_diffs]) else True
+                self.__send_or_delay(msg, ticker, price, is_delay=delay)
 
             batch.ack()
         except Exception as e:
@@ -90,28 +95,27 @@ class Alert(Runnable):
             batch.nack()
 
     @staticmethod
-    def generate_msg(diffs, alerter_args, as_dict=False):
+    def get_msg(diffs, alerter_args) -> dict:
         """
-        :param as_dict: Return the message as dict of {_id: msg}
-        :param diffs: list of diffs
-        :param alerter_args: e.g: {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug}
+        returns a dict of the form:
+        {
+        ObjectId('60cc6a43096cb97b35b1ee3c'): {'message': 'kaki'},
+        ObjectId('60cc6a43096cb97b35b1ee3c'): {'message': 'pipi', 'file': 'path/to/file'}
+        }
         """
-        messages = {} if as_dict else []
+        messages = {}
 
         for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
             try:
                 alerter = Factory.alerters_factory(source, **alerter_args)
-                alerts = alerter.get_alert_msg([diff for diff in diffs if diff.get('source') == source],
-                                               as_dict=as_dict)
-
-                messages.update(alerts) if as_dict else messages.append(alerts)
+                messages_dict = alerter.generate_messages([diff for diff in diffs if diff.get('source') == source])
+                messages.update(messages_dict)
             except Exception as e:
                 logger = logging.getLogger(Factory.get_alerter(source).__class__.__name__)
                 logger.warning(f"Couldn't generate msg {diffs}: {source}")
                 logger.exception(e)
 
-        return messages if as_dict else '\n\n'.join([value for value in messages if value])
+        return messages
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -138,16 +142,16 @@ class Alert(Runnable):
             return True
         return False
 
-    def __send_or_delay(self, msg, is_delay=True):
+    def __send_or_delay(self, msg: dict, ticker, price, is_delay=True):
         if self._debug:
-            self.__send_msg(self.__get_users(ignore_delay=True), msg)
+            self.__send_msg(self.__get_users(ignore_delay=True), msg, ticker, price)
             return
 
         if is_delay:
-            self.__send_msg(self.__get_users(delay=False), msg)
-            self.__send_delayed(self.__get_users(delay=True), msg)
+            self.__send_msg(self.__get_users(delay=False), msg, ticker, price)
+            self.__send_delayed(self.__get_users(), msg, ticker, price)
         else:
-            self.__send_msg(self.__get_users(), msg)
+            self.__send_msg(self.__get_users(ignore_delay=True), msg, ticker, price)
 
     def __get_users(self, delay=True, ignore_delay=False):
         users = self._mongo_db.telegram_users.find({'delay': delay}) if not ignore_delay \
@@ -155,33 +159,68 @@ class Alert(Runnable):
 
         return [user for user in users if ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
 
-    def __send_delayed(self, delayed_users, msg):
-        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(minutes=1))
+    def __send_delayed(self, delayed_users: Iterable[Dict], msg: dict, ticker, price):
+        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(seconds=20))
 
         self._scheduler.add_job(self.__send_msg,
-                                args=[delayed_users, msg],
+                                args=[delayed_users, msg, ticker, price],
                                 trigger=trigger)
 
-    def __send_msg(self, users_group: Iterable[Dict], msg):
+    def __send_msg(self, users_group: Iterable[Dict], msg: dict, ticker, price):
+        text = self.__extract_text(msg, ticker, price)
+        record_ids = reduce(lambda _, value: _ + value['pdf_record_ids'] if 'pdf_record_ids' in value else _,
+                            msg.values(), [])
+        # TODO: Use the existing files with webhooks
+
         for user in users_group:
+            files = [DynamicRecordsCollector.get_pdf(record_id, base_url=FILINGS_PDF_URL) for record_id in record_ids]
+
+            media = [InputMediaDocument(media=open(file, 'rb'),
+                                        filename=f"{ticker}.pdf",
+                                        thumb=open(LOGO_PATH, 'rb')) for file in files]
+
             try:
-                self._telegram_bot.sendMessage(chat_id=user.get("chat_id"), text=msg,
-                                               parse_mode=telegram.ParseMode.MARKDOWN)
+                if record_ids:
+                    media[-1].caption = text
+                    media[-1].parse_mode = telegram.ParseMode.MARKDOWN
+
+                    if len(media) == 0:
+                        raise ValueError("Media should contain at least one pdf location")
+                    elif len(media) == 1:
+                        first_media = media[0]
+                        self._telegram_bot.send_document(chat_id=user.get("chat_id"),
+                                                         document=first_media.media,
+                                                         filename=f"{ticker}.pdf",
+                                                         thumb=first_media.thumb,
+                                                         parse_mode=first_media.parse_mode,
+                                                         caption=first_media.caption)
+                    elif len(media) > 1:
+                        self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
+                                                            media=media)
+                else:
+                    self._telegram_bot.send_message(chat_id=user.get("chat_id"),
+                                                    text=text,
+                                                    parse_mode=telegram.ParseMode.MARKDOWN)
 
             except Exception as e:
                 self.logger.warning(
                     "Couldn't alert {message} to {user} at {chat_id}:".format(user=user.get("user_name"),
                                                                               chat_id=user.get("chat_id"),
-                                                                              message=msg))
+                                                                              message=text))
                 self.logger.exception(e)
 
-    def __add_title(self, ticker, price, alert_msg):
+    def __extract_text(self, msg: dict, ticker, price):
+        alert_text = '\n\n'.join([value['message'] for value in msg.values() if value.get('message')])
+
+        # Add title
         if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker})).empty:
-            alert_msg = '{bang_emoji} First ever alert for this ticker\n'.format(
-                bang_emoji=self.BANG_EMOJI_UNICODE) + alert_msg
+            alert_text = f'{self.BANG_EMOJI_UNICODE} First ever alert for this ticker\n{alert_text}'
 
         return '{title}\n' \
-               '{alert_msg}'.format(title=self.generate_title(ticker, self._mongo_db, price), alert_msg=alert_msg)
+               '{alert_msg}\n' \
+               '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
+                               alert_msg=alert_text,
+                               date=sorted([value['date'] for value in msg.values()])[-1])
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
