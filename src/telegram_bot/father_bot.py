@@ -43,7 +43,6 @@ class FatherBot(BaseBot):
         'free_trial': 'website'
     }
 
-
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
 
@@ -59,18 +58,27 @@ class FatherBot(BaseBot):
             self.tools(query.message, query.from_user, edit_text=True)
             return Indexers.CONVERSATION_CALLBACK
 
-        elif update.callback_query.data == Actions.BACK:
+        elif update.callback_query.data == Actions.BACK_TO_MENU:
             self.start(query.message, query.from_user, edit_message=True)
             return Indexers.CONVERSATION_CALLBACK
 
         elif update.callback_query.data == Actions.AGREE:
+            if not self.registration_bot.create_user_args:
+                return Indexers.CONVERSATION_CALLBACK
+
             # TODO: create user should update user
-            self.__create_user(query.from_user.name, query.from_user.id, **context._dispatcher.activate_args)
-            self.bot_instance.edit_message_reply_markup(chat_id=query.from_user.id,
-                                                        message_id=query.message.message_id,
-                                                        reply_markup=InlineKeyboardMarkup(
-                                                            [[Buttons.TERMS_BUTTON], [Buttons.BACK_BUTTON]]))
+            self.registration_bot.create_user(query.from_user.name, query.from_user.id, query.message,
+                                              **self.registration_bot.create_user_args)
+
+            self.registration_bot.create_user_args = {}
             return Indexers.CONVERSATION_CALLBACK
+
+        elif update.callback_query.data == Actions.SurveyActions.START_SURVEY:
+            self.registration_bot.start_survey(query.message)
+            return Indexers.CONVERSATION_CALLBACK
+
+        elif update.callback_query.data in Actions.SurveyActions.get_survey_actions():
+            return self.registration_bot.survey_callback(query, update)
 
         query.message.reply_text('Please insert valid OTC ticker')
         if update.callback_query.data == Actions.INFO:
@@ -95,8 +103,8 @@ class FatherBot(BaseBot):
     def start_command(self, update, context):
         # This is how we support deep linking
         if len(update.message.text.split(' ')) == 2:
-            value = update.message.text.split(' ')[1]
             arg = update.message.text.split(' ')[1]
+
             if arg in self.FREE_TRIALS.keys():
                 source = self.FREE_TRIALS[arg]
                 if source in ['judit', 'special']:
@@ -107,7 +115,7 @@ class FatherBot(BaseBot):
                 self.registration_bot.free_trial(update.message, update.message.from_user, context,
                                                  weeks=weeks, source=source)
             else:
-                self.registration_bot.activate_token(update, update.message.text.split(' ')[1], context)
+                self.registration_bot.activate_token(update, arg, context)
         else:
             self.start(update.message, update.message.from_user)
 
@@ -120,7 +128,7 @@ class FatherBot(BaseBot):
             start_msg += '\n/broadcast - Send meesages to all users'
 
         keyboard = InlineKeyboardMarkup([
-            [Buttons.FREE_TRIAL_BUTTON, Buttons.TOOLS_BUTTON]])
+            [Buttons.FREE_TRIAL, Buttons.TOOLS]])
 
         if edit_message:
             message.delete()
@@ -136,20 +144,13 @@ class FatherBot(BaseBot):
 
     def tools(self, message, from_user, edit_text=False):
         if not self._is_registered(from_user.name, from_user.id):
-            message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            message.reply_text(Messages.UNREGISTERED)
             return ConversationHandler.END
-
-        keyboard = InlineKeyboardMarkup([
-            [telegram.InlineKeyboardButton("Alerts", callback_data=Actions.ALERTS),
-             telegram.InlineKeyboardButton("Dilution", callback_data=Actions.DILUTION),
-             telegram.InlineKeyboardButton("Info", callback_data=Actions.INFO)],
-            [Buttons.BACK_BUTTON]
-        ])
 
         if edit_text:
             message.delete()
         message.reply_photo('https://static.wixstatic.com/media/7bd982_a90480838b0d431882413fd0414833a9~mv2.png',
-                            reply_markup=keyboard)
+                            reply_markup=Keyboards.TOOLS)
 
     def alerts_command(self, update, context):
         user = update.message.from_user
@@ -159,7 +160,7 @@ class FatherBot(BaseBot):
             update.message.reply_text("Couldn't detect ticker, Please try again by the format: /alerts TICKR")
 
         elif not self._is_registered(user.name, user.id):
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            update.message.reply_text(Messages.UNREGISTERED)
 
         else:
             self.print_alerts(update.message,
@@ -220,7 +221,7 @@ class FatherBot(BaseBot):
             update.message.reply_text("Couldn't detect ticker, Please try again by the format: /info TICKR")
 
         elif not self._is_registered(user.name, user.id):
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            update.message.reply_text(Messages.UNREGISTERED)
 
         else:
             self.print_info(update.message,
@@ -261,7 +262,7 @@ class FatherBot(BaseBot):
             update.message.reply_text("Couldn't detect ticker, Please try again by the format: /dilution TICKR")
 
         elif not self._is_registered(user.name, user.id):
-            update.message.reply_text('You need to be registered in order to use this. Check /register for more info')
+            update.message.reply_text(Messages.UNREGISTERED)
 
         else:
             self.print_dilution(update.message,
@@ -310,43 +311,6 @@ class FatherBot(BaseBot):
         if user and user.get('activation') in [ActivationCodes.ACTIVE, ActivationCodes.TRIAL]:
             return True
         return False
-
-    def __create_user(self, user_name, chat_id, activation, delay=True, appendix: dict = None,
-                      update_query=None, create=True, delete_other_documents=False):
-        """
-
-        :param activation: Activation code from the list below:
-
-        TRIAL, ACTIVE, CANCEL, UNREGISTER, PENDING = ('frial', 'active', 'cancel', 'unregister', 'pending')
-        :return:
-        """
-        user_document = {
-            'user_name': user_name,
-            'chat_id': chat_id,
-            f'{activation}_date': arrow.utcnow().format(),
-            'delay': delay,
-            'activation': activation
-        }
-        if appendix:
-            user_document.update({'appendix': appendix})
-
-        if not create:
-            return user_document
-
-        if isinstance(update_query, dict):
-            self.mongo_db.telegram_users.update_one(update_query, {'$set': user_document})
-        else:
-            self.mongo_db.telegram_users.insert_one(user_document)
-
-        if delete_other_documents:
-            for document in [user for user in self.mongo_db.telegram_users.find()
-                             if user.get('chat_id') == chat_id and ('token' not in user)]:
-                self.mongo_db.telegram_users.delete_one(document)
-
-        msg = self.bot_instance.send_message(chat_id=chat_id, text=Messages.WELCOME_MESSAGE,
-                                             parse_mode=telegram.ParseMode.MARKDOWN,
-                                             reply_markup=Keyboards.TOOLS_KEYBOARD)
-        self.bot_instance.pin_chat_message(chat_id=1151317792, message_id=msg.message_id)
 
     @staticmethod
     def invalid_collection(update, context):

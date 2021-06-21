@@ -9,15 +9,47 @@ class Buttons(object):
     PAYMENT_URL = 'https://www.stocker.watch/plans-pricing'
     AGREEMANT_URL = "http://tinyurl.com/agreemant"
 
-    CONTACT_BUTTON = telegram.InlineKeyboardButton("Contact", url=MARKET_EYES_URL)
-    TERMS_BUTTON = telegram.InlineKeyboardButton("Terms and conditions", url=AGREEMANT_URL)
-    TOOLS_BUTTON = telegram.InlineKeyboardButton("Tools", callback_data=Actions.TOOLS)
-    SUBSCRIBE_BUTTON = telegram.InlineKeyboardButton("Subscribe", url=PAYMENT_URL)
-    FREE_TRIAL_BUTTON = telegram.InlineKeyboardButton("Free trial", callback_data=Actions.FREE_TRIAL)
-    BACK_BUTTON = telegram.InlineKeyboardButton("« Back to start menu", callback_data=Actions.BACK)
+    ALERTS = telegram.InlineKeyboardButton("Alerts", callback_data=Actions.ALERTS)
+    DILUTION = telegram.InlineKeyboardButton("Dilution", callback_data=Actions.DILUTION)
+    INFO = telegram.InlineKeyboardButton("Info", callback_data=Actions.INFO)
+    CONTACT = telegram.InlineKeyboardButton("Contact", url=MARKET_EYES_URL)
+    TERMS = telegram.InlineKeyboardButton("Terms and conditions", url=AGREEMANT_URL)
+    TOOLS = telegram.InlineKeyboardButton("Tools", callback_data=Actions.TOOLS)
+    SUBSCRIBE = telegram.InlineKeyboardButton("Subscribe", url=PAYMENT_URL)
+    FREE_TRIAL = telegram.InlineKeyboardButton("Free trial", callback_data=Actions.FREE_TRIAL)
+    BACK_TO_START = telegram.InlineKeyboardButton("« Back to start menu", callback_data=Actions.BACK_TO_MENU)
+
+    # Survey buttons
+    BACK = telegram.InlineKeyboardButton("« Back", callback_data=Actions.SurveyActions.BACK)
+    SKIP = telegram.InlineKeyboardButton("Skip", callback_data=Actions.SurveyActions.SKIP)
+    CONTINUE = telegram.InlineKeyboardButton("Continue", callback_data=Actions.SurveyActions.CONTINUE)
+    SKIP_SURVEY = telegram.InlineKeyboardButton("Skip", callback_data=Actions.SurveyActions.SKIP_SURVEY)
+    LOWER_THAN_5 = telegram.InlineKeyboardButton('Lower than 0.05', callback_data=Actions.SurveyActions.LOWER_THAN_5)
+    LOWER_THAN_2 = telegram.InlineKeyboardButton('Lower than 0.02', callback_data=Actions.SurveyActions.LOWER_THAN_2)
+    LOWER_THAN_1 = telegram.InlineKeyboardButton('Lower than 0.01', callback_data=Actions.SurveyActions.LOWER_THAN_1)
+    LOWER_THAN_CURRENT = telegram.InlineKeyboardButton('Lower than Pink Current',
+                                                       callback_data=Actions.SurveyActions.LOWER_THAN_CURRENT)
+    LOWER_THAN_QB = telegram.InlineKeyboardButton('Lower than OTCQB', callback_data=Actions.SurveyActions.LOWER_THAN_QB)
+    ADD_TO_WATCHLIST = telegram.InlineKeyboardButton('Add to watchlist',
+                                                     callback_data=Actions.SurveyActions.ADD_TO_WATCHLIST)
+    REMOVE_FROM_WATCHLIST = telegram.InlineKeyboardButton('Remove from watchlist',
+                                                          callback_data=Actions.SurveyActions.REMOVE_FROM_WATHCLIST)
+    REPLACE_WATCHLIST = telegram.InlineKeyboardButton('Replace existing watchlist',
+                                                      callback_data=Actions.SurveyActions.REPLACE_WATCHLIST)
+
+    RESTART_SURVEY = telegram.InlineKeyboardButton('Restart survey', callback_data=Actions.SurveyActions.START_SURVEY)
+    SURVEY = telegram.InlineKeyboardButton('Survey', callback_data=Actions.SurveyActions.START_SURVEY)
 
 
 class Keyboards(object):
-    START_KEYBOARD = InlineKeyboardMarkup([[Buttons.FREE_TRIAL_BUTTON, Buttons.TOOLS_BUTTON]])
-    SUBSCRIBE_KEYBOARD = InlineKeyboardMarkup([[Buttons.CONTACT_BUTTON, Buttons.SUBSCRIBE_BUTTON]])
-    TOOLS_KEYBOARD = InlineKeyboardMarkup([[Buttons.TOOLS_BUTTON]])
+    START = InlineKeyboardMarkup([[Buttons.FREE_TRIAL, Buttons.TOOLS]])
+    SUBSCRIBE = InlineKeyboardMarkup([[Buttons.CONTACT, Buttons.SUBSCRIBE]])
+    BACK_TO_TOOLS = InlineKeyboardMarkup([[Buttons.TOOLS]])
+
+    SURVEY_END = InlineKeyboardMarkup([[Buttons.RESTART_SURVEY, Buttons.BACK_TO_START]])
+    TOOLS = InlineKeyboardMarkup([
+        [Buttons.ALERTS,
+         Buttons.DILUTION,
+         Buttons.INFO],
+        [Buttons.SURVEY, Buttons.BACK_TO_START]
+    ])

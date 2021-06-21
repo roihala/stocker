@@ -38,3 +38,11 @@ The following commands will make me sing:
 /dilution - A graph of changes in AS/OS/unrestricted over time.
 /info - View the LATEST information for a given ticker.
 """
+
+    UNREGISTERED = 'You need to be registered in order to use this. Join our free trial for more info!'
+
+    # Survey messages
+    INVALID_WATCHLIST = 'Invalid watchlist, please insert a list of tickers separated by comma (,) AND NOTHING ELSE e.g:\n' \
+                        'GGII,DRGV,SOAN,RSHN'
+
+    SURVEY_END = 'Survey has ended, thanks and good luck!'

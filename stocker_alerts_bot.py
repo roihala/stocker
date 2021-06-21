@@ -65,7 +65,12 @@ class Stocker(Runnable):
                     MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.invalid_ticker_format)],
                 Indexers.PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.alerts_callback),
                                         MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
-                                                       father_bot.invalid_ticker_format)]
+                                                       father_bot.invalid_ticker_format)],
+                Indexers.GET_WATCHLIST: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
+                                                        registration_bot.watchlist_callback),
+                                         MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
+                                                        registration_bot.invalid_watchlist),
+                                         ]
             },
 
             fallbacks=[MessageHandler(Filters.regex('^/tools|/start$'), father_bot.conversation_fallback)]
