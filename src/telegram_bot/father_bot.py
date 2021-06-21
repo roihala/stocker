@@ -1,4 +1,5 @@
 import secrets
+from operator import itemgetter
 
 import argon2
 import os
@@ -35,9 +36,13 @@ class FatherBot(BaseBot):
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
     TWITTER_URL = 'https://twitter.com/EyesOnMarket'
 
-    JUDIT_FREE_TRIAL = 'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865'
-    TWO_MONTHS_FREE_TRIAL = 'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f'
-    WEBSITE_FREE_TRIAL = 'free_trial'
+    FREE_TRIALS = {
+        'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865': 'judit',
+        'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f': 'special',
+        'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
+        'free_trial': 'website'
+    }
+
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
@@ -59,7 +64,7 @@ class FatherBot(BaseBot):
             return Indexers.CONVERSATION_CALLBACK
 
         elif update.callback_query.data == Actions.AGREE:
-            # TODO
+            # TODO: create user should update user
             self.__create_user(query.from_user.name, query.from_user.id, **context._dispatcher.activate_args)
             self.bot_instance.edit_message_reply_markup(chat_id=query.from_user.id,
                                                         message_id=query.message.message_id,
@@ -91,18 +96,13 @@ class FatherBot(BaseBot):
         # This is how we support deep linking
         if len(update.message.text.split(' ')) == 2:
             value = update.message.text.split(' ')[1]
-            if value in [self.JUDIT_FREE_TRIAL, self.WEBSITE_FREE_TRIAL]:
-                weeks = 2
-                if value == self.JUDIT_FREE_TRIAL:
-                    source = 'judit'
+            arg = update.message.text.split(' ')[1]
+            if arg in self.FREE_TRIALS.keys():
+                source = self.FREE_TRIALS[arg]
+                if source in ['judit', 'special']:
                     weeks = 4
-                elif value == self.WEBSITE_FREE_TRIAL:
-                    source = 'website'
-                elif value == self.TWO_MONTHS_FREE_TRIAL:
-                    source = 'special'
-                    weeks = 8
                 else:
-                    source = 'default'
+                    weeks = 2
 
                 self.registration_bot.free_trial(update.message, update.message.from_user, context,
                                                  weeks=weeks, source=source)
@@ -188,18 +188,23 @@ class FatherBot(BaseBot):
             diffs = Client.get_diffs(self.mongo_db, ticker).to_dict('records')
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
-            messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
 
-            msg = Alert.generate_title(ticker, self.mongo_db) + '\n' + \
-                  reduce(lambda _, diff: _ + (
-                      self.__format_message(messages, diff) if diff.get('_id') in messages else ''),
-                         diffs, '')
+            #TODO: Alert.get_msg should be recognized
+            sorted_messages = sorted([
+                {'date': value['date'],
+                 'message': value['message']
+                 } for value in Alert.get_msg(diffs, alerter_args).values()], key=itemgetter('date'))
 
-            if len(msg) > self.MAX_MESSAGE_LENGTH:
+            text = '\n\n'.join([self.__format_message(_['message'], _['date']) for _ in sorted_messages])
+            text = Alert.generate_title(ticker, self.mongo_db) + '\n' + text
+
+            # messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
+
+            if len(text) > self.MAX_MESSAGE_LENGTH:
                 pending_message.delete()
-                self.__send_long_message(message.reply_text, msg, parse_mode=telegram.ParseMode.MARKDOWN)
+                self.__send_long_message(message.reply_text, text, parse_mode=telegram.ParseMode.MARKDOWN)
             else:
-                pending_message.edit_text(msg, parse_mode=telegram.ParseMode.MARKDOWN)
+                pending_message.edit_text(text, parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
             self.logger.exception(e, exc_info=True)
@@ -378,9 +383,9 @@ class FatherBot(BaseBot):
             func(msg, *args, **kwargs)
 
     @staticmethod
-    def __format_message(messages, diff):
+    def __format_message(text, date):
         # Add date and blank lines
-        return f"{messages[diff.get('_id')]}\n_{arrow.get(diff.get('date')).to('Asia/Jerusalem').format()}_\n\n"
+        return f"{text}\n_{arrow.get(date).to('Asia/Jerusalem').format()}_"
 
     @staticmethod
     def __extract_ticker(context):

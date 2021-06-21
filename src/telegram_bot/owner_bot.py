@@ -28,7 +28,8 @@ class OwnerBot(BaseBot):
             self.logger.exception(e.__traceback__)
 
     def broadcast_callback(self, update, context):
-        self.send_broadcast_msg(update.message, update.message.from_user, keyboard=Keyboards.TOOLS_KEYBOARD)
+        self.send_broadcast_msg(update.message, update.message.from_user)
+        return ConversationHandler.END
 
     def send_broadcast_msg(self, message, from_user, users=None, msg=None, keyboard=None):
         msg = msg if msg else message.text
@@ -43,11 +44,12 @@ class OwnerBot(BaseBot):
                             parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
                     else:
                         self.bot_instance.send_message(chat_id=to_user['chat_id'], text=msg)
-                except telegram.error.BadRequest:
+                except Exception as e:
                     self.logger.warning(
-                        "{user_name} of {chat_id} not found during broadcast message sending.".format(
+                        "Couldn't send broadcast to {user_name} of {chat_id}".format(
                             user_name=to_user['user_name'],
                             chat_id=to_user['chat_id']))
+                    self.logger.exception(e)
             message.reply_text('Your message have been sent to all of the stocker bot users.')
 
         return ConversationHandler.END
@@ -83,6 +85,7 @@ class OwnerBot(BaseBot):
         keyboard = InlineKeyboardMarkup([[telegram.InlineKeyboardButton("Tweet", url=update.message.text)]])
 
         self.send_broadcast_msg(update.message, update.message.from_user, msg=msg, keyboard=keyboard)
+        return ConversationHandler.END
 
     def __validate_permissions(self, message, from_user):
         if self._is_high_permission_user(from_user.name, from_user.id):
