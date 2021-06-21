@@ -40,10 +40,7 @@ class TickerAlerter(AlerterBase):
             if not msg:
                 continue
 
-            if '_id' in diff:
-                messages[diff['_id']] = {'message': msg, 'date': diff.get('date')}
-            else:
-                messages[ObjectId()] = {'message': msg, 'date': diff.get('date')}
+            messages[diff['_id']] = {'message': msg, 'date': diff.get('date')}
 
         return messages
 
