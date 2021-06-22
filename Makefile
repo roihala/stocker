@@ -7,18 +7,18 @@ all: collector alerter telegram records rest scheduler
 collector: collector_build_push collector_delete_pod
 
 collector_build_push:
-	docker build -t stocker -f dockerfiles/collector.dockerfile .
-	docker tag stocker:latest eu.gcr.io/stocker-300519/stocker:latest
-	docker push eu.gcr.io/stocker-300519/stocker:latest
+	docker build -t collector -f dockerfiles/collector.dockerfile .
+	docker tag collector:latest eu.gcr.io/stocker-300519/collector:latest
+	docker push eu.gcr.io/stocker-300519/collector:latest
 
 collector_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles/collector_deployment.yaml
 
 collector_deploy: get_gcp_cluster
-	kubectl patch deployment stocker-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+	kubectl patch deployment collector-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
 
 collector_delete_pod:
-	kubectl delete pods -l run=stocker-app || true
+	kubectl delete pods -l run=collector-app || true
 
 
 telegram: telegram_build_push telegram_delete_pod

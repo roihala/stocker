@@ -1,59 +1,69 @@
 #!/usr/bin/env python3
+import concurrent.futures
 import json
 import logging
 from functools import reduce
-from bson import json_util
-from google.cloud import pubsub_v1
+from time import sleep
 
 import arrow
 import pymongo
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.triggers.combining import OrTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+from bson import json_util
+from google import pubsub_v1
+from google.pubsub_v1 import SubscriberClient
+from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 from common_runnable import CommonRunnable
-from runnable import Runnable
 from src.factory import Factory
-from apscheduler.schedulers.blocking import BlockingScheduler
 
 global cache
 cache = {}
 
 
 class Collect(CommonRunnable):
-    PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
+    MAX_MESSAGES = 50
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
         self.publisher = pubsub_v1.PublisherClient()
-        self.topic_name = self.PUBSUB_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_TOPIC_NAME
+        self.topic_name = self.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_DIFFS_TOPIC_NAME
+        self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
+        self._subscriber = SubscriberClient()
 
     def run(self):
-        if self._debug:
-            for ticker in self._tickers_list:
-                self.ticker_collect(ticker)
-            return
 
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10000)
-        })
+        # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
 
-        self.disable_apscheduler_logs()
+        response = self._subscriber.pull(
+            request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
+        ack_ids = [msg.ack_id for msg in response.received_messages]
 
-        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=300), DateTrigger()])
+        self._subscriber.acknowledge(
+            request={
+                "subscription": self._subscription_name,
+                "ack_ids": ack_ids,
+            }
+        )
 
-        for ticker in self._tickers_list:
-            scheduler.add_job(self.ticker_collect,
-                              args=[ticker],
-                              trigger=trigger,
-                              max_instances=1,
-                              misfire_grace_time=120)
+        for msg in response.received_messages:
+            self.queue_listen(msg.message.data)
 
-        scheduler.start()
+        self.executor.shutdown(wait=True)
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
 
-    def ticker_collect(self, ticker):
+        self.run()
+
+    def queue_listen(self, msg: bytes):
+        self.executor.submit(self.ticker_collect, msg)
+
+    def ticker_collect(self, msg: bytes):
+
+        # ticker = msg.data.decode('utf-8')
+        ticker = msg.decode('utf-8')
+
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
@@ -83,6 +93,8 @@ class Collect(CommonRunnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
+
+        msg.ack()
 
 
 def main():
