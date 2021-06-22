@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       run: collector-app
-  replicas: 380
+  replicas: 100
   template:
     metadata:
       labels:
@@ -15,11 +15,9 @@ spec:
       containers:
         - name: collector-app
           image: eu.gcr.io/stocker-300519/collector:latest
-          resources:
-            requests:
-              memory: "130Mi"
-            limits:
-              memory: "150Mi"
+#          resources:
+#            requests:
+#              memory: "8Gi"
           env:
             - name: ENV
               value: "production"
@@ -27,5 +25,5 @@ spec:
               value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
-            - name: REDIS_IP
-              value: "10.80.176.3"
+            - name: DEBUG
+              value: "true"

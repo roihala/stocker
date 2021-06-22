@@ -2,7 +2,6 @@
 import concurrent.futures
 import json
 import logging
-import os
 from functools import reduce
 from time import sleep
 
@@ -11,50 +10,56 @@ import pymongo
 from bson import json_util
 from google import pubsub_v1
 from google.pubsub_v1 import SubscriberClient
-from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
-from common_runnable import CommonRunnable
+from runnable import Runnable
 from src.factory import Factory
-from redis import Redis
+
+global cache
+cache = {}
 
 
-class Collect(CommonRunnable):
+class Collect(Runnable):
     PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
     PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
-    MAX_MESSAGES = 10
+    MAX_MESSAGES = 50
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
-        self.publisher = PublisherClient()
+        self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = self.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_DIFFS_TOPIC_NAME
         self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
 
-        if os.getenv('REDIS_IP') is not None:
-            self.cache = Redis(host=os.getenv('REDIS_IP'))
-        else:
-            self.cache = {}
-
     def run(self):
+
+        # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
 
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
+        ack_ids = [msg.ack_id for msg in response.received_messages]
+
+        self._subscriber.acknowledge(
+            request={
+                "subscription": self._subscription_name,
+                "ack_ids": ack_ids,
+            }
+        )
 
         for msg in response.received_messages:
-            self.queue_listen(msg.message.data, msg.ack_id)
+            self.queue_listen(msg.message.data)
 
         self.executor.shutdown(wait=True)
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
 
         self.run()
 
-    def queue_listen(self, msg: bytes, ack_id):
-        self.executor.submit(self.ticker_collect, msg, ack_id)
+    def queue_listen(self, msg: bytes):
+        self.executor.submit(self.ticker_collect, msg)
 
-    def ticker_collect(self, msg: bytes, ack_id):
+    def ticker_collect(self, msg: bytes):
 
         # ticker = msg.data.decode('utf-8')
         ticker = msg.decode('utf-8')
@@ -70,8 +75,8 @@ class Collect(CommonRunnable):
                 if collection_name in all_sons:
                     continue
 
-                collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
-                                  'ticker': ticker}
+                collector_args = {'mongo_db': self._mongo_db, 'cache': cache, 'date': date, 'debug': self._debug,
+                                  'write': self._write, 'ticker': ticker}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
 
@@ -89,12 +94,7 @@ class Collect(CommonRunnable):
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
 
-        self._subscriber.acknowledge(
-            request={
-                "subscription": self._subscription_name,
-                "ack_ids": [ack_id],
-            }
-        )
+        msg.ack()
 
 
 def main():
