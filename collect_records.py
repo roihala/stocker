@@ -30,7 +30,7 @@ class RecordsCollect(CommonRunnable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
-        self.topic_name = Collect.PUBSUB_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_TOPIC_NAME
+        self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
         self.tickers_mapping = self.__get_tickers_mapping()
 
     def run(self):

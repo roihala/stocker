@@ -34,6 +34,7 @@ class CollectScheduler(LightRunnable):
         scheduler.start()
 
     def publish_tickers(self):
+        self.logger.info("Publishing tickers")
         for ticker in self._tickers_list:
             self.publisher.publish(self.topic_name, ticker.encode('utf-8'))
 
