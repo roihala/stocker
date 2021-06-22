@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stocker-app
+  name: collector-app
 spec:
   selector:
     matchLabels:
-      run: stocker-app
-  replicas: 1
+      run: collector-app
+  replicas: 100
   template:
     metadata:
       labels:
-        run: stocker-app
+        run: collector-app
     spec:
       containers:
-        - name: stocker-app
-          image: eu.gcr.io/stocker-300519/stocker:latest
-          resources:
-            requests:
-              memory: "8Gi"
+        - name: collector-app
+          image: eu.gcr.io/stocker-300519/collector:latest
+#          resources:
+#            requests:
+#              memory: "8Gi"
           env:
             - name: ENV
               value: "production"
@@ -25,3 +25,5 @@ spec:
               value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
+            - name: DEBUG
+              value: "true"
