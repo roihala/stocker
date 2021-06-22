@@ -16,8 +16,8 @@ from src.collect.collector_base import CollectorBase
 logger = logging.getLogger('RecordsCollect')
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
-MAX_PAGE_SEARCH = 3
 COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "corporation", "incorporated"]
+ALL_PAGES = 999
 
 
 class DynamicRecordsCollector(CollectorBase, ABC):
@@ -39,6 +39,11 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for record_id, response in {_: resp for _, resp in responses.items() if resp.ok}.items():
             try:
                 ticker = self.__guess_ticker(record_id, response)
+
+                # Scale 2 / Fallback (scan all pages + ticker appears in the pdf)
+                if not ticker:
+                    ticker = self.__guess_ticker_fallback(record_id, response)
+
             except Exception as e:
                 ticker = ''
                 logger.exception(e)
@@ -93,7 +98,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __guess_ticker(self, record_id, response):
         with fitz.open(self.get_pdf(record_id, response)) as doc:
-            ticker = self.__guess_by_company_name(doc)
+            ticker = self.__guess_by_company_name(doc, 3)
 
             if ticker:
                 return ticker
@@ -101,8 +106,20 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 # TODO: Other guess
                 return None
 
-    def __guess_by_company_name(self, doc):
-        for page_number in range(0, MAX_PAGE_SEARCH):
+    def __guess_ticker_fallback(self, record_id, response):
+        with fitz.open(self.get_pdf(record_id, response)) as doc:
+
+            # Scan all pdf pages
+            ticker = self.__guess_by_company_name(doc)
+        
+            if not ticker:
+                return None
+            
+            # PDF contains ticker?
+            return (ticker if ticker in self.__extract_symbols_from_pdf(doc) else None)
+
+    def __guess_by_company_name(self, doc, max_page_search: int = ALL_PAGES):
+        for page_number in range(0, min(doc.pageCount, max_page_search)):
 
             # ['otc markets group inc', 'guidelines v group , inc']
             companies = self.__extract_company_names_from_pdf(doc, page_number)
@@ -112,9 +129,10 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
             # split to words & remove commas & dots
             companies_opt = [comp.replace(',', '').replace('.', '').split() for comp in companies]
-
-            # [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
-            # [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group inc', 'v group inc', 'group inc']]
+            """
+            [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
+            [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group inc', 'v group inc', 'group inc']]
+            """
             optional_companies = [[" ".join(comp[i:]) for i in range(0, len(comp) - 1)] for comp in companies_opt]
             """
             optional companies -> [["a b c", "b c"], ["d g b c", "g b c", "b c"]]
@@ -145,6 +163,18 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 companies = companies + matches
 
         return (None if not companies else companies)
+
+    def __extract_symbols_from_pdf(self, doc) -> list:
+        matches = []
+        for page_number in range(0, doc.pageCount):
+            page = doc[page_number]
+            txt = " ".join(page.getText().split())
+
+            # Find symbols
+            regex = fr"([A-Z]{{3,5}})"
+            matches.extend(re.findall(regex, txt))
+    
+        return (None if not matches else matches)
 
     def __get_symbol_from_map(self, comp_name: str) -> str:
         # TODO: Change names.csv company names to lower without commas or dots.
