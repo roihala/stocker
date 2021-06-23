@@ -43,8 +43,6 @@ class RecordsCollect(Runnable):
             'default': ThreadPoolExecutor(10000)
         })
 
-        self.disable_apscheduler_logs()
-
         trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
 
         scheduler.add_job(self.collect_records,
@@ -52,6 +50,8 @@ class RecordsCollect(Runnable):
                           trigger=trigger,
                           max_instances=1,
                           misfire_grace_time=120)
+
+        self.disable_apscheduler_logs()
 
         scheduler.start()
 
