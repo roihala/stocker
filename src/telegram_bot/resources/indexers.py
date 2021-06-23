@@ -1,0 +1,11 @@
+class Indexers(object):
+    PRINT_ALERTS = 0
+    PRINT_INFO = 1
+    BROADCAST_MSG = 2
+    TWEET_MSG = 3
+    DO_FREE_TRIAL = 4
+    CONVERSATION_CALLBACK = 5
+    PRINT_DILUTION = 6
+    START_SURVEY = 7
+    GET_WATCHLIST = 8
+    GET_LOCATION = 9

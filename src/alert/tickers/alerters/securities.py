@@ -25,8 +25,19 @@ class Securities(TickerAlerter):
     @staticmethod
     def get_hierarchy() -> dict:
         return {
-            'tierDisplayName': ['Grey Market', 'Expert Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
+            'tierDisplayName': ['Expert Market', 'Grey Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International']}
+
+    @staticmethod
+    def get_tier_translation():
+        return {
+            'QB': 'OTCQB',
+            'PC': 'Pink Current Information',
+            'PL': 'Pink Limited Information',
+            'PN': 'Pink No Information',
+            'EM': 'Expert Market',
+            'GM': 'Grey Market'
+        }
 
     def is_relevant_diff(self, diff):
         if diff.get('changed_key') in self.extended_keys and type(diff.get('new')) is int:
