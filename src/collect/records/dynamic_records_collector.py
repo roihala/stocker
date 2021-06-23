@@ -50,6 +50,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 diffs.append(self.__generate_diff(document))
             else:
                 logger.warning(f"Couldn't resolve ticker for {record_id} at {response.request.url}")
+            self.record_id = max(self.record_id, record_id)
 
         return diffs
 
