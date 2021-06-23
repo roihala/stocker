@@ -23,7 +23,7 @@ class RecordsAlerter(AlerterBase, ABC):
         messages = {}
         prev = self._get_previous_date(diffs)
 
-        if not prev or (arrow.utcnow() - arrow.get(prev)).days > 60:
+        if not prev or (arrow.utcnow() - arrow.get(prev)).days > 180:
             messages.update({diffs[0]['_id']: self.generate_payload(diffs)})
             # Adding empty ids in order to save those diffs
             messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
