@@ -3,7 +3,7 @@ import arrow
 
 import telegram
 from argon2.exceptions import VerifyMismatchError, VerificationError
-from telegram import InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup, ReplyKeyboardRemove, ReplyKeyboardMarkup
 
 from src.telegram_bot.base_bot import BaseBot
 from src.telegram_bot.resources.actions import Actions
@@ -19,7 +19,8 @@ class RegistrationBot(BaseBot):
         PRICE = 1
         TIER = 2
         WATCHLIST = 3
-        END = 4
+        LOCATION = 4
+        END = 5
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -154,21 +155,29 @@ class RegistrationBot(BaseBot):
 
         if update.callback_query.data in Actions.SurveyActions.get_watchlist_actions():
             self.watchlist_action = update.callback_query.data
-            query.message.reply_text('Please insert a list of tickers, separated ONLY by *,* (comma)',
+            query.message.reply_text('Please insert a list of tickers, separated ONLY by *,* (comma), e.g:\n'
+                                     'NECA,GGII,MJWL',
                                      parse_mode=telegram.ParseMode.MARKDOWN)
             return Indexers.GET_WATCHLIST
 
         # Survey actions
         elif update.callback_query.data in Actions.SurveyActions.get_survey_actions(exclude_wathclist=True):
-            self.survey(query.message, query.from_user, update.callback_query.data)
-            return Indexers.CONVERSATION_CALLBACK
+            return self.survey(query.message, query.from_user, update.callback_query.data)
 
-    def survey(self, message, from_user, action):
+    def survey(self, message, from_user, action, remove_keyboard=False):
+        print('survey', action, self.survey_step)
+
+        if remove_keyboard:
+            _ = message.reply_text(text='.', parse_mode=telegram.ParseMode.MARKDOWN,
+                                   reply_markup=telegram.ReplyKeyboardRemove())
+            _.delete()
+
         self.__update_by_action(action, from_user)
 
-        # Updating step
-        self.survey_step = self.survey_step - 1 if action == Actions.SurveyActions.BACK else \
-            min(self.SurveySteps.END, self.survey_step + 1)
+        if action == Actions.SurveyActions.BACK:
+            self.survey_step = max(self.SurveySteps.PRICE, self.survey_step - 1)
+        else:
+            self.survey_step = min(self.SurveySteps.END, self.survey_step + 1)
 
         if self.survey_step == self.SurveySteps.PRICE:
             msg = 'Please choose price range'
@@ -184,32 +193,58 @@ class RegistrationBot(BaseBot):
             ])
         elif self.survey_step == self.SurveySteps.WATCHLIST:
             msg, keyboard = self.__get_watchlist_message(from_user)
+        elif self.survey_step == self.SurveySteps.LOCATION:
+            msg = "Please send us your location, we will use it to determine your timezone for alerts' dates"
+            keyboard = Keyboards.LOCATION
+            message.reply_text(text=msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+            return Indexers.GET_LOCATION
         elif self.survey_step == self.SurveySteps.END:
-            self.__end_survey(message, from_user.id)
+            self.__end_survey(message, from_user.id, edit_text=True if remove_keyboard else False)
             return
         else:
             raise ValueError("Logic shouldn't get here")
 
-        message.edit_text(text=msg, parse_mode=telegram.ParseMode.MARKDOWN,
-                          reply_markup=keyboard)
+        if remove_keyboard:
+            message.reply_text(text=msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+        else:
+            try:
+                message.edit_text(text=msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+            except telegram.error.BadRequest:
+                # Message unchanged
+                pass
+
+        return Indexers.CONVERSATION_CALLBACK
 
     def watchlist_callback(self, update, context):
-        watchlist = [ticker.upper() for ticker in set(update.message.text.split(','))]
+        new_tickers = [ticker.upper() for ticker in set(update.message.text.split(','))]
         saved_watchlist = self.__get_configuration(update.message.from_user.id).get('watchlist')
 
         if self.watchlist_action == Actions.SurveyActions.REPLACE_WATCHLIST:
-            self.__update_configuration(update.message.from_user.id, {'watchlist': watchlist})
-
+            watchlist = new_tickers
         elif self.watchlist_action == Actions.SurveyActions.ADD_TO_WATCHLIST:
-            self.__update_configuration(update.message.from_user.id,
-                                        {'watchlist': list(set(saved_watchlist) | set(watchlist))})
+            watchlist = list(set(saved_watchlist) | set(new_tickers))
         elif self.watchlist_action == Actions.SurveyActions.REMOVE_FROM_WATHCLIST:
-            self.__update_configuration(update.message.from_user.id,
-                                        {'watchlist': list(set(saved_watchlist) - set(watchlist))})
+            watchlist = list(set(saved_watchlist) - set(new_tickers))
+        else:
+            raise ValueError("Logic shouldn't get here")
+
+        self.__update_configuration(update.message.from_user.id, {'watchlist': watchlist})
 
         self.watchlist_action = None
-        # TODO
-        self.__end_survey(update.message, update.message.from_user.id)
+        self.survey_step += 1
+
+        update.message.reply_text(f"Your new watchlist is {','.join(watchlist)}\n\n"
+                                  "Please send us your location, we will use it to determine your timezone for alerts' dates",
+                                  reply_markup=Keyboards.LOCATION)
+
+        return Indexers.GET_LOCATION
+
+    def location_callback(self, update, context):
+        if update.message.location:
+            self.__update_configuration(update.message.from_user.id, {'location': update.message.location.to_dict()})
+            self.survey(update.message, update.message.from_user, self.SurveySteps.END, remove_keyboard=True)
+        else:
+            self.survey(update.message, update.message.from_user, update.message.text, remove_keyboard=True)
 
         return Indexers.CONVERSATION_CALLBACK
 
@@ -237,9 +272,8 @@ class RegistrationBot(BaseBot):
         if update:
             self.__update_configuration(from_user.id, update)
 
-    def __end_survey(self, message, chat_id):
+    def __end_survey(self, message, chat_id, edit_text=True):
         self.survey_step = self.SurveySteps.INIT
-        message.edit_text(Messages.SURVEY_END, reply_markup=Keyboards.SURVEY_END)
 
         if self.is_new_user_survey:
             try:
@@ -251,11 +285,12 @@ class RegistrationBot(BaseBot):
                                                      reply_markup=Keyboards.BACK_TO_TOOLS)
             self.bot_instance.pin_chat_message(chat_id=chat_id,message_id=welcome.message_id)
             self.is_new_user_survey = False
-
-        # TODO
-        # if edit_text:
-        #     message.edit_text(Messages.SURVEY_END, reply_markup=Keyboards.SURVEY_END)
-        # else:
+        else:
+            if edit_text:
+                message.edit_text(Messages.SURVEY_END, reply_markup=Keyboards.SURVEY_END)
+            else:
+                message.reply_text(text=Messages.SURVEY_END, parse_mode=telegram.ParseMode.MARKDOWN,
+                                   reply_markup=Keyboards.SURVEY_END)
 
     def __get_watchlist_message(self, from_user):
         try:
@@ -265,7 +300,7 @@ class RegistrationBot(BaseBot):
             current_wathclist = None
 
         if current_wathclist:
-            msg = f"Your current watchlist is:\n{','.join(current_wathclist)}\nWhat would you like to do with it?"
+            msg = f"Your watchlist is:\n{','.join(current_wathclist)}\nWhat would you like to do with it?"
             keyboard = InlineKeyboardMarkup([
                 [Buttons.ADD_TO_WATCHLIST, Buttons.REMOVE_FROM_WATCHLIST, Buttons.REPLACE_WATCHLIST],
                 [Buttons.BACK, Buttons.SKIP]
@@ -273,7 +308,7 @@ class RegistrationBot(BaseBot):
         else:
             msg = 'Press the button to set a watchlist'
             keyboard = InlineKeyboardMarkup([
-                [Buttons.ADD_TO_WATCHLIST],
+                [Buttons.REPLACE_WATCHLIST],
                 [Buttons.BACK, Buttons.SKIP]
             ])
         return msg, keyboard
@@ -349,7 +384,8 @@ class RegistrationBot(BaseBot):
         return {
             'max_price': 0.05,
             'max_tier': 'QB',
-            'watchlist': []
+            'watchlist': [],
+            'location': {}
         }
 
     @staticmethod

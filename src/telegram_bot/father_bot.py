@@ -40,6 +40,7 @@ class FatherBot(BaseBot):
         'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865': 'judit',
         'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f': 'special',
         'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
+        'fc4519d98ffaaed1e227d5214e27bf56f969306d7bb60e87f21eaf432d7c9f02': 'kevin',
         'free_trial': 'website'
     }
 
@@ -107,7 +108,7 @@ class FatherBot(BaseBot):
 
             if arg in self.FREE_TRIALS.keys():
                 source = self.FREE_TRIALS[arg]
-                if source in ['judit', 'special']:
+                if source in ['judit', 'special', 'kevin']:
                     weeks = 4
                 else:
                     weeks = 2
@@ -190,7 +191,6 @@ class FatherBot(BaseBot):
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
 
-            #TODO: Alert.get_msg should be recognized
             sorted_messages = sorted([
                 {'date': value['date'],
                  'message': value['message']

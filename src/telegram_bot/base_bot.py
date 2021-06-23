@@ -20,18 +20,6 @@ class BaseBot(object):
         log.update({'appendix': description}) if payload else None
         return log
 
-    def _log_telegram_action(self, user, action, is_success=False, payload='', appendix=''):
-        # TODO: Add real logger here
-        self.mongo_db.telegram_actions.insert_one({
-            'action': action,
-            'date': arrow.utcnow().format(),
-            'success': is_success,
-            'chat_id': user.id,
-            'user_name': user.name,
-            'payload': payload,
-            'appendix': appendix
-        })
-
     def _is_high_permission_user(self, user_name, chat_id):
         return bool(
             self.mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id, 'permissions': 'high'}))

@@ -13,6 +13,7 @@ from src.telegram_bot.father_bot import FatherBot
 from src.telegram_bot.owner_bot import OwnerBot
 from src.telegram_bot.registration_bot import RegistrationBot
 from src.telegram_bot.resources.indexers import Indexers
+from src.telegram_bot.resources.actions import Actions
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -69,8 +70,12 @@ class Stocker(Runnable):
                 Indexers.GET_WATCHLIST: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
                                                         registration_bot.watchlist_callback),
                                          MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
-                                                        registration_bot.invalid_watchlist),
-                                         ]
+                                                        registration_bot.invalid_watchlist)],
+                Indexers.GET_LOCATION: [MessageHandler(Filters.location | Filters.regex(
+                    f'^{Actions.SurveyActions.BACK}|{Actions.SurveyActions.SKIP}$'),
+                                                        registration_bot.location_callback)]
+
+
             },
 
             fallbacks=[MessageHandler(Filters.regex('^/tools|/start$'), father_bot.conversation_fallback)]

@@ -14,9 +14,9 @@ class Actions(object):
 
     class SurveyActions(object):
         START_SURVEY = 'start_survey'
-        SKIP = 'skip'
+        SKIP = 'Skip'
         CONTINUE = 'continue'
-        BACK = 'back'
+        BACK = '« Back'
         SKIP_SURVEY = 'skip_survey'
         LOWER_THAN_5 = 'lower_than_5'
         LOWER_THAN_2 = 'lower_than_2'

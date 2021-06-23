@@ -1,5 +1,5 @@
 import telegram
-from telegram import InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from src.telegram_bot.resources.actions import Actions
 
@@ -34,22 +34,26 @@ class Buttons(object):
                                                      callback_data=Actions.SurveyActions.ADD_TO_WATCHLIST)
     REMOVE_FROM_WATCHLIST = telegram.InlineKeyboardButton('Remove from watchlist',
                                                           callback_data=Actions.SurveyActions.REMOVE_FROM_WATHCLIST)
-    REPLACE_WATCHLIST = telegram.InlineKeyboardButton('Replace existing watchlist',
+    REPLACE_WATCHLIST = telegram.InlineKeyboardButton('Set new watchlist',
                                                       callback_data=Actions.SurveyActions.REPLACE_WATCHLIST)
+    OLD_LOCATION = telegram.KeyboardButton(text='Send location', request_location=True)
+    OLD_SKIP = telegram.KeyboardButton(text=Actions.SurveyActions.SKIP)
+    OLD_BACK = telegram.KeyboardButton(text=Actions.SurveyActions.BACK)
 
     RESTART_SURVEY = telegram.InlineKeyboardButton('Restart survey', callback_data=Actions.SurveyActions.START_SURVEY)
     SURVEY = telegram.InlineKeyboardButton('Survey', callback_data=Actions.SurveyActions.START_SURVEY)
 
 
 class Keyboards(object):
-    START = InlineKeyboardMarkup([[Buttons.FREE_TRIAL, Buttons.TOOLS]])
-    SUBSCRIBE = InlineKeyboardMarkup([[Buttons.CONTACT, Buttons.SUBSCRIBE]])
-    BACK_TO_TOOLS = InlineKeyboardMarkup([[Buttons.TOOLS]])
-
-    SURVEY_END = InlineKeyboardMarkup([[Buttons.RESTART_SURVEY, Buttons.BACK_TO_START]])
     TOOLS = InlineKeyboardMarkup([
         [Buttons.ALERTS,
          Buttons.DILUTION,
          Buttons.INFO],
-        [Buttons.SURVEY, Buttons.BACK_TO_START]
+        [Buttons.BACK_TO_START]
     ])
+    START = InlineKeyboardMarkup([[Buttons.FREE_TRIAL, Buttons.TOOLS]])
+    SUBSCRIBE = InlineKeyboardMarkup([[Buttons.CONTACT, Buttons.SUBSCRIBE]])
+    BACK_TO_TOOLS = InlineKeyboardMarkup([[Buttons.TOOLS]])
+
+    SURVEY_END = InlineKeyboardMarkup([[Buttons.RESTART_SURVEY, Buttons.CONTINUE]])
+    LOCATION = ReplyKeyboardMarkup([[Buttons.OLD_LOCATION, Buttons.OLD_BACK, Buttons.OLD_SKIP]])

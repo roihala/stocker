@@ -7,8 +7,7 @@ class Messages(object):
     PUNCH_EMOJI_UNICODE = u'\U0001F44A'
 
     WELCOME_MESSAGE = f"""Welcome to Stocker alerts, here's a quick how-to guide: 
-1. The main part - our alerts:
-From now on you will start getting alerts to this chat where: 
+1. The main part - our alerts: 
 {AlerterBase.RED_CIRCLE_EMOJI_UNICODE} Means old value
 {AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE} Means new value
 
@@ -18,6 +17,8 @@ For the more technical of you - there's a list of our supported commands in /sta
 e.g:
 /dilution SOAN
 /alerts ggii
+
+\* *Alerts will start popping in this chat*
 
 Good luck {HEART_EMOJI_UNICODE}"""
 
@@ -46,3 +47,7 @@ The following commands will make me sing:
                         'GGII,DRGV,SOAN,RSHN'
 
     SURVEY_END = 'Survey has ended, thanks and good luck!'
+    REMINDER_MESSAGE = """{punch_emoji} Dear user,
+Your free trial {formatted_time}.
+    
+Check our website for pricing plans and more info."""
