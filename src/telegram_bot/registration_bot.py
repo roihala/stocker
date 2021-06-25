@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import argon2
 import arrow
 
@@ -95,29 +97,38 @@ class RegistrationBot(BaseBot):
         if not user:
             self.user_agreemant(message, {'activation': ActivationCodes.TRIAL,
                                           'appendix': {'weeks': weeks, 'source': source}})
+            return
 
+        if 'appendix' in user and user['appendix'].get('weeks') != weeks:
+            appendix = deepcopy(user['appendix'])
+            appendix.update({'weeks': weeks, 'source': source})
+            self.mongo_db.telegram_users.update_one(user, {'$set': {'appendix': appendix}})
+
+            msg = f'{from_user.name} updated free trial period to {weeks} weeks\n' \
+                'Try our tools for some cool stuff!'
+            keyboard = Keyboards.BACK_TO_TOOLS
+
+        elif user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
+            msg = f'{from_user.name} is already registered!\n' \
+                'Try our tools for some cool stuff!'
+            keyboard = Keyboards.BACK_TO_TOOLS
+        elif user.get('activation') in [ActivationCodes.CANCEL, ActivationCodes.DEREGISTER]:
+            msg = f'{from_user.name} subscription has ended, please renew your subscription'
+            keyboard = Keyboards.SUBSCRIBE
+        elif user.get('activation') == ActivationCodes.UNREGISTER:
+            msg = f'{from_user.name} free trial has ended\n' \
+                f'Please purchase subscription plan'
+            keyboard = Keyboards.SUBSCRIBE
+        elif user.get('activation') == ActivationCodes.PENDING:
+            msg = f'{from_user.name} has pending subscription plan\n' \
+                f'Please check your email for activation'
+            keyboard = InlineKeyboardMarkup([[Buttons.CONTACT]])
         else:
-            if user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]:
-                msg = f'{from_user.name} is already registered!\n' \
-                    'Try our tools for some cool stuff!'
-                keyboard = Keyboards.BACK_TO_TOOLS
-            elif user.get('activation') in [ActivationCodes.CANCEL, ActivationCodes.DEREGISTER]:
-                msg = f'{from_user.name} subscription has ended, please renew your subscription'
-                keyboard = Keyboards.SUBSCRIBE
-            elif user.get('activation') == ActivationCodes.UNREGISTER:
-                msg = f'{from_user.name} free trial has ended\n' \
-                    f'Please purchase subscription plan'
-                keyboard = Keyboards.SUBSCRIBE
-            elif user.get('activation') == ActivationCodes.PENDING:
-                msg = f'{from_user.name} has pending subscription plan\n' \
-                    f'Please check your email for activation'
-                keyboard = InlineKeyboardMarkup([[Buttons.CONTACT]])
-            else:
-                self.logger.warning(f"No activation for user: {user}")
-                msg = f'An error has occurred, please contact us for further information'
-                keyboard = InlineKeyboardMarkup([[Buttons.CONTACT]])
+            self.logger.warning(f"No activation for user: {user}")
+            msg = f'An error has occurred, please contact us for further information'
+            keyboard = InlineKeyboardMarkup([[Buttons.CONTACT]])
 
-            message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
+        message.reply_text(msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
 
     def deregister_command(self, update, context):
         user = update.message.from_user
