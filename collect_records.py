@@ -40,7 +40,7 @@ class RecordsCollect(Runnable):
                 time.sleep(1)
 
         scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10000)
+            'default': ThreadPoolExecutor(10)
         })
 
         trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
