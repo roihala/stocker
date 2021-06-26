@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Dict, List
 
-import fitz
 import pymongo
 import requests
 from retry import retry
@@ -14,6 +13,12 @@ from runnable import Runnable
 from src.collect.collector_base import CollectorBase
 
 logger = logging.getLogger('RecordsCollect')
+
+try:
+    import fitz
+except Exception:
+    logger.warning("Couldn't import fitz")
+
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
 MAX_PAGE_SEARCH = 3
