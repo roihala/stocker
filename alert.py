@@ -27,7 +27,7 @@ from src.alert.tickers.alerters import Securities
 from google.cloud.pubsub import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), 'img/profileS.png')
+LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'profileS.png')
 
 
 class Alert(Runnable):
