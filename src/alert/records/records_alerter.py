@@ -30,15 +30,14 @@ class RecordsAlerter(AlerterBase, ABC):
 
         return messages
 
-    def generate_payload(self, diffs, prev_date):
-        return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}
-
     def generate_msg(self, diffs, prev_date):
         msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                                title=diff.get('title')) for diff in diffs])
 
-
         return f'*{self.name}* added:\n{msg}'
+
+    def generate_payload(self, diffs, prev_date):
+        return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}
 
     def _get_previous_date(self, diffs):
         try:
