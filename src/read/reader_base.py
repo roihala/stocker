@@ -203,3 +203,8 @@ class ReaderBase(ABC):
     @staticmethod
     def escape_markdown(msg):
         return msg.replace("_", "\\_").replace("[", "\\[").replace("`", "\\`").replace("*", "\\*")
+
+    @staticmethod
+    def get_stocker_date(date, format='YYYY-MM-DD HH:MM', timezone='US/Eastern'):
+        date = arrow.get(date).to(timezone)
+        return f"*{date.format(format)}*"

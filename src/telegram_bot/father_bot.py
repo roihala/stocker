@@ -17,6 +17,7 @@ from telegram import InlineKeyboardMarkup
 from client import Client
 from src.read import readers
 from alert import Alert
+from src.read.reader_base import ReaderBase
 from src.telegram_bot.base_bot import BaseBot
 from src.telegram_bot.registration_bot import RegistrationBot
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
@@ -349,7 +350,7 @@ class FatherBot(BaseBot):
     @staticmethod
     def __format_message(text, date):
         # Add date and blank lines
-        return f"{text}\n_{arrow.get(date).to('Asia/Jerusalem').format()}_"
+        return f"{text}\n{ReaderBase.get_stocker_date(date)}"
 
     @staticmethod
     def __extract_ticker(context):
