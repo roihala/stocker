@@ -25,5 +25,5 @@ spec:
               value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
-            - name: DEBUG
-              value: "true"
+#            - name: DEBUG
+#              value: "true"
