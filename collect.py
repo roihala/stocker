@@ -10,6 +10,7 @@ import pymongo
 from bson import json_util
 from google import pubsub_v1
 from google.pubsub_v1 import SubscriberClient
+from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 from common_runnable import CommonRunnable
@@ -29,7 +30,7 @@ class Collect(CommonRunnable):
         super().__init__(*args, **kwargs)
 
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
-        self.publisher = pubsub_v1.PublisherClient()
+        self.publisher = PublisherClient()
         self.topic_name = self.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_DIFFS_TOPIC_NAME
         self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
@@ -94,8 +95,6 @@ class Collect(CommonRunnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
-
-        msg.ack()
 
 
 def main():
