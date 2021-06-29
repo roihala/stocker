@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import random
 from copy import deepcopy
 from functools import reduce
 from typing import Dict, Iterable
@@ -157,7 +158,9 @@ class Alert(Runnable):
         users = self._mongo_db.telegram_users.find({'delay': delay}) if not ignore_delay \
             else self._mongo_db.telegram_users.find()
 
-        return [user for user in users if ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
+        registered_users = [user for user in users if ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
+        random.shuffle(registered_users)
+        return registered_users
 
     def __send_delayed(self, delayed_users: Iterable[Dict], msg: dict, ticker, price):
         trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(seconds=20))
