@@ -96,7 +96,7 @@ spec:
               imagePullPolicy: IfNotPresent
               args:
                 - scale
-                - --replicas=100
+                - --replicas=0
                 - deployments/collector-app
                 - --namespace=default
           serviceAccountName: scaler
@@ -148,7 +148,7 @@ spec:
               imagePullPolicy: IfNotPresent
               args:
                 - scale
-                - --replicas=100
+                - --replicas=0
                 - deployments/collector-app
                 - --namespace=default
           serviceAccountName: scaler
