@@ -1,0 +1,51 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: scale-down-job
+  namespace: default
+spec:
+  schedule: "30 20 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest # <3>
+              imagePullPolicy: IfNotPresent
+              args:
+                - scale
+                - --replicas=0
+                - deployments/collector-app
+                - --namespace=default
+          serviceAccountName: scaler
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: scale-up-job
+  namespace: default
+spec:
+  schedule: "0 13 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest # <3>
+              imagePullPolicy: IfNotPresent
+              args:
+                - scale
+                - --replicas=100
+                - deployments/collector-app
+                - --namespace=default
+          serviceAccountName: scaler
+
