@@ -99,7 +99,7 @@ class RegistrationBot(BaseBot):
                                           'appendix': {'weeks': weeks, 'source': source}})
             return
 
-        if 'appendix' in user and user['appendix'].get('weeks') != weeks:
+        if 'appendix' in user and user['appendix'].get('weeks') < weeks:
             appendix = deepcopy(user['appendix'])
             appendix.update({'weeks': weeks, 'source': source})
             self.mongo_db.telegram_users.update_one(user, {'$set': {'appendix': appendix}})

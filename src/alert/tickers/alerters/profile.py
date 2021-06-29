@@ -101,7 +101,6 @@ class Profile(TickerAlerter):
         return diff
 
     def __get_extra_data(self, diff):
-        #TODO
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
 
         extra_data_field = diff.get('new')
