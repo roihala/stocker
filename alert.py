@@ -223,7 +223,7 @@ class Alert(Runnable):
                '{alert_msg}\n' \
                '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
                                alert_msg=alert_text,
-                               date=sorted([value['date'] for value in msg.values()])[-1])
+                               date=ReaderBase.get_stocker_date(sorted([value['date'] for value in msg.values() if 'date' in value])[-1]))
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
