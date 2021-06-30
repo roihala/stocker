@@ -31,12 +31,10 @@ class OwnerBot(BaseBot):
         self.send_broadcast_msg(update.message, update.message.from_user)
         return ConversationHandler.END
 
-    def send_broadcast_msg(self, message, from_user, users=None, msg=None, keyboard=None):
+    def send_broadcast_msg(self, message, from_user, msg=None, keyboard=None):
         msg = msg if msg else message.text
-        users = users if users else self.mongo_db.telegram_users.find()
-
         if self.__validate_permissions(message, from_user):
-            for to_user in users:
+            for to_user in self.mongo_db.telegram_users.find({'activation': {"$in": [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]}}):
                 try:
                     if keyboard:
                         self.bot_instance.send_message(
