@@ -45,10 +45,7 @@ class OwnerBot(BaseBot):
                     else:
                         self.bot_instance.send_message(chat_id=to_user['chat_id'], text=msg)
                 except Exception as e:
-                    self.logger.warning(
-                        "Couldn't send broadcast to {user_name} of {chat_id}".format(
-                            user_name=to_user['user_name'],
-                            chat_id=to_user['chat_id']))
+                    self.logger.warning(f"Couldn't send broadcast to {to_user}")
                     self.logger.exception(e)
             message.reply_text('Your message have been sent to all of the stocker bot users.')
 
