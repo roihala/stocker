@@ -24,7 +24,7 @@ class CollectScheduler(LightRunnable):
 
         self.disable_apscheduler_logs()
 
-        trigger = OrTrigger([IntervalTrigger(minutes=10), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(minutes=5), DateTrigger()])
 
         scheduler.add_job(self.publish_tickers,
                           trigger=trigger,
