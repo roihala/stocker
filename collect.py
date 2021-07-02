@@ -23,7 +23,7 @@ cache = {}
 class Collect(Runnable):
     PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
     PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
-    MAX_MESSAGES = 50
+    MAX_MESSAGES = 30
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,26 +41,26 @@ class Collect(Runnable):
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
         ack_ids = [msg.ack_id for msg in response.received_messages]
 
-        if len(ack_ids) > 0:
-            self._subscriber.acknowledge(
-                request={
-                    "subscription": self._subscription_name,
-                    "ack_ids": ack_ids,
-                }
-            )
+        # if len(ack_ids) > 0:
+        #     self._subscriber.acknowledge(
+        #         request={
+        #             "subscription": self._subscription_name,
+        #             "ack_ids": ack_ids,
+        #         }
+        #     )
 
-            for msg in response.received_messages:
-                self.queue_listen(msg.message.data)
+        for msg in response.received_messages:
+            self.queue_listen(msg.message.data, msg.ack_id)
 
         self.executor.shutdown(wait=True)
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
 
         self.run()
 
-    def queue_listen(self, msg: bytes):
-        self.executor.submit(self.ticker_collect, msg)
+    def queue_listen(self, msg: bytes, ack_id):
+        self.executor.submit(self.ticker_collect, msg, ack_id)
 
-    def ticker_collect(self, msg: bytes):
+    def ticker_collect(self, msg: bytes, ack_id):
 
         # ticker = msg.data.decode('utf-8')
         ticker = msg.decode('utf-8')
@@ -94,6 +94,13 @@ class Collect(Runnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
+
+        self._subscriber.acknowledge(
+            request={
+                "subscription": self._subscription_name,
+                "ack_ids": [ack_id],
+            }
+        )
 
 
 def main():

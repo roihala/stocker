@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       run: collector-app
-  replicas: 100
+  replicas: 127
   template:
     metadata:
       labels:
@@ -15,9 +15,11 @@ spec:
       containers:
         - name: collector-app
           image: eu.gcr.io/stocker-300519/collector:latest
-#          resources:
-#            requests:
-#              memory: "8Gi"
+          resources:
+            requests:
+              memory: "120Mi"
+            limits:
+              memory: "180Mi"
           env:
             - name: ENV
               value: "production"
