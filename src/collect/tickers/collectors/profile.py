@@ -34,9 +34,3 @@ class Profile(SiteCollector):
         return ['securities', 'isProfileVerified', 'isCaveatEmptor', 'isShell', 'isBankrupt', 'unableToContact',
                 'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate',
                 'estimatedMarketCapAsOfDate', 'estimatedMarketCap']
-
-    def fetch_data(self, data=None):
-        data = super().fetch_data()
-        # Those keys are either irrelevant or used in other collectors
-        [data.pop(key, None) for key in self.get_drop_keys()]
-        return data
