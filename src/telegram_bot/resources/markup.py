@@ -7,7 +7,7 @@ from src.telegram_bot.resources.actions import Actions
 class Buttons(object):
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
     PAYMENT_URL = 'https://www.stocker.watch/plans-pricing'
-    AGREEMANT_URL = "http://tinyurl.com/agreemant"
+    AGREEMANT_URL = "https://tinyurl.com/stocker-agreemants"
 
     ALERTS = telegram.InlineKeyboardButton("Alerts", callback_data=Actions.ALERTS)
     DILUTION = telegram.InlineKeyboardButton("Dilution", callback_data=Actions.DILUTION)
