@@ -8,7 +8,7 @@ import pandas as pd
 from bson import json_util
 
 from collect import Collect
-from runnable import Runnable
+from common_runnable import CommonRunnable
 from google.cloud import pubsub_v1
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -26,7 +26,7 @@ records_cache = {}
 NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.csv'))
 
 
-class RecordsCollect(Runnable):
+class RecordsCollect(CommonRunnable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()

@@ -37,9 +37,6 @@ class Runnable(ABC):
         else:
             self.args = args if args else self.create_parser().parse_args()
             self._debug = self.args.debug
-            self._mongo_db = self.init_mongo(self.args.uri)
-            self._telegram_bot = self.init_telegram(self.args.token)
-            self._tickers_list = self.extract_tickers(self.args.csv)
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(__file__), 'credentials/stocker.json')
 
             if self.args.verbose:
@@ -68,9 +65,6 @@ class Runnable(ABC):
         parser = argparse.ArgumentParser()
         parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
         parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
-        parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
-        parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
 
         return parser
 

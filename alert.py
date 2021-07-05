@@ -16,7 +16,7 @@ from apscheduler.triggers.date import DateTrigger
 from bson import ObjectId
 from telegram import InputMediaDocument
 
-from runnable import Runnable
+from common_runnable import CommonRunnable
 from src.collect.records.dynamic_records_collector import DynamicRecordsCollector
 from src.collect.records.collectors.filings_pdf import FILINGS_PDF_URL
 
@@ -31,7 +31,7 @@ from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
 
 
-class Alert(Runnable):
+class Alert(CommonRunnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
     DOLLAR_EMOJI_UNICODE = u'\U0001F4B2'
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'

@@ -15,17 +15,16 @@ import uvicorn
 
 from fastapi import FastAPI
 
-from runnable import Runnable
-from src.rest import ActivationCodes
-from src.rest.dilution import init_dash
+from common_runnable import CommonRunnable
 from src.rest.wix_payload import WixPayLoad
+from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
 NAME_TAG = 'STOCKER_NAME_TAG'
 ACTIVATION_BUTTON_TAG = 'STOCKER_ACTIVATION_BUTTON_TAG'
 PLAN_TAG = 'STOCKER_PLAN_TAG'
 
 
-class Rest(Runnable):
+class Rest(CommonRunnable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

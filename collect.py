@@ -12,6 +12,7 @@ from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from common_runnable import CommonRunnable
 from runnable import Runnable
 from src.factory import Factory
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -20,7 +21,7 @@ global cache
 cache = {}
 
 
-class Collect(Runnable):
+class Collect(CommonRunnable):
     PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
 
     def __init__(self, *args, **kwargs):

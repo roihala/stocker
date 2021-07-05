@@ -2,10 +2,10 @@ import arrow
 import telegram
 from telegram import InlineKeyboardMarkup
 
-from runnable import Runnable
+from common_runnable import CommonRunnable
 
 
-class DailyAlert(Runnable):
+class DailyAlert(CommonRunnable):
     PUNCH_EMOJI_UNICODE = u'\U0001F44A'
     REMINDER_MESSAGE = """{punch_emoji} Dear user,
 Your free trial {formatted_time}.

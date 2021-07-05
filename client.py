@@ -7,7 +7,7 @@ import pandas
 import requests
 
 from alert import Alert
-from runnable import Runnable
+from common_runnable import CommonRunnable
 from src.factory import Factory
 from src.find.site import Site
 from src.read import readers
@@ -23,7 +23,7 @@ FLORIDA_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'florida_tickers.
 DELIQ_TICKERS_PATH = os.path.join(os.path.dirname(__file__), 'deliq_tickers.csv')
 
 
-class Client(Runnable):
+class Client(CommonRunnable):
     LINK_EMOJI_UNICODE = u'\U0001F517'
 
     def __init__(self):

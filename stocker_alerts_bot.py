@@ -8,7 +8,7 @@ import sys
 import inflection
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from runnable import Runnable
+from common_runnable import CommonRunnable
 from src.telegram_bot.father_bot import FatherBot
 from src.telegram_bot.owner_bot import OwnerBot
 from src.telegram_bot.registration_bot import RegistrationBot
@@ -27,7 +27,7 @@ class DefaultCustomFormatter(logging.Formatter):
             return logmsg
 
 
-class Stocker(Runnable):
+class Stocker(CommonRunnable):
     def __init__(self, args=None):
         super().__init__(args)
         pass
