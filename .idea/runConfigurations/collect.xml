@@ -23,7 +23,7 @@
       </ENTRIES>
     </EXTENSION>
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/collect.py" />
-    <option name="PARAMETERS" value="--verbose --debug --write --uri &quot;mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/dev&quot; --token &quot;1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk&quot;" />
+    <option name="PARAMETERS" value="--verbose --debug --uri &quot;mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/dev&quot; --token &quot;1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk&quot;" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

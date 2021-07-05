@@ -61,8 +61,7 @@ class RecordsCollect(Runnable):
         for collection_name in Factory.RECORDS_COLLECTIONS.keys():
             if collection_name in ['secfilings', 'filings']:
                 continue
-            collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
-                              'write': self._write}
+            collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
             if collection_name == 'filings_pdf':
                 collector_args.update({'tickers': self.tickers_mapping})
             collector = Factory.collectors_factory(collection_name, **collector_args)

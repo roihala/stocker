@@ -28,7 +28,6 @@ class Runnable(ABC):
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":
             self._debug = os.getenv('DEBUG', 'false').lower() == 'true'
-            self._write = False
             self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
             self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
             self._tickers_list = self.extract_tickers()
@@ -38,7 +37,6 @@ class Runnable(ABC):
         else:
             self.args = args if args else self.create_parser().parse_args()
             self._debug = self.args.debug
-            self._write = self.args.write
             self._mongo_db = self.init_mongo(self.args.uri)
             self._telegram_bot = self.init_telegram(self.args.token)
             self._tickers_list = self.extract_tickers(self.args.csv)
@@ -69,7 +67,6 @@ class Runnable(ABC):
     def create_parser(self):
         parser = argparse.ArgumentParser()
         parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
-        parser.add_argument('--write', dest='write', help='do you want to write? (overrides debug)', default=False, action='store_true')
         parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
         parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
         parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)

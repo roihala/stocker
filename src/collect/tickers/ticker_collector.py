@@ -93,10 +93,9 @@ class TickerCollector(CollectorBase, ABC):
         copy = deepcopy(data)
         copy.update({"ticker": self.ticker, "date": self._date.format()})
 
-        if self._debug and self._write is not True:
+        if self._debug:
             logger.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
-        else:
-            self.collection.insert_one(copy)
+        self.collection.insert_one(copy)
 
     def __collect_sons(self, diffs):
         for son in self.get_sons():

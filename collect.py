@@ -65,7 +65,7 @@ class Collect(Runnable):
                     continue
 
                 collector_args = {'mongo_db': self._mongo_db, 'cache': cache, 'date': date, 'debug': self._debug,
-                                  'write': self._write, 'ticker': ticker}
+                                  'ticker': ticker}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
 
