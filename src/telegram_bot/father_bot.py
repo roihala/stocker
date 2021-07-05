@@ -37,13 +37,14 @@ class FatherBot(BaseBot):
     MARKET_EYES_URL = 'https://t.me/EyesOnMarket'
     TWITTER_URL = 'https://twitter.com/EyesOnMarket'
 
-    FREE_TRIALS = {
+    FREE_TRIAL_TOKENS = {
         'c92be8609f80cac1aa96bad370acd64761836bd3f62de0cb448690de81c3a865': 'judit',
         'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f': 'special',
         'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
         'fc4519d98ffaaed1e227d5214e27bf56f969306d7bb60e87f21eaf432d7c9f02': 'kevin',
         'free_trial': 'website'
     }
+    DEREGISTER_TOKEN = 'f16e4d4c8ee076e33d27a0c1a5b1adc7886b324c520f55206f913275bc0c075d'
 
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
@@ -107,8 +108,8 @@ class FatherBot(BaseBot):
         if len(update.message.text.split(' ')) == 2:
             arg = update.message.text.split(' ')[1]
 
-            if arg in self.FREE_TRIALS.keys():
-                source = self.FREE_TRIALS[arg]
+            if arg in self.FREE_TRIAL_TOKENS.keys():
+                source = self.FREE_TRIAL_TOKENS[arg]
                 if source in ['judit', 'special', 'kevin']:
                     weeks = 4
                 else:
@@ -116,6 +117,8 @@ class FatherBot(BaseBot):
 
                 self.registration_bot.free_trial(update.message, update.message.from_user, context,
                                                  weeks=weeks, source=source)
+            elif arg == self.DEREGISTER_TOKEN:
+                self.registration_bot.deregister(update.message.from_user, update.message)
             else:
                 self.registration_bot.activate_token(update, arg, context)
         else:
