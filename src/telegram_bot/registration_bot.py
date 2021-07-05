@@ -132,6 +132,9 @@ class RegistrationBot(BaseBot):
 
     def deregister_command(self, update, context):
         user = update.message.from_user
+        self.deregister(user, update.message)
+
+    def deregister(self, user, message):
         try:
             self.mongo_db.telegram_users.update_one({'chat_id': user.id},
                                                     {'$set': {'activation': ActivationCodes.DEREGISTER}})
@@ -139,10 +142,10 @@ class RegistrationBot(BaseBot):
             self.logger.info(
                 "{user_name} of {chat_id} deregistered".format(user_name=user.name, chat_id=user.id))
 
-            update.message.reply_text('{user_name} Deregistered successfully'.format(user_name=user.name))
+            message.reply_text('{user_name} Deregistered successfully'.format(user_name=user.name))
 
         except Exception as e:
-            update.message.reply_text(
+            message.reply_text(
                 '{user_name} couldn\'t deregister, please contact the support team'.format(user_name=user.name))
             self.logger.exception(e.__traceback__)
 
