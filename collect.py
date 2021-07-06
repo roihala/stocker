@@ -2,6 +2,7 @@
 import concurrent.futures
 import json
 import logging
+import os
 from functools import reduce
 from time import sleep
 
@@ -15,9 +16,7 @@ from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 from runnable import Runnable
 from src.factory import Factory
-
-global cache
-cache = {}
+from redis import Redis
 
 
 class Collect(Runnable):
@@ -33,6 +32,11 @@ class Collect(Runnable):
         self.topic_name = self.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_DIFFS_TOPIC_NAME
         self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
+
+        if os.getenv('REDIS_IP') is not None:
+            self.cache = Redis(host=os.getenv('REDIS_IP'))
+        else:
+            self.cache = {}
 
     def run(self):
 
@@ -76,7 +80,7 @@ class Collect(Runnable):
                 if collection_name in all_sons:
                     continue
 
-                collector_args = {'mongo_db': self._mongo_db, 'cache': cache, 'date': date, 'debug': self._debug,
+                collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'write': self._write, 'ticker': ticker}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
