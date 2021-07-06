@@ -4,6 +4,9 @@ import logging
 
 from abc import ABC, abstractmethod
 
+from redis import Redis
+import pickle
+
 from src import factory
 from src.collect.collector_base import CollectorBase
 from src.collect.tickers.differ import Differ
@@ -20,7 +23,8 @@ class TickerCollector(CollectorBase, ABC):
         :param debug: is debug?
         """
         super().__init__(*args, **kwargs)
-        if self.name not in self.cache:
+
+        if not isinstance(self.cache, Redis) and self.name not in self.cache:
             self.cache[self.name] = {}
 
         self.ticker = ticker.upper()
@@ -45,9 +49,30 @@ class TickerCollector(CollectorBase, ABC):
     def fetch_data(self, data=None) -> dict:
         pass
 
+    def _get_cache_latest(self):
+        if isinstance(self.cache, dict):
+            return self.cache[self.name].get(self.ticker, None)
+        if isinstance(self.cache, Redis):
+            key = self.name + '.' + self.ticker
+            result = self.cache.get(key)
+            if result is None:
+                return None
+
+            result = pickle.loads(result)
+            if result == {}:
+                return None
+
+    def _set_cache_value(self, current_value):
+        if isinstance(self.cache, dict):
+            self.cache[self.name][self.ticker] = current_value
+        if isinstance(self.cache, Redis):
+            key = self.name + '.' + self.ticker
+            pickled = pickle.dumps(current_value)
+            self.cache.set(key, pickled)
+
     def collect(self, raw_data=None):
         current = self.fetch_data(raw_data)
-        latest = self.cache[self.name].get(self.ticker, None)
+        latest = self._get_cache_latest()
         latest = latest if latest else self._reader.get_latest(remove_index=True)
 
         diffs = []
@@ -63,7 +88,7 @@ class TickerCollector(CollectorBase, ABC):
 
             logger.info('diffs: {diffs}'.format(diffs=diffs))
 
-        self.cache[self.name][self.ticker] = current
+        self._set_cache_value(current)
         return self.__collect_sons(diffs)
 
     def __decorate_diff(self, diff):
@@ -85,7 +110,7 @@ class TickerCollector(CollectorBase, ABC):
             "changed_key": key,
             "source": self.name
         })
-        
+
         return diff
 
     def __save_document(self, data: dict):
