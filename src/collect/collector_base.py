@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 class CollectorBase(ABC):
     PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
 
-    def __init__(self, mongo_db: Database, cache, date=None, debug=False):
+    def __init__(self, mongo_db: Database, cache, date=None, debug=False, write=False):
         """
         :param mongo_db: mongo db connection
         :param ticker: current ticker
