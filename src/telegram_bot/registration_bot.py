@@ -32,7 +32,7 @@ class RegistrationBot(BaseBot):
         self.is_new_user_survey = False
 
     def create_user(self, user_name, chat_id, message, activation, delay=True, appendix: dict = None,
-                    update_query=None, create=True, delete_other_documents=False):
+                    update_query=None, create=True):
         user_document = {
             'user_name': user_name,
             'chat_id': chat_id,
@@ -48,15 +48,23 @@ class RegistrationBot(BaseBot):
         if not create:
             return user_document
 
+        if activation == ActivationCodes.ACTIVE:
+            existing_entry = {}
+            for document in self.mongo_db.telegram_users.find({"chat_id": chat_id}):
+                if 'token' not in document:
+                    existing_entry.update(document)
+                    self.mongo_db.telegram_users.delete_one(document)
+                    existing_entry.pop('_id')
+
+            existing_entry.update(user_document)
+            user_document = existing_entry
+
         if isinstance(update_query, dict):
             self.mongo_db.telegram_users.update_one(update_query, {'$set': user_document})
         else:
             self.mongo_db.telegram_users.insert_one(user_document)
 
-        if delete_other_documents:
-            for document in [user for user in self.mongo_db.telegram_users.find()
-                             if user.get('chat_id') == chat_id and ('token' not in user)]:
-                self.mongo_db.telegram_users.delete_one(document)
+
 
         self.is_new_user_survey = True
         self.start_survey(message)
@@ -156,8 +164,7 @@ class RegistrationBot(BaseBot):
 
         if token_verified and not token_occupied:
             self.user_agreemant(update.message,
-                                args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document,
-                                      'delete_other_documents': True})
+                                args={'activation': ActivationCodes.ACTIVE, 'update_query': user_document})
 
         else:
             msg = self.__activation_failure_message(token_verified, token_occupied, from_user, token)
