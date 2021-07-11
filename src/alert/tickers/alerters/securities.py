@@ -16,11 +16,11 @@ class Securities(TickerAlerter):
 
     @property
     def relevant_keys(self):
-        return ['tierDisplayName']
+        return ['tierDisplayName', 'transferAgents']
 
     @property
     def extended_keys(self):
-        return ['authorizedShares', 'outstandingShares', 'transferAgents', 'restrictedShares', 'unrestrictedShares']
+        return ['authorizedShares', 'outstandingShares', 'restrictedShares', 'unrestrictedShares']
 
     @staticmethod
     def get_hierarchy() -> dict:
