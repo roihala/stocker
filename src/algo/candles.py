@@ -23,8 +23,6 @@ class Candles(object):
 
         raise ValueError(f"None of the candles match start_time: {start_time}")
 
-    def get_percentage_by_period(self, period):
-        if period == CandlePeriods.MIN:
-            return 100 * (self.candles[1]['close'] / self.candles[0]['close'])
-
-
+    def get_percentage_by_period(self, minutes):
+        # TODO: handle missing candles
+        return 100 * (self.candles[minutes]['close'] / self.candles[0]['close'])
