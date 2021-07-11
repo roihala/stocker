@@ -124,8 +124,12 @@ class TickerAlerter(AlerterBase):
         """
         key = diff.get('changed_key')
 
-        if key not in self.relevant_keys or self._is_valid_diff(diff) is False:
-            return False
+        try:
+            if key not in self.relevant_keys or self._is_valid_diff(diff) is False:
+                return False
+        except Exception as e:
+            logger.warning(f"Couldn't validate diff: {diff}")
+            logger.exception(e)
 
         if key in self.get_hierarchy().keys():
             try:
