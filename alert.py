@@ -67,7 +67,7 @@ class Alert(CommonRunnable):
         raw_diffs = deepcopy(diffs)
 
         try:
-            ticker, price = self.__extract_ticker(diffs)
+            ticker, price = self.extract_ticker(diffs)
 
             if not ticker:
                 self.logger.warning(f"Couldn't detect ticker in {diffs}")
@@ -118,14 +118,18 @@ class Alert(CommonRunnable):
 
         return messages
 
-    def __extract_ticker(self, diffs):
+    @staticmethod
+    def extract_ticker(diffs, include_price=True):
         tickers = set([diff.get('ticker') for diff in diffs])
 
         if not len(tickers) == 1:
             raise ValueError("Batch consists more than one ticker: {tickers}".format(tickers=tickers))
 
         ticker = tickers.pop()
-        return ticker, ReaderBase.get_last_price(ticker)
+        if include_price:
+            return ticker, ReaderBase.get_last_price(ticker)
+        else:
+            return ticker
 
     def is_relevant(self, ticker, price):
         try:
