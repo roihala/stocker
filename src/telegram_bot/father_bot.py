@@ -42,6 +42,7 @@ class FatherBot(BaseBot):
         'fe69f4558183d6307d988c11a8e0b42839a94fb6de371a1fc9f362f698465f7f': 'special',
         'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
         'fc4519d98ffaaed1e227d5214e27bf56f969306d7bb60e87f21eaf432d7c9f02': 'kevin',
+        '7354be84e72f6fc3048b72320cc663994f1ba542a5a69ddb9964bfea4d884e1d': 'mambo',
         'free_trial': 'website'
     }
     DEREGISTER_TOKEN = 'f16e4d4c8ee076e33d27a0c1a5b1adc7886b324c520f55206f913275bc0c075d'
