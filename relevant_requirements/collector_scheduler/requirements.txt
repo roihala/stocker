@@ -1,5 +1,4 @@
 requests
-apscheduler
 dnspython
 retry
 pandas
