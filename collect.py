@@ -44,7 +44,7 @@ class Collect(CommonRunnable):
         # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
-        ack_ids = [msg.ack_id for msg in response.received_messages]
+        # ack_ids = [msg.ack_id for msg in response.received_messages]
 
         # if len(ack_ids) > 0:
         #     self._subscriber.acknowledge(

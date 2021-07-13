@@ -15,6 +15,11 @@ spec:
       containers:
         - name: alerter-app
           image: eu.gcr.io/stocker-300519/alerter:latest
+          resources:
+            requests:
+              memory: "150Mi"
+            limits:
+              memory: "170Mi"
           env:
             - name: ENV
               value: "production"
