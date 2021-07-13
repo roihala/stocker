@@ -26,8 +26,11 @@ from src.read.reader_base import ReaderBase
 from src.alert.tickers.alerters import Securities
 
 from google.cloud.pubsub import SubscriberClient
+from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
+from bson import json_util
 
+publisher = pubsub_v1.PublisherClient()
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
 
 
@@ -38,6 +41,7 @@ class Alert(Runnable):
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
     PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
+    PUBSUB_RELEVANT_TOPIC_NAME = 'projects/stocker-300519/topics/diffs-relevant'
 
     def __init__(self):
         super().__init__()
@@ -84,7 +88,15 @@ class Alert(Runnable):
             msg = self.get_msg(diffs, alerter_args)
 
             if msg:
-                self._mongo_db.diffs.insert_many([diff for diff in raw_diffs if diff.get('_id') in msg.keys()])
+                processed_diffs = [diff for diff in raw_diffs if diff.get('_id') in msg.keys()]
+                self._mongo_db.diffs.insert_many(processed_diffs)
+
+                try:
+                    data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
+                    publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
+                except Exception as e:
+                    self.logger.exception(e)
+                    self.logger.error("Failed to publish relevant diffs")
 
                 delay = False if any([diff.get('source') in ['filings', 'filings_pdf'] for diff in raw_diffs]) else True
                 self.__send_or_delay(msg, ticker, price, is_delay=delay)
@@ -158,7 +170,8 @@ class Alert(Runnable):
         users = self._mongo_db.telegram_users.find({'delay': delay}) if not ignore_delay \
             else self._mongo_db.telegram_users.find()
 
-        registered_users = [user for user in users if ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
+        registered_users = [user for user in users if
+                            ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
         random.shuffle(registered_users)
         return registered_users
 
