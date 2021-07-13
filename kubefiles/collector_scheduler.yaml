@@ -1,3 +1,25 @@
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: collector-scheduler-app
+#spec:
+#  selector:
+#    matchLabels:
+#      run: collector-scheduler
+#  replicas: 1
+#  template:
+#    metadata:
+#      labels:
+#        run: collector-scheduler
+#    spec:
+#      containers:
+#        - name: collector-scheduler
+#          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+#          env:
+#            - name: ENV
+#              value: "production"
+#            - name: DEBUG
+#              value: "true"
 
 ---
 apiVersion: batch/v1beta1
@@ -20,6 +42,8 @@ spec:
               env:
                 - name: ENV
                   value: "production"
+#                - name: DEBUG
+#                  value: "true"
 
 ---
 apiVersion: batch/v1beta1
@@ -42,3 +66,5 @@ spec:
               env:
                 - name: ENV
                   value: "production"
+#                - name: DEBUG
+#                  value: "true"
