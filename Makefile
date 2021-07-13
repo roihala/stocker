@@ -110,3 +110,20 @@ scheduler_deploy: get_gcp_cluster
 
 scheduler_delete_pod:
 	kubectl delete pods -l run=collector-scheduler-app || true
+
+
+stop_cron_jobs: get_gcp_cluster
+	kubectl patch cronjobs scale-down-job -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : true }}"
+
+resume_cron_jobs: get_gcp_cluster
+	kubectl patch cronjobs scale-down-job -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : false }}"
