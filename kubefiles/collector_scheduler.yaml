@@ -1,20 +1,70 @@
-apiVersion: apps/v1
-kind: Deployment
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: collector-scheduler-app
+#spec:
+#  selector:
+#    matchLabels:
+#      run: collector-scheduler
+#  replicas: 1
+#  template:
+#    metadata:
+#      labels:
+#        run: collector-scheduler
+#    spec:
+#      containers:
+#        - name: collector-scheduler
+#          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+#          env:
+#            - name: ENV
+#              value: "production"
+#            - name: DEBUG
+#              value: "true"
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
 metadata:
-  name: collector-scheduler-app
+  name: tickers-schedule
+  namespace: default
 spec:
-  selector:
-    matchLabels:
-      run: collector-scheduler-app
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        run: collector-scheduler-app
+  schedule: "*/5 13-21 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
     spec:
-      containers:
-        - name: stocker-app
-          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
-          env:
-            - name: ENV
-              value: "production"
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: collector-scheduler
+              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"
+#                - name: DEBUG
+#                  value: "true"
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: tickers-schedule-once-an-hour-non-trade
+  namespace: default
+spec:
+  schedule: "0 21-23,0-12 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: collector-scheduler
+              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"
+#                - name: DEBUG
+#                  value: "true"

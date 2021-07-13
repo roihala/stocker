@@ -22,7 +22,7 @@ from redis import Redis
 class Collect(Runnable):
     PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
     PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
-    MAX_MESSAGES = 30
+    MAX_MESSAGES = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
