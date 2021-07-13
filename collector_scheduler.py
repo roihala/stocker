@@ -31,3 +31,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # with open('csv/invalids.json') as remove_file:
+    #     import json
+    #     tickers_remove = json.load(remove_file)
+    #     with open('csv/tickers.csv') as tickers_file:
+    #         tickers = tickers_file.read().splitlines()
+    #         tickers_removed = [ticker for ticker in tickers if ticker not in tickers_remove]
+    #         with open('csv/removed.csv', 'a') as removed_file:
+    #             [removed_file.write(ticker+'\n') for ticker in tickers_removed]
