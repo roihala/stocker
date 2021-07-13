@@ -1,14 +1,6 @@
 import arrow
 
 
-class CandlePeriods:
-    MIN = 'min'
-    TWO_MIN = 'two_min'
-    FIVE_MIN = 'five_min'
-    TEN_MIN = 'ten_min'
-    FIFTEEN_MIN = 'fifteen_min'
-
-
 class Candles(object):
     def __init__(self, candles, start_time=None):
         self.candles = candles

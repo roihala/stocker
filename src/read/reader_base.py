@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from json import JSONDecodeError
 
 from retry import retry
@@ -212,6 +213,18 @@ class ReaderBase(ABC):
     @staticmethod
     def aggregate_as_batches(diffs):
         pandas.set_option('display.expand_frame_repr', False)
-        grouped = pandas.DataFrame(diffs).groupby(['date', 'ticker'])
+        df = pandas.DataFrame(diffs)
+        df = df[df.changed_key == df.changed_key]
 
-        return [grouped.get_group(_).to_dict('records') for _ in grouped.groups]
+        grouped = df.groupby(['date', 'ticker'])
+        groups = [grouped.get_group(_).to_dict('records') for _ in grouped.groups]
+
+        to_pop = []
+        for index, group in enumerate(groups):
+            for i, _ in enumerate(deepcopy(groups)[index + 1:]):
+                if group[0]['ticker'] == _[0]['ticker'] and arrow.get(group[0]['date']).date() == arrow.get(_[0]['date']).date():
+                    to_pop.append(index + 1 + i)
+
+        [groups.pop(_) for _ in sorted(to_pop, reverse=True)]
+
+        return groups
