@@ -71,9 +71,6 @@ class Stocker(CommonRunnable):
                                                         registration_bot.watchlist_callback),
                                          MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
                                                         registration_bot.invalid_watchlist)],
-                Indexers.GET_LOCATION: [MessageHandler(Filters.location | Filters.regex(
-                    f'^{Actions.SurveyActions.BACK}|{Actions.SurveyActions.SKIP}$'),
-                                                        registration_bot.location_callback)]
 
 
             },
