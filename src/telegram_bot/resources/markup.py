@@ -36,7 +36,6 @@ class Buttons(object):
                                                           callback_data=Actions.SurveyActions.REMOVE_FROM_WATHCLIST)
     REPLACE_WATCHLIST = telegram.InlineKeyboardButton('Set new watchlist',
                                                       callback_data=Actions.SurveyActions.REPLACE_WATCHLIST)
-    OLD_LOCATION = telegram.KeyboardButton(text='Send location', request_location=True)
     OLD_SKIP = telegram.KeyboardButton(text=Actions.SurveyActions.SKIP)
     OLD_BACK = telegram.KeyboardButton(text=Actions.SurveyActions.BACK)
 
@@ -56,4 +55,3 @@ class Keyboards(object):
     BACK_TO_TOOLS = InlineKeyboardMarkup([[Buttons.TOOLS]])
 
     SURVEY_END = InlineKeyboardMarkup([[Buttons.RESTART_SURVEY, Buttons.CONTINUE]])
-    LOCATION = ReplyKeyboardMarkup([[Buttons.OLD_LOCATION, Buttons.OLD_BACK, Buttons.OLD_SKIP]])
