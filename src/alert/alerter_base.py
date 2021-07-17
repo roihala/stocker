@@ -7,6 +7,7 @@ import inflection
 class AlerterBase(ABC):
     GREEN_CIRCLE_EMOJI_UNICODE = u'\U0001F7E2'
     RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
+    YELLOW_CIRCLE_EMOJI_UNICODE = u'\U0001F7E1'
 
     def __init__(self, mongo_db, telegram_bot, ticker, debug=None):
         self.name = inflection.underscore(self.__class__.__name__)
