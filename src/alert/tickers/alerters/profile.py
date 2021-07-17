@@ -107,15 +107,21 @@ class Profile(TickerAlerter):
 
     def __check_sympathy(self, diff):
         """
-        Currently check only new people that exist also in other companies
+        Currently check only new people that exist also in other companies. Currently works only on names
         """
         if diff.get('changed_key') not in ['officers', 'directors', 'auditors', 'premierDirectorList',
                                            'standardDirectorList']:
             return
         if diff.get('diff_type') == 'remove':
             return
-        value = re.compile('^' + re.escape(diff['new']) + '$', re.IGNORECASE)
-        df = pd.DataFrame(self._mongo_db.profile.find({f'{diff.get("changed_key")}.name': {value}}))
+
+        names = [i for i in diff['new'].split(' ') if len(i) > 2]
+        values = [re.compile('^' + re.escape(name) + '$', re.IGNORECASE) for name in names]
+        field_name = f'{diff.get("changed_key")}.name'
+        df = pd.DataFrame(self._mongo_db.profile.find(filter={field_name: {'$in': values}},
+                                                      projection={field_name: True,
+                                                                  'ticker': True,
+                                                                  '_id': False}))
         tickers = list(df['ticker'].unique())
         if len(tickers) > 0:
             diff['insight'] = 'sympathy'
