@@ -5,6 +5,7 @@ import pandas
 from abc import abstractmethod, ABC
 
 import pymongo
+import certifi
 import telegram
 from pymongo import MongoClient
 
@@ -71,7 +72,7 @@ class Runnable(ABC):
     def init_mongo(self, mongo_uri):
         try:
             # Using selection timeout in order to check connectivity
-            mongo_client = MongoClient(mongo_uri)
+            mongo_client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
 
             # Forcing a connection to mongo
             mongo_client.server_info()
