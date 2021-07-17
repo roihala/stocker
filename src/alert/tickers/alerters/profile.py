@@ -1,6 +1,8 @@
 import difflib
 import logging
-import pandas
+import re
+
+import pandas as pd
 
 import phonenumbers
 from copy import deepcopy
@@ -44,9 +46,9 @@ class Profile(TickerAlerter):
 
     @property
     def relevant_keys(self):
-        return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email', 'facebook', 'fax',
-                'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'primarySicCode', 'standardDirectorList',
-                'state', 'twitter', 'website', 'zip']
+        return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email',
+                'facebook', 'fax', 'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'premierDirectorList',
+                'primarySicCode', 'standardDirectorList', 'state', 'twitter', 'website', 'zip']
 
     @property
     def extended_keys(self):
@@ -98,7 +100,26 @@ class Profile(TickerAlerter):
             diff['old'] = ReaderBase.escape_markdown(diff['old']) if validators.url(diff['old']) else diff['old']
         except TypeError:
             pass
+
+        self.__check_sympathy(diff)
+
         return diff
+
+    def __check_sympathy(self, diff):
+        """
+        Currently check only new people that exist also in other companies
+        """
+        if diff.get('changed_key') not in ['officers', 'directors', 'auditors', 'premierDirectorList',
+                                           'standardDirectorList']:
+            return
+        if diff.get('diff_type') == 'remove':
+            return
+        value = re.compile('^' + re.escape(diff['new']) + '$', re.IGNORECASE)
+        df = pd.DataFrame(self._mongo_db.profile.find({f'{diff.get("changed_key")}.name': {value}}))
+        tickers = list(df['ticker'].unique())
+        if len(tickers) > 0:
+            diff['insight'] = 'sympathy'
+            diff['insight_fields'] = tickers
 
     def __get_extra_data(self, diff):
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
