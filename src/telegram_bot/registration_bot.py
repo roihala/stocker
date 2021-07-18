@@ -21,8 +21,7 @@ class RegistrationBot(BaseBot):
         PRICE = 1
         TIER = 2
         WATCHLIST = 3
-        LOCATION = 4
-        END = 5
+        END = 4
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -214,11 +213,6 @@ class RegistrationBot(BaseBot):
             ])
         elif self.survey_step == self.SurveySteps.WATCHLIST:
             msg, keyboard = self.__get_watchlist_message(from_user)
-        elif self.survey_step == self.SurveySteps.LOCATION:
-            msg = "Please send us your location, we will use it to determine your timezone for alerts' dates"
-            keyboard = Keyboards.LOCATION
-            message.reply_text(text=msg, parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=keyboard)
-            return Indexers.GET_LOCATION
         elif self.survey_step == self.SurveySteps.END:
             self.__end_survey(message, from_user.id, edit_text=True if remove_keyboard else False)
             return
@@ -254,18 +248,7 @@ class RegistrationBot(BaseBot):
         self.watchlist_action = None
         self.survey_step += 1
 
-        update.message.reply_text(f"Your new watchlist is {','.join(watchlist)}\n\n"
-                                  "Please send us your location, we will use it to determine your timezone for alerts' dates",
-                                  reply_markup=Keyboards.LOCATION)
-
-        return Indexers.GET_LOCATION
-
-    def location_callback(self, update, context):
-        if update.message.location:
-            self.__update_configuration(update.message.from_user.id, {'location': update.message.location.to_dict()})
-            self.survey(update.message, update.message.from_user, self.SurveySteps.END, remove_keyboard=True)
-        else:
-            self.survey(update.message, update.message.from_user, update.message.text, remove_keyboard=True)
+        update.message.reply_text(f"Your new watchlist is {','.join(watchlist)}\n\n")
 
         return Indexers.CONVERSATION_CALLBACK
 
@@ -406,7 +389,6 @@ class RegistrationBot(BaseBot):
             'max_price': 0.05,
             'max_tier': 'QB',
             'watchlist': [],
-            'location': {}
         }
 
     @staticmethod
