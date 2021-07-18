@@ -8,7 +8,7 @@ import phonenumbers
 from copy import deepcopy
 
 import validators
-
+from textdistance import levenshtein
 from src.alert.tickers.ticker_alerter import TickerAlerter
 from src.read import readers
 from src.read.reader_base import ReaderBase
@@ -33,7 +33,7 @@ class Profile(TickerAlerter):
             "premierDirectorList": "Director",
 
             "is12g32b": "12g3-2(b) rule compliant",
-            "corporateBrokers":  "Corporate Brokers",
+            "corporateBrokers": "Corporate Brokers",
             "countryOfIncorporationName": "Country of Incorporation",
             "investmentBanks": "Investment Banks",
             "investorRelationFirms": "Investor Relation Firms",
@@ -75,7 +75,7 @@ class Profile(TickerAlerter):
             # ndiff encodes every diff by adding +, - or whitespace to the character, separated by whitespace
             # e.g: "- Ã", "+ w"
             if i[0] in ['+', '-'] and i[2].isascii():
-                    return True
+                return True
         return False
 
     @staticmethod
@@ -89,8 +89,10 @@ class Profile(TickerAlerter):
         diff = super().edit_diff(diff)
 
         if diff.get('changed_key') == 'phone':
-            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
-            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']),
+                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']),
+                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
 
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
@@ -115,14 +117,23 @@ class Profile(TickerAlerter):
         if diff.get('diff_type') == 'remove':
             return
 
-        names = [i for i in diff['new'].split(' ') if len(i) > 2]
-        values = [re.compile('^' + re.escape(name) + '$', re.IGNORECASE) for name in names]
         field_name = f'{diff.get("changed_key")}.name'
-        df = pd.DataFrame(self._mongo_db.profile.find(filter={field_name: {'$in': values}},
-                                                      projection={field_name: True,
-                                                                  'ticker': True,
-                                                                  '_id': False}))
-        tickers = list(df['ticker'].unique())
+        df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
+                                                                          'ticker': True,
+                                                                          'arr_length': {'$size': f"${field_name}"},
+                                                                          '_id': False}
+                                                             },
+                                                            {'$match': {'arr_length': {'$gt': 0}}},
+                                                            {'$group': {'_id': '$ticker',
+                                                                        field_name: {'$first': f"${field_name}"}}},
+                                                            {'$project': {'ticker': '$_id',
+                                                                          field_name: True,
+                                                                          '_id': False}}]))
+        df2 = df.explode(field_name)
+        df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[field_name]), axis=1)
+        res = df2[df2['levenshtein_distance'] < 3].drop_duplicates('ticker')
+        tickers = res['ticker'].tolist()
+
         if len(tickers) > 0:
             diff['insight'] = 'sympathy'
             diff['insight_fields'] = tickers
@@ -135,8 +146,9 @@ class Profile(TickerAlerter):
             field = next((field for field in self.EXTRA_DATA if field == diff.get('changed_key')), None)
             if field:
                 frac_key = field.split('.')
-                for key, val in [(key, val) for data_dict in profile.get_latest()[frac_key[0]] if data_dict["name"] == diff.get("new") \
-                                            for (key, val) in data_dict.items()]:
+                for key, val in [(key, val) for data_dict in profile.get_latest()[frac_key[0]] if
+                                 data_dict["name"] == diff.get("new") \
+                                 for (key, val) in data_dict.items()]:
                     if val and key != "name":
                         extra_data_field += f"\n{key}: {val}"
             return extra_data_field
@@ -151,7 +163,8 @@ class Profile(TickerAlerter):
     def squash_addresses(self, diffs):
         try:
             # If any address diffs
-            to_squash = [diff for diff in diffs if diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
+            to_squash = [diff for diff in diffs if
+                         diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
 
             if any(to_squash):
                 date = set([diff.get('date') for diff in diffs])
@@ -161,7 +174,8 @@ class Profile(TickerAlerter):
                 date = date.pop()
                 old, new = self._reader.get_entry_by_date(date)
 
-                return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
+                return [diff for diff in diffs if diff not in to_squash] + [
+                    self.generate_squashed_diff(to_squash[0], old, new)]
 
         except Exception as e:
             logger.warning("Couldn't squash diffs: {diffs}".format(diffs=diffs))
