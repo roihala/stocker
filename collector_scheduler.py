@@ -3,10 +3,10 @@ import logging
 
 from google.cloud import pubsub_v1
 
-from lighweight_runnable import LightRunnable
+from runnable import Runnable
 
 
-class CollectScheduler(LightRunnable):
+class CollectScheduler(Runnable):
     PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-300519/topics/collector-tickers"
 
     def __init__(self, *args, **kwargs):
@@ -16,6 +16,7 @@ class CollectScheduler(LightRunnable):
         self.topic_name = self.PUBSUB_TICKERS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_TICKERS_TOPIC_NAME
 
     def run(self):
+        print(self._tickers_list)
         self.logger.info("Publishing tickers")
         for ticker in self._tickers_list:
             self.publisher.publish(self.topic_name, ticker.encode('utf-8'))
@@ -31,11 +32,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # with open('csv/invalids.json') as remove_file:
-    #     import json
-    #     tickers_remove = json.load(remove_file)
-    #     with open('csv/tickers.csv') as tickers_file:
-    #         tickers = tickers_file.read().splitlines()
-    #         tickers_removed = [ticker for ticker in tickers if ticker not in tickers_remove]
-    #         with open('csv/removed.csv', 'a') as removed_file:
-    #             [removed_file.write(ticker+'\n') for ticker in tickers_removed]

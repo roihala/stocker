@@ -2,6 +2,7 @@
 import concurrent.futures
 import json
 import logging
+import os
 from functools import reduce
 from time import sleep
 
@@ -39,18 +40,8 @@ class Collect(CommonRunnable):
 
     def run(self):
 
-        # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
-        # ack_ids = [msg.ack_id for msg in response.received_messages]
-
-        # if len(ack_ids) > 0:
-        #     self._subscriber.acknowledge(
-        #         request={
-        #             "subscription": self._subscription_name,
-        #             "ack_ids": ack_ids,
-        #         }
-        #     )
 
         for msg in response.received_messages:
             self.queue_listen(msg.message.data, msg.ack_id)
