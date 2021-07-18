@@ -53,6 +53,15 @@ Check our website for pricing plans and more info."""
                 self.logger.warning(f"Couldn't remind user {user}")
                 self.logger.error(e)
 
+        for user in self._mongo_db.telegram_users.find({'cancel_at': {'$exists': True}}):
+            try:
+                if arrow.get(user.get('cancel_at')).date >= arrow.utcnow().date:
+                    self.logger.info(f"Canceling {user.get('user_name')}")
+                    self._mongo_db.telegram_users.update_one(user, {'$set': {'activation': 'cancel'})
+            except Exception as e:
+                self.logger.warning(f"Couldn't remind user {user}")
+                self.logger.error(e)
+
     @staticmethod
     def get_formatted_time(remain):
         if remain == 7:
