@@ -1,8 +1,11 @@
+import arrow
 import datetime
 import json
 import logging
 import os
 import random
+import time
+from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy
 from functools import reduce
 from typing import Dict, Iterable
@@ -53,6 +56,7 @@ class Alert(CommonRunnable):
         self._scheduler.start()
 
         self.publisher = pubsub_v1.PublisherClient()
+        self._executor = ThreadPoolExecutor(max_workers=30)
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
@@ -99,7 +103,7 @@ class Alert(CommonRunnable):
                     self.logger.error("Failed to publish relevant diffs")
 
                 delay = False if any([diff.get('source') in ['filings', 'filings_pdf'] for diff in raw_diffs]) else True
-                self.__send_or_delay(msg, ticker, price, is_delay=delay)
+                self.__send_no_delay(msg, ticker, price, is_delay=False)
 
             batch.ack()
         except Exception as e:
@@ -155,75 +159,67 @@ class Alert(CommonRunnable):
             return True
         return False
 
-    def __send_or_delay(self, msg: dict, ticker, price, is_delay=True):
-        if self._debug:
-            self.__send_msg(self.__get_users(ignore_delay=True), msg, ticker, price)
-            return
-
-        if is_delay:
-            self.__send_msg(self.__get_users(delay=False), msg, ticker, price)
-            self.__send_delayed(self.__get_users(), msg, ticker, price)
-        else:
-            self.__send_msg(self.__get_users(ignore_delay=True), msg, ticker, price)
-
-    def __get_users(self, delay=True, ignore_delay=False):
-        users = self._mongo_db.telegram_users.find({'delay': delay}) if not ignore_delay \
-            else self._mongo_db.telegram_users.find()
-
-        registered_users = [user for user in users if
-                            ('activation' not in user) or (user.get('activation') in ['trial', 'active'])]
-        random.shuffle(registered_users)
-        return registered_users
-
-    def __send_delayed(self, delayed_users: Iterable[Dict], msg: dict, ticker, price):
-        trigger = DateTrigger(run_date=datetime.datetime.utcnow() + datetime.timedelta(seconds=20))
-
-        self._scheduler.add_job(self.__send_msg,
-                                args=[delayed_users, msg, ticker, price],
-                                trigger=trigger)
-
-    def __send_msg(self, users_group: Iterable[Dict], msg: dict, ticker, price):
+    def __send_no_delay(self, msg: dict, ticker, price, is_delay=True):
         text = self.__extract_text(msg, ticker, price)
         record_ids = reduce(lambda _, value: _ + value['pdf_record_ids'] if 'pdf_record_ids' in value else _,
                             msg.values(), [])
-        # TODO: Use the existing files with webhooks
 
-        for user in users_group:
-            files = [DynamicRecordsCollector.get_pdf(record_id, base_url=FILINGS_PDF_URL) for record_id in record_ids]
+        users = self.__get_users()
+        users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
+                [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
-            media = [InputMediaDocument(media=open(file, 'rb'),
-                                        filename=f"{ticker}.pdf",
-                                        thumb=open(LOGO_PATH, 'rb')) for file in files]
+        for user in self.__get_users():
+            self._executor.submit(self.__send_msg, user, ticker, text, record_ids)
 
-            try:
-                if record_ids:
-                    media[-1].caption = text
-                    media[-1].parse_mode = telegram.ParseMode.MARKDOWN
+    def __get_users(self):
+        registered_users = [user for user in self._mongo_db.telegram_users.find() if
+                            user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE] and
+                            user.get('chat_id') not in [1865808006, 1151317792]]
+        random.shuffle(registered_users)
+        return registered_users
 
-                    if len(media) == 0:
-                        raise ValueError("Media should contain at least one pdf location")
-                    elif len(media) == 1:
-                        first_media = media[0]
-                        self._telegram_bot.send_document(chat_id=user.get("chat_id"),
-                                                         document=first_media.media,
-                                                         filename=f"{ticker}.pdf",
-                                                         thumb=first_media.thumb,
-                                                         parse_mode=first_media.parse_mode,
-                                                         caption=first_media.caption)
-                    elif len(media) > 1:
-                        self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
-                                                            media=media)
-                else:
-                    self._telegram_bot.send_message(chat_id=user.get("chat_id"),
-                                                    text=text,
-                                                    parse_mode=telegram.ParseMode.MARKDOWN)
+    def __send_msg(self, user, ticker, text, record_ids=None):
+        if user.get('user_id') in [1865808006, 1151317792]:
+            text += f'\n\n\n\n{arrow.utcnow().format()}'
 
-            except Exception as e:
-                self.logger.warning(
-                    "Couldn't alert {message} to {user} at {chat_id}:".format(user=user.get("user_name"),
-                                                                              chat_id=user.get("chat_id"),
-                                                                              message=text))
-                self.logger.exception(e)
+        try:
+            if record_ids:
+                files = [DynamicRecordsCollector.get_pdf(record_id, base_url=FILINGS_PDF_URL) for record_id in
+                         record_ids]
+
+                media = [InputMediaDocument(media=open(file, 'rb'),
+                                            filename=f"{ticker}.pdf",
+                                            thumb=open(LOGO_PATH, 'rb')) for file in files]
+
+                media[-1].caption = text
+                media[-1].parse_mode = telegram.ParseMode.MARKDOWN
+
+                if len(media) == 0:
+                    raise ValueError("Media should contain at least one pdf location")
+                elif len(media) == 1:
+                    first_media = media[0]
+                    self._telegram_bot.send_document(chat_id=user.get("chat_id"),
+                                                     document=first_media.media,
+                                                     filename=f"{ticker}.pdf",
+                                                     thumb=first_media.thumb,
+                                                     parse_mode=first_media.parse_mode,
+                                                     caption=first_media.caption)
+                elif len(media) > 1:
+                    self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
+                                                        media=media)
+            else:
+                self._telegram_bot.send_message(chat_id=user.get("chat_id"),
+                                                text=text,
+                                                parse_mode=telegram.ParseMode.MARKDOWN)
+
+        except Exception as e:
+            self.logger.warning(
+                "Couldn't alert {message} to {user} at {chat_id}:".format(user=user.get("user_name"),
+                                                                          chat_id=user.get("chat_id"),
+                                                                          message=text))
+            self.logger.exception(e)
+
+        time.sleep(1)
 
     def __extract_text(self, msg: dict, ticker, price):
         alert_text = '\n\n'.join([value['message'] for value in msg.values() if value.get('message')])
@@ -236,7 +232,8 @@ class Alert(CommonRunnable):
                '{alert_msg}\n' \
                '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
                                alert_msg=alert_text,
-                               date=ReaderBase.get_stocker_date(sorted([value['date'] for value in msg.values() if 'date' in value])[-1]))
+                               date=ReaderBase.get_stocker_date(
+                                   sorted([value['date'] for value in msg.values() if 'date' in value])[-1]))
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
