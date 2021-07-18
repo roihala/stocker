@@ -1,0 +1,6 @@
+requests
+dnspython
+retry
+pandas
+argparse
+google-cloud-pubsub

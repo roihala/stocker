@@ -9,10 +9,12 @@ class CommonRunnable(Runnable, ABC):
     def __init__(self, args=None):
         super().__init__(args)
 
-        if not os.getenv("ENV") == "production":
+        if os.getenv("ENV") == "production":
+            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
+            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
+        else:
             self._mongo_db = self.init_mongo(self.args.uri)
             self._telegram_bot = self.init_telegram(self.args.token)
-            self._tickers_list = self.extract_tickers(self.args.csv)
 
     def create_parser(self):
         parser = super().create_parser()

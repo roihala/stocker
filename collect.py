@@ -1,59 +1,64 @@
 #!/usr/bin/env python3
+import concurrent.futures
 import json
 import logging
+import os
 from functools import reduce
-from bson import json_util
-from google.cloud import pubsub_v1
+from time import sleep
 
 import arrow
 import pymongo
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.triggers.combining import OrTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+from bson import json_util
+from google import pubsub_v1
+from google.pubsub_v1 import SubscriberClient
+from google.cloud.pubsub_v1 import PublisherClient
+from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 from common_runnable import CommonRunnable
-from runnable import Runnable
 from src.factory import Factory
-from apscheduler.schedulers.blocking import BlockingScheduler
-
-global cache
-cache = {}
+from redis import Redis
 
 
 class Collect(CommonRunnable):
-    PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
+    MAX_MESSAGES = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.publisher = pubsub_v1.PublisherClient()
-        self.topic_name = self.PUBSUB_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_TOPIC_NAME
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
+        self.publisher = PublisherClient()
+        self.topic_name = self.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_DIFFS_TOPIC_NAME
+        self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
+        self._subscriber = SubscriberClient()
+
+        if os.getenv('REDIS_IP') is not None:
+            self.cache = Redis(host=os.getenv('REDIS_IP'))
+        else:
+            self.cache = {}
 
     def run(self):
-        if self._debug:
-            for ticker in self._tickers_list:
-                self.ticker_collect(ticker)
-            return
 
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10000)
-        })
+        response = self._subscriber.pull(
+            request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
 
-        self.disable_apscheduler_logs()
+        for msg in response.received_messages:
+            self.queue_listen(msg.message.data, msg.ack_id)
 
-        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=300), DateTrigger()])
+        self.executor.shutdown(wait=True)
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
 
-        for ticker in self._tickers_list:
-            scheduler.add_job(self.ticker_collect,
-                              args=[ticker],
-                              trigger=trigger,
-                              max_instances=1,
-                              misfire_grace_time=120)
+        self.run()
 
-        scheduler.start()
+    def queue_listen(self, msg: bytes, ack_id):
+        self.executor.submit(self.ticker_collect, msg, ack_id)
 
-    def ticker_collect(self, ticker):
+    def ticker_collect(self, msg: bytes, ack_id):
+
+        # ticker = msg.data.decode('utf-8')
+        ticker = msg.decode('utf-8')
+
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
@@ -65,7 +70,7 @@ class Collect(CommonRunnable):
                 if collection_name in all_sons:
                     continue
 
-                collector_args = {'mongo_db': self._mongo_db, 'cache': cache, 'date': date, 'debug': self._debug,
+                collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
@@ -83,6 +88,13 @@ class Collect(CommonRunnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
+
+        self._subscriber.acknowledge(
+            request={
+                "subscription": self._subscription_name,
+                "ack_ids": [ack_id],
+            }
+        )
 
 
 def main():

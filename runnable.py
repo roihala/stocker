@@ -28,14 +28,13 @@ class Runnable(ABC):
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":
             self._debug = os.getenv('DEBUG', 'false').lower() == 'true'
-            self._mongo_db = self.init_mongo(os.environ['MONGO_URI'])
-            self._telegram_bot = self.init_telegram(os.environ['TELEGRAM_TOKEN'])
             self._tickers_list = self.extract_tickers()
             self.logger = self._init_logging()
             self.disable_apscheduler_logs()
 
         else:
             self.args = args if args else self.create_parser().parse_args()
+            self._tickers_list = self.extract_tickers(self.args.csv if hasattr(self.args, 'csv') else None)
             self._debug = self.args.debug
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(__file__), 'credentials/stocker.json')
 

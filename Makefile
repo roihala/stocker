@@ -2,23 +2,23 @@ get_gcp_cluster:
 	gcloud container clusters get-credentials stocker --zone europe-west2-a --project stocker-300519
 
 
-all: collector alerter telegram records rest
+all: collector alerter telegram records rest scheduler
 
 collector: collector_build_push collector_delete_pod
 
 collector_build_push:
-	docker build -t stocker -f dockerfiles/collector.dockerfile .
-	docker tag stocker:latest eu.gcr.io/stocker-300519/stocker:latest
-	docker push eu.gcr.io/stocker-300519/stocker:latest
+	docker build -t collector -f dockerfiles/collector.dockerfile .
+	docker tag collector:latest eu.gcr.io/stocker-300519/collector:latest
+	docker push eu.gcr.io/stocker-300519/collector:latest
 
 collector_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles/collector_deployment.yaml
 
 collector_deploy: get_gcp_cluster
-	kubectl patch deployment stocker-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+	kubectl patch deployment collector-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
 
 collector_delete_pod:
-	kubectl delete pods -l run=stocker-app || true
+	kubectl delete pods -l run=collector-app || true
 
 
 telegram: telegram_build_push telegram_delete_pod
@@ -93,3 +93,37 @@ rest_deploy: get_gcp_cluster
 
 rest_delete_pod:
 	kubectl delete pods -l run=rest-app || true
+
+
+scheduler: scheduler_build_push scheduler_delete_pod
+
+scheduler_build_push:
+	docker build -t collector-scheduler -f dockerfiles/scheduler.dockerfile .
+	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/collector-scheduler:latest
+	docker push eu.gcr.io/stocker-300519/collector-scheduler:latest
+
+scheduler_update_deployment: get_gcp_cluster
+	kubectl apply -f kubefiles\collector_scheduler.yaml
+
+scheduler_deploy: get_gcp_cluster
+	kubectl patch deployment collector-scheduler-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+
+scheduler_delete_pod:
+	kubectl delete pods -l run=collector-scheduler-app || true
+
+
+stop_cron_jobs: get_gcp_cluster
+	kubectl patch cronjobs scale-down-job -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : true }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : true }}"
+
+resume_cron_jobs: get_gcp_cluster
+	kubectl patch cronjobs scale-down-job -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-up-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : false }}"
+	kubectl patch cronjobs scale-down-job-once-an-hour-non-working-day -p "{\"spec\" : {\"suspend\" : false }}"

@@ -1,0 +1,44 @@
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: tickers-schedule
+  namespace: default
+spec:
+  schedule: "*/5 13-21 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: collector-scheduler
+              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: tickers-schedule-once-an-hour-non-trade
+  namespace: default
+spec:
+  schedule: "0 21-23,0-12 * * 1-5"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: collector-scheduler
+              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"

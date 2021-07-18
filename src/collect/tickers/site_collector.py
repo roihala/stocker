@@ -3,7 +3,10 @@ import requests
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from json import JSONDecodeError
+
+from requests import ReadTimeout
 from retry import retry
+from urllib3.exceptions import MaxRetryError
 
 from runnable import Runnable
 from src.collect.tickers.ticker_collector import TickerCollector
@@ -17,7 +20,8 @@ class SiteCollector(TickerCollector, ABC):
     def site(self):
         pass
 
-    @retry(JSONDecodeError, tries=3, delay=1)
+
+    @retry((JSONDecodeError, requests.exceptions.ProxyError, ReadTimeout, MaxRetryError), tries=12, delay=0.25)
     def fetch_data(self, data=None) -> dict:
         """
         Fetching data by using requests.get
@@ -31,16 +35,12 @@ class SiteCollector(TickerCollector, ABC):
         """
         if not data:
             url = self.site.get_ticker_url(self.ticker)
-            response = requests.get(url)
+            response = requests.get(url, timeout=2, proxies=Runnable.proxy)
 
             if response.status_code == 404:
                 logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
                     ticker=self.ticker, url=url))
                 raise InvalidTickerExcpetion(self.ticker)
-
-            # Trying with proxy
-            if response.status_code == 429:
-                response = requests.get(self.site.get_ticker_url(self.ticker), proxies=Runnable.proxy)
 
             if response.status_code != 200:
                 logger.warning("Can't collect {ticker}: {url} -> responsne code: {code}".format(
