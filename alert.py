@@ -8,14 +8,10 @@ import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy
 from functools import reduce
-from typing import Dict, Iterable
 
 import pandas
 import telegram
 
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.date import DateTrigger
 from bson import ObjectId
 from telegram import InputMediaDocument
 
@@ -32,6 +28,8 @@ from google.cloud.pubsub import SubscriberClient
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 from bson import json_util
+
+from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
 
@@ -94,8 +92,7 @@ class Alert(CommonRunnable):
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
 
-                delay = False if any([diff.get('source') in ['filings', 'filings_pdf'] for diff in raw_diffs]) else True
-                self.__send_no_delay(msg, ticker, price, is_delay=False)
+                self.__send_no_delay(msg, ticker, price)
 
             batch.ack()
         except Exception as e:
@@ -151,16 +148,15 @@ class Alert(CommonRunnable):
             return True
         return False
 
-    def __send_no_delay(self, msg: dict, ticker, price, is_delay=True):
+    def __send_no_delay(self, msg: dict, ticker, price):
         text = self.__extract_text(msg, ticker, price)
         record_ids = reduce(lambda _, value: _ + value['pdf_record_ids'] if 'pdf_record_ids' in value else _,
                             msg.values(), [])
 
-        users = self.__get_users()
         users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
                 [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
-        for user in self.__get_users():
+        for user in users:
             self._executor.submit(self.__send_msg, user, ticker, text, record_ids)
 
     def __get_users(self):
