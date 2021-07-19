@@ -47,14 +47,6 @@ class Alert(CommonRunnable):
 
     def __init__(self):
         super().__init__()
-
-        self._scheduler = BackgroundScheduler(executors={
-            'default': ThreadPoolExecutor(10),
-        }, timezone="Africa/Abidjan")
-
-        self.disable_apscheduler_logs()
-        self._scheduler.start()
-
         self.publisher = pubsub_v1.PublisherClient()
         self._executor = ThreadPoolExecutor(max_workers=30)
 
