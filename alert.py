@@ -30,7 +30,6 @@ from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 from bson import json_util
 
-publisher = pubsub_v1.PublisherClient()
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
 
 
@@ -51,8 +50,9 @@ class Alert(CommonRunnable):
         }, timezone="Africa/Abidjan")
 
         self.disable_apscheduler_logs()
-
         self._scheduler.start()
+
+        self.publisher = pubsub_v1.PublisherClient()
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
@@ -93,7 +93,7 @@ class Alert(CommonRunnable):
 
                 try:
                     data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
-                    publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
+                    self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
                 except Exception as e:
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
