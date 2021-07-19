@@ -23,6 +23,7 @@ except Exception:
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
 COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "adr", "corporation", "incorporated"]
 # ["technologies", "solutions", "resources"]
+SYMBOLS_BLACKLIST_SET = {"OTCM", "FINRA"}
 
 RE_SYMBOL = re.compile(fr"(\b[A-Z]{{3,5}}\b)")
 RE_MAIL = re.compile(r"([\w\.-]+@[\w\.-]+(?:\.[\w]+)+)")
@@ -113,8 +114,9 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         test_records = [287807, 287805, 287803, 287800, 287780, 287776, 287750, 287747,
                         287740, 287739, 287639, 287633, 287608, 287584, 287517, 287504]
-        for id in test_records:
-            self.record_id = id
+
+        for _id in test_records:
+            self.record_id = _id
             responses[self.record_id] = self.fetch_data(0)
         return responses
 
@@ -150,13 +152,13 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             by_symbols +
             by_mail_addresses +
             by_web_urls +
-            by_phone_numbers)
+            by_phone_numbers) - SYMBOLS_BLACKLIST_SET
 
         for symbol in all_symbols:
             symbols_scores[symbol] = 0
 
             if symbol in by_comp_names:
-                symbols_scores[symbol] += 3 if len(by_comp_names) > 1 else 4
+                symbols_scores[symbol] += 3
             if symbol in by_symbols:
                 symbols_scores[symbol] += 2
             if symbol in by_mail_addresses:
@@ -200,8 +202,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             # split to words & remove commas & dots
             companies_opt = [comp.split() for comp in companies]
             """
-            [(['otc', 'markets', 'group'], 'inc'), (['guidelines', 'v', 'group'], 'inc')] ->
-            [(['otc markets group', 'markets group', 'group'], 'inc'), (['guidelines v group', 'v group', 'group'], 'inc')]
+            [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
+            [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group', 'v group', 'group', 'inc']]
             """
             optional_companies = [[" ".join(comp[i:]) for i in range(0, len(comp) - 1)] for comp in companies_opt]
             """
