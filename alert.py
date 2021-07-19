@@ -179,7 +179,7 @@ class Alert(CommonRunnable):
         return registered_users
 
     def __send_msg(self, user, ticker, text, record_ids=None):
-        if user.get('user_id') in [1865808006, 1151317792]:
+        if user.get('chat_id') in [1865808006, 1151317792]:
             text += f'\n\n\n\n{arrow.utcnow().format()}'
 
         try:
