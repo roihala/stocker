@@ -1,12 +1,14 @@
 import difflib
 import logging
-import pandas
+import re
+
+import pandas as pd
 
 import phonenumbers
 from copy import deepcopy
 
 import validators
-
+from textdistance import levenshtein
 from src.alert.tickers.ticker_alerter import TickerAlerter
 from src.read import readers
 from src.read.reader_base import ReaderBase
@@ -31,7 +33,7 @@ class Profile(TickerAlerter):
             "premierDirectorList": "Director",
 
             "is12g32b": "12g3-2(b) rule compliant",
-            "corporateBrokers":  "Corporate Brokers",
+            "corporateBrokers": "Corporate Brokers",
             "countryOfIncorporationName": "Country of Incorporation",
             "investmentBanks": "Investment Banks",
             "investorRelationFirms": "Investor Relation Firms",
@@ -44,9 +46,9 @@ class Profile(TickerAlerter):
 
     @property
     def relevant_keys(self):
-        return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email', 'facebook', 'fax',
-                'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'primarySicCode', 'standardDirectorList',
-                'state', 'twitter', 'website', 'zip']
+        return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email',
+                'facebook', 'fax', 'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'premierDirectorList',
+                'primarySicCode', 'standardDirectorList', 'state', 'twitter', 'website', 'zip']
 
     @property
     def extended_keys(self):
@@ -73,7 +75,7 @@ class Profile(TickerAlerter):
             # ndiff encodes every diff by adding +, - or whitespace to the character, separated by whitespace
             # e.g: "- Ã", "+ w"
             if i[0] in ['+', '-'] and i[2].isascii():
-                    return True
+                return True
         return False
 
     @staticmethod
@@ -87,8 +89,10 @@ class Profile(TickerAlerter):
         diff = super().edit_diff(diff)
 
         if diff.get('changed_key') == 'phone':
-            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
-            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']), phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']),
+                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']),
+                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
 
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
@@ -98,7 +102,43 @@ class Profile(TickerAlerter):
             diff['old'] = ReaderBase.escape_markdown(diff['old']) if validators.url(diff['old']) else diff['old']
         except TypeError:
             pass
+
+        self.__check_sympathy(diff)
+
         return diff
+
+    def __check_sympathy(self, diff):
+        """
+        Currently check only new people that exist also in other companies. Currently works only on names
+        """
+        if diff.get('changed_key') not in ['officers', 'directors', 'auditors', 'premierDirectorList',
+                                           'standardDirectorList']:
+            return
+        if diff.get('diff_type') == 'remove':
+            return
+
+        field_name = f'{diff.get("changed_key")}.name'
+        df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
+                                                                          'ticker': True,
+                                                                          'arr_length': {'$size': f"${field_name}"},
+                                                                          'date': True,
+                                                                          '_id': False}
+                                                             },
+                                                            {"$sort": {"date": -1}},
+                                                            {'$match': {'arr_length': {'$gt': 0}}},
+                                                            {'$group': {'_id': '$ticker',
+                                                                        field_name: {'$first': f"${field_name}"}}},
+                                                            {'$project': {'ticker': '$_id',
+                                                                          field_name: True,
+                                                                          '_id': False}}]))
+        df2 = df.explode(field_name)
+        df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[field_name]), axis=1)
+        res = df2[df2['levenshtein_distance'] < 3].drop_duplicates('ticker')
+        tickers = res['ticker'].tolist()
+
+        if len(tickers) > 0:
+            diff['insight'] = 'sympathy'
+            diff['insight_fields'] = tickers
 
     def __get_extra_data(self, diff):
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
@@ -108,8 +148,9 @@ class Profile(TickerAlerter):
             field = next((field for field in self.EXTRA_DATA if field == diff.get('changed_key')), None)
             if field:
                 frac_key = field.split('.')
-                for key, val in [(key, val) for data_dict in profile.get_latest()[frac_key[0]] if data_dict["name"] == diff.get("new") \
-                                            for (key, val) in data_dict.items()]:
+                for key, val in [(key, val) for data_dict in profile.get_latest()[frac_key[0]] if
+                                 data_dict["name"] == diff.get("new") \
+                                 for (key, val) in data_dict.items()]:
                     if val and key != "name":
                         extra_data_field += f"\n{key}: {val}"
             return extra_data_field
@@ -124,7 +165,8 @@ class Profile(TickerAlerter):
     def squash_addresses(self, diffs):
         try:
             # If any address diffs
-            to_squash = [diff for diff in diffs if diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
+            to_squash = [diff for diff in diffs if
+                         diff.get('changed_key') in [field for line in self.ADDRESS_LINES for field in line]]
 
             if any(to_squash):
                 date = set([diff.get('date') for diff in diffs])
@@ -134,7 +176,8 @@ class Profile(TickerAlerter):
                 date = date.pop()
                 old, new = self._reader.get_entry_by_date(date)
 
-                return [diff for diff in diffs if diff not in to_squash] + [self.generate_squashed_diff(to_squash[0], old, new)]
+                return [diff for diff in diffs if diff not in to_squash] + [
+                    self.generate_squashed_diff(to_squash[0], old, new)]
 
         except Exception as e:
             logger.warning("Couldn't squash diffs: {diffs}".format(diffs=diffs))
