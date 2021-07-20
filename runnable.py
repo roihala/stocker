@@ -8,22 +8,20 @@ import pymongo
 import telegram
 from pymongo import MongoClient
 
-
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 DEFAULT_CSV_PATH = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'tickers.csv'))
 
 
 class Runnable(ABC):
     # PROXY_USERNAME = "yonisoli"
-    # PROXY_PASSWORD = "5ff06d-6ecc98-91006b-86dd29-388b2c"
-    # PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
+    PROXY_USERNAME = "roihala"
+    PROXY_PASSWORD = "ed219e-f3f65b-ee63e4-8c9349-e28bfe"
+    PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
 
-    http_proxy = "http://yonisoli:QKzLinmMxlo3UqbH@proxy.packetstream.io:31112"
-    https_proxy = "http://yonisoli:QKzLinmMxlo3UqbH@proxy.packetstream.io:31112"
+    http_proxy_packetstream = "http://yonisoli:QKzLinmMxlo3UqbH@proxy.packetstream.io:31112"
 
-    # proxy_url = "http://{}:{}@{}".format(PROXY_USERNAME, PROXY_PASSWORD, PROXY_RACK_DNS)
-    proxy = {"http": http_proxy,
-             'https': https_proxy}
+    proxy = {"http": http_proxy_packetstream,
+             'https': http_proxy_packetstream}
 
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":
