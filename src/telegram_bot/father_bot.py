@@ -354,7 +354,7 @@ class FatherBot(BaseBot):
     @staticmethod
     def __format_message(text, date):
         # Add date and blank lines
-        return f"{text}\n{ReaderBase.get_stocker_date(date)}"
+        return f"{text}\n{ReaderBase.format_stocker_date(date)}"
 
     @staticmethod
     def __extract_ticker(context):
