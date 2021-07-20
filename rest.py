@@ -137,6 +137,10 @@ async def subscription_cancel(*, payload: WixPayLoad):
 
     rest.logger.info(f"Subscription cancel with payload: {payload.dict()}")
     try:
+        # Handling wix's double cancel - they are sending many cancel messages to validate
+        if 'activate_until' in rest._mongo_db.telegram_users.find_one({'order_id': payload.data.order_id}):
+            pass
+
         result = rest._mongo_db.telegram_users.update_one({'order_id': payload.data.order_id},
                                                           {'$set': {'activation': ActivationCodes.CANCEL}})
         if result.modified_count != 1:
