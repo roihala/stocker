@@ -149,7 +149,8 @@ class Alert(CommonRunnable):
         return False
 
     def __send_no_delay(self, msg: dict, ticker, price):
-        text = self.__extract_text(msg, ticker, price)
+        # Alerting with current date to avoid difference between collect to alert
+        text = self.__extract_text(msg, ticker, price, date=arrow.utcnow())
         record_ids = reduce(lambda _, value: _ + value['pdf_record_ids'] if 'pdf_record_ids' in value else _,
                             msg.values(), [])
 
@@ -209,7 +210,7 @@ class Alert(CommonRunnable):
 
         time.sleep(1)
 
-    def __extract_text(self, msg: dict, ticker, price):
+    def __extract_text(self, msg: dict, ticker, price, date=None):
         alert_text = '\n\n'.join([value['message'] for value in msg.values() if value.get('message')])
 
         # Add title
@@ -220,8 +221,9 @@ class Alert(CommonRunnable):
                '{alert_msg}\n' \
                '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
                                alert_msg=alert_text,
-                               date=ReaderBase.get_stocker_date(
-                                   sorted([value['date'] for value in msg.values() if 'date' in value])[-1]))
+                               date=ReaderBase.format_stocker_date(date if date else
+                                                                sorted([value['date'] for value in msg.values() if
+                                                                        'date' in value])[-1]))
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
