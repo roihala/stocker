@@ -121,8 +121,10 @@ class Profile(TickerAlerter):
         df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
                                                                           'ticker': True,
                                                                           'arr_length': {'$size': f"${field_name}"},
+                                                                          'date': True,
                                                                           '_id': False}
                                                              },
+                                                            {"$sort": {"date": -1}},
                                                             {'$match': {'arr_length': {'$gt': 0}}},
                                                             {'$group': {'_id': '$ticker',
                                                                         field_name: {'$first': f"${field_name}"}}},
