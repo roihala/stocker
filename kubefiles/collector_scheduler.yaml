@@ -52,7 +52,7 @@ metadata:
   name: tickers-schedule-once-an-hour-non-trade
   namespace: default
 spec:
-  schedule: "0 21-23,0-12 * * 1-5"
+  schedule: "0 21-23,0-12 * * 0-5"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   jobTemplate:
