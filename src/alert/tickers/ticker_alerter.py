@@ -86,7 +86,7 @@ class TickerAlerter(AlerterBase):
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
         if diff.get('insight'):
-            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} {diff.get("insight")} in {diff.get("insight_fields")}'
+            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace("\'", "")
 
         title = title.format(key=diff['changed_key'], verb=verb)
 
