@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Dict, List, Tuple
 
+import fitz
 import pymongo
 import requests
 from retry import retry
