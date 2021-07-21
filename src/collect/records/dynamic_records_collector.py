@@ -113,15 +113,6 @@ class DynamicRecordsCollector(CollectorBase, ABC):
     def __get_responses(self):
         responses = {}
 
-        test_records = [287807, 287805, 287803, 287800, 287780, 287776, 287750, 287747,
-                        287740, 287739, 287639, 287633, 287608, 287584, 287517, 287504]
-
-        for _id in test_records:
-            self.record_id = _id
-            responses[self.record_id] = self.fetch_data(0)
-        return responses
-
-        self.record_id = 289110
         for i in range(10):
             try:
                 responses[self.record_id + i] = self.fetch_data(i)
