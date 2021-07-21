@@ -1,6 +1,9 @@
+import logging
 from collections.abc import Iterable
 from copy import deepcopy
 from itertools import zip_longest, tee
+
+logger = logging.getLogger('Collect')
 
 
 class Differ(object):
@@ -41,20 +44,28 @@ class Differ(object):
             self._hierarchy = hierarchy
 
         for key in set(list(latest.keys()) + list(current.keys())):
-
             latest_value, current_value = latest.get(key), current.get(key)
 
             if latest_value != current_value:
-                # If the key is nested and nested_keys structure was provided
-                # If they are iterables and have the same type
-                if hierarchy is not None and key in hierarchy.keys() and \
-                        issubclass(type(latest), type(current)) and Differ.__is_iterable(latest_value):
-                    self.__handle_nested_keys([key], latest_value, current_value, iter(self._hierarchy[key]))
+                try:
+                    # If the key is nested and nested_keys structure was provided
+                    # If they are iterables and have the same type
+                    if hierarchy is not None and key in hierarchy.keys() and Differ.__is_iterable(current_value):
+                        # Initiating empty iterable (list or dict) when getting None
+                        if not issubclass(type(latest_value), type(current_value)):
+                            latest_value = current_value.__class__()
+                        self.__handle_nested_keys([key], latest_value, current_value, iter(self._hierarchy[key]))
 
-                else:
-                    diff_type = self.__get_diff_type(current=current_value, latest=latest_value)
-                    if diff_type:
-                        self._diffs.append(Differ.__build_diff(diff_type, key, latest_value, current_value))
+                        continue
+
+                except Exception as e:
+                    logger.warning(f"Couldn't generate diffs for {key} between current {current} to latest {latest}")
+                    logger.exception(e)
+
+                # If couldn't or wouldn't generate nested diff
+                diff_type = self.__get_diff_type(current=current_value, latest=latest_value)
+                if diff_type:
+                    self._diffs.append(Differ.__build_diff(diff_type, key, latest_value, current_value))
 
         return self._diffs
 
