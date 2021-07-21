@@ -3,8 +3,9 @@ import os
 import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
+import fitz
 import pymongo
 import requests
 from retry import retry
@@ -21,15 +22,26 @@ except Exception:
 
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
-MAX_PAGE_SEARCH = 3
-COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "corporation", "incorporated"]
+COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "adr", "corporation", "incorporated"]
+# ["technologies", "solutions", "resources"]
+SYMBOLS_BLACKLIST_SET = {"OTCM", "FINRA"}
+
+RE_SYMBOL = re.compile(fr"(\b[A-Z]{{3,5}}\b)")
+RE_MAIL = re.compile(r"([\w\.-]+@[\w\.-]+(?:\.[\w]+)+)")
+RE_WEB_URL = re.compile(r"((?:(?:[a-zA-z\-]+[0-9]*)\.[\w\-]+){2,})")
+RE_PHONE_NUMBER = re.compile(r"(\(?\d{3}\D{0,3}\d{3}\D{0,3}\d{4})")
+RE_ZIP_CODE = re.compile(r"(^\d{5}(?:[-\s]\d{4})?$)")
+
+RE_BRACKETS = re.compile(r"\[[^)]*\]")
+RE_PARENTHESES = re.compile(r"\([^)]*\)")
 
 
 class DynamicRecordsCollector(CollectorBase, ABC):
     def __init__(self, tickers, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.record_id = self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id') + 1
-        self._tickers = tickers
+        self.record_id = int(self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+        self._tickers = {symbol: self.__clear_text(tickers[symbol]) for symbol in tickers.keys()}
+        self._mongo__profile = self._mongo_db.get_collection("profile")
 
     @property
     @abstractmethod
@@ -43,7 +55,9 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         for record_id, response in {_: resp for _, resp in responses.items() if resp.ok}.items():
             try:
-                ticker = self.__guess_ticker(record_id, response)
+                pages = self.__get_pages_from_pdf(record_id, response)
+                ticker = self.__guess_ticker(pages)
+
             except Exception as e:
                 ticker = ''
                 logger.exception(e)
@@ -70,6 +84,16 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         return response
 
+    def __get_pages_from_pdf(self, record_id, response) -> List[str]:
+        pages = []
+
+        with fitz.open(self.get_pdf(record_id, response)) as doc:
+
+            for page_number in range(0, doc.pageCount):
+                pages.append(" ".join(doc[page_number].getText().split()))
+
+        return pages
+
     def __generate_document(self, record_id, response, ticker):
         return \
             {
@@ -88,6 +112,16 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __get_responses(self):
         responses = {}
+
+        test_records = [287807, 287805, 287803, 287800, 287780, 287776, 287750, 287747,
+                        287740, 287739, 287639, 287633, 287608, 287584, 287517, 287504]
+
+        for _id in test_records:
+            self.record_id = _id
+            responses[self.record_id] = self.fetch_data(0)
+        return responses
+
+        self.record_id = 289110
         for i in range(10):
             try:
                 responses[self.record_id + i] = self.fetch_data(i)
@@ -97,73 +131,190 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         return responses
 
-    def __guess_ticker(self, record_id, response):
-        with fitz.open(self.get_pdf(record_id, response)) as doc:
-            ticker = self.__guess_by_company_name(doc)
+    def __guess_ticker(self, pages) -> str:
+        symbols_scores = {}
 
-            if ticker:
-                return ticker
-            else:
-                # TODO: Other guess
-                return None
+        by_comp_names = self.__guess_by_company_name(pages)
+        by_symbols = self.__extract_symbols_from_pdf(pages)
+        by_mail_addresses = self.__guess_by_mail_addresses(pages)
+        by_web_urls = self.__guess_by_website_urls(pages)
+        by_phone_numbers = self.__guess_by_phone_numbers(pages)
+        by_zip_codes = self.__guess_by_zip_codes(pages)
 
-    def __guess_by_company_name(self, doc):
-        for page_number in range(0, MAX_PAGE_SEARCH):
+        # logger.info("By company names: " + str(by_comp_names))
+        # logger.info("By symbols: " + str(by_symbols))
+        # logger.info("By mail addresses: " + str(by_mail_addresses))
+        # logger.info("By urls: " + str(by_web_urls))
+        # logger.info("By phone numbers: " + str(by_phone_numbers))
+        # logger.info("By zip codes: " + str(by_zip_codes))
+
+        all_symbols = set(
+            by_comp_names +
+            by_symbols +
+            by_mail_addresses +
+            by_web_urls +
+            by_phone_numbers) - SYMBOLS_BLACKLIST_SET
+
+        for symbol in all_symbols:
+            symbols_scores[symbol] = 0
+
+            if symbol in by_comp_names:
+                symbols_scores[symbol] += 3
+            if symbol in by_symbols:
+                symbols_scores[symbol] += 2
+            if symbol in by_mail_addresses:
+                symbols_scores[symbol] += 1 if len(by_mail_addresses) > 1 else 2
+            if symbol in by_web_urls:
+                symbols_scores[symbol] += 1 if len(by_web_urls) > 1 else 2
+            if symbol in by_phone_numbers:
+                symbols_scores[symbol] += 1 if len(by_phone_numbers) > 1 else 2
+            if symbol in by_zip_codes:
+                symbols_scores[symbol] += 1 if len(by_zip_codes) > 1 else 2
+
+        # Return the symbol with the highest score.
+        if symbols_scores:
+            symbol = max(symbols_scores, key=symbols_scores.get)
+            return symbol if symbols_scores[symbol] > 3 else ""
+        else:
+            return ""
+
+    def __get_symbol_from_map(self, comp_name: str) -> str:
+        if not comp_name:
+            return ""
+
+        # the exact same company name
+        for symbol, name in self._tickers.items():
+            if comp_name == name:
+                return symbol
+
+        return ""
+
+    def __guess_by_company_name(self, pages) -> List[str]:
+        optional_symbols = []
+
+        for page in pages:
 
             # ['otc markets group inc', 'guidelines v group , inc']
-            companies = self.__extract_company_names_from_pdf(doc, page_number)
+            companies = self.__extract_company_names_from_pdf(self.__clear_text(page))
 
             if not companies:
                 continue
 
             # split to words & remove commas & dots
-            companies_opt = [comp.replace(',', '').replace('.', '').split() for comp in companies]
-
-            # [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
-            # [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group inc', 'v group inc', 'group inc']]
+            companies_opt = [comp.split() for comp in companies]
+            """
+            [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
+            [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group', 'v group', 'group', 'inc']]
+            """
             optional_companies = [[" ".join(comp[i:]) for i in range(0, len(comp) - 1)] for comp in companies_opt]
             """
             optional companies -> [["a b c", "b c"], ["d g b c", "g b c", "b c"]]
             search "a b c" -> "d g b c" -> "b c" -> "g b c" ...
             """
             for index in range(0, max(len(_) for _ in optional_companies)):
-                for comp_name in optional_companies:
-                    if index >= len(comp_name):
+                for opt_comp_names in optional_companies:
+                    if index >= len(opt_comp_names):
                         continue
 
-                    result = self.__get_symbol_from_map(comp_name[index])
+                    symbol = self.__get_symbol_from_map(opt_comp_names[index])
 
-                    if result:
-                        return result
+                    if symbol:
+                        optional_symbols.append(symbol)
 
-        return None
+        return list(set(optional_symbols)) if optional_symbols else []
 
-    def __extract_company_names_from_pdf(self, doc, page_number: int) -> list:
+    def __guess_by_mail_addresses(self, pages) -> List[str]:
+        mail_addresses = []
+        symbols = []
+
+        for page in pages:
+            mail_addresses.extend(RE_MAIL.findall(page))
+
+        # logger.info("MAILS: " + str(mail_addresses))
+        for address in mail_addresses:
+            # search mongo for email address
+            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": address})])
+
+        return list(set(symbols)) if symbols else []
+
+    def __guess_by_website_urls(self, pages) -> List[str]:
+        web_urls = []
+        symbols = []
+
+        for page in pages:
+            web_urls.extend(RE_WEB_URL.findall(page))
+
+        # logger.info("WEBSITES: " + str(web_urls))
+        for url in web_urls:
+            # search mongo for web URLs --> contains
+            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"website": {"$regex": ".*" +
+                                                                                                    url + ".*"}})])
+
+        return list(set(symbols)) if symbols else []
+
+    def __guess_by_phone_numbers(self, pages) -> List[str]:
+        phone_numbers = []
+        symbols = []
+
+        for page in pages:
+            phone_numbers.extend(RE_PHONE_NUMBER.findall(page))
+
+        # logger.info("PHONE NUMBERS: " + str(phone_numbers))
+        for phone_num in phone_numbers:
+            # search mongo for email address
+            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"phone": phone_num})])
+
+        return list(set(symbols)) if symbols else []
+
+    def __guess_by_zip_codes(self, pages) -> List[str]:
+        zip_codes = []
+        symbols = []
+
+        for page in pages:
+            zip_codes.extend(RE_ZIP_CODE.findall(page))
+
+        # logger.info("ZIP CODES: " + str(zip_codes))
+        for _zip in zip_codes:
+            # search mongo for email address
+            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
+                                                                                                _zip + ".*"}})])
+
+        return list(set(symbols)) if symbols else []
+
+    @staticmethod
+    def __extract_company_names_from_pdf(text) -> List[str]:
         companies = []
-        page = doc[page_number]
-        txt = " ".join(page.getText().lower().split())
 
         for abr in COMP_ABBREVIATIONS:
             regex = fr"((?:[a-z\.,-]+ ){{1,4}}{abr}[\. ])"
-            matches = re.findall(regex, txt)
+            matches = list(set(re.findall(regex, text)))
 
             if matches:
-                companies = companies + matches
+                companies.extend(matches)
 
-        return (None if not companies else companies)
+        return None if not companies else companies
 
-    def __get_symbol_from_map(self, comp_name: str) -> str:
-        # TODO: Change names.csv company names to lower without commas or dots.
-        # that will save us the name.lower().replace(',', '').replace('.', '') statement.
-        if type(comp_name) is not str or not comp_name:
-            return None
+    @staticmethod
+    def __extract_symbols_from_pdf(pages) -> List[str]:
+        matches = []
 
-        # the exact same company name
-        for symbol, name in self._tickers.items():
-            if comp_name == name.lower().replace(',', '').replace('.', ''):
-                return symbol
+        for page in pages:
+            matches.extend(RE_SYMBOL.findall(page))
 
-        return None
+        return list(set(matches)) if matches else []
+
+    @staticmethod
+    def __clear_text(_str: str) -> str:
+        restricted = [',', '.', '-']
+        _str = _str.lower()
+
+        for c in restricted:
+            _str = _str.replace(c, '')
+
+        _str = RE_PARENTHESES.sub('', _str)
+        _str = RE_BRACKETS.sub('', _str)
+
+        return _str
 
     @staticmethod
     def get_pdf(record_id, response=None, base_url=None):
