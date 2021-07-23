@@ -28,7 +28,7 @@ metadata:
   name: tickers-schedule
   namespace: default
 spec:
-  schedule: "*/5 13-21 * * 1-5"
+  schedule: "*/3 13-21 * * 1-5"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   jobTemplate:

@@ -42,3 +42,4 @@ inflect==5.3.0
 python-telegram-bot==13.6
 requests==2.25.1
 kaleido==0.2.1
+cachetools==4.2.2
