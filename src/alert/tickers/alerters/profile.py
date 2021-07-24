@@ -1,6 +1,7 @@
 import difflib
 import logging
 import re
+from collections import Counter
 
 import pandas as pd
 
@@ -159,8 +160,73 @@ class Profile(TickerAlerter):
             logger.exception(e)
 
     def _edit_batch(self, diffs):
+        self.unite_diffs(diffs)
         diffs = super()._edit_batch(diffs)
         return self.squash_addresses(diffs)
+
+    def _unite_person_rolls_positive_diff(self, diff, name, roles_added, first_added):
+        if ((diff.get('diff_type') == 'added') or (diff.get('diff_type') == 'changed')) and diff.get('new') == name:
+            roles_added.add(diff.get('changed_key'))
+            if diff.get('diff_type') == 'added':
+                if first_added:
+                    diff['delete'] = True
+                else:
+                    first_added = diff
+        return first_added
+
+    def _unite_person_rolls_negative_diff(self, diff, name, roles_removed, first_removed):
+        if (diff.get('diff_type') == 'removed' and diff.get('new') == name) or (
+                diff.get('diff_type') == 'changed' and diff.get('old') == name):
+            roles_removed.add(diff.get('changed_key'))
+            if diff.get('diff_type') == 'removed':
+                if first_removed:
+                    diff['delete'] = True
+                else:
+                    first_removed = diff
+        return first_removed
+
+    def unite_person_roles(self, name, diffs):
+        roles_added = set()
+        roles_removed = set()
+        first_added = None
+        first_removed = None
+
+        for d in diffs:
+            first_removed = self._unite_person_rolls_negative_diff(d, name, roles_removed, first_removed)
+            first_added = self._unite_person_rolls_positive_diff(d, name, roles_added, first_added)
+
+        if first_removed and len(roles_removed) > 1:
+            first_removed['changed_key'] = roles_removed
+        if first_added and len(roles_added) > 1:
+            first_added['changed_key'] = roles_added
+
+        if first_removed and first_added:
+            # TODO: overwrite one of them and add insight 'role_change' in the other
+            self.register_role_change(name, roles_removed, roles_added)
+
+    def register_role_change(self):
+        pass
+
+    def unite_message_same_diff(self):
+        pass
+
+    def find_change(self):
+        pass
+
+    def unite_diffs(self, diffs):
+        """
+        Unite changes regarding to people changing positions
+        :param diffs:
+        :return:
+        """
+        positions = ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']
+        positions_diffs = [d for d in diffs if d.get('changed_key') in positions]
+        names_counter = Counter([d['new'] for d in positions_diffs]) + Counter([d['old'] for d in positions_diffs])
+        relevant_names = set([k for k, v in names_counter if v > 1])
+
+        for name in relevant_names:
+            self.unite_person_roles(name, diffs)
+        # TODO: self.unite_roles_diff_names()
 
     def squash_addresses(self, diffs):
         try:
