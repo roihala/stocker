@@ -158,7 +158,6 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
-    # async def __send_no_delay(self):
     async def __send_no_delay(self, msg: dict, ticker, price):
         try:
             # Alerting with current date to avoid difference between collect to alert

@@ -24,6 +24,7 @@ class RecordsAlerter(AlerterBase, ABC):
         prev_date = self._get_previous_date(diffs)
 
         if not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 180:
+
             messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
             # Adding empty ids in order to save those diffs
             messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
@@ -34,7 +35,7 @@ class RecordsAlerter(AlerterBase, ABC):
         msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                                title=diff.get('title')) for diff in diffs])
 
-        return f'*{self.name}* added:\n{msg}'
+        return f'*{self.name.capitalize()}* added:\n{msg}'
 
     def generate_payload(self, diffs, prev_date):
         return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}

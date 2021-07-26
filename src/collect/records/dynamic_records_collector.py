@@ -5,10 +5,12 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Dict, List, Tuple
 
-import fitz
+import arrow
 import pymongo
 import requests
 from retry import retry
+
+from google.cloud import storage
 
 from runnable import Runnable
 from src.collect.collector_base import CollectorBase
@@ -37,11 +39,16 @@ RE_PARENTHESES = re.compile(r"\([^)]*\)")
 
 
 class DynamicRecordsCollector(CollectorBase, ABC):
+    CLOUD_STORAGE_BASE_PATH = 'https://storage.googleapis.com/{bucket}/{blob}'
+
     def __init__(self, tickers, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.record_id = int(self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
         self._tickers = {symbol: self.__clear_text(tickers[symbol]) for symbol in tickers.keys()}
         self._mongo__profile = self._mongo_db.get_collection("profile")
+
+        self._bucket_name = self.name + '-dev' if self._debug else self.name
+        self._storage_bucket = storage.Client().bucket(self._bucket_name)
 
     @property
     @abstractmethod
@@ -54,10 +61,10 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         diffs = []
 
         for record_id, response in {_: resp for _, resp in responses.items() if resp.ok}.items():
-            try:
-                pages = self.__get_pages_from_pdf(record_id, response)
-                ticker = self.__guess_ticker(pages)
+            pdf_path = self.get_pdf(record_id, response)
 
+            try:
+                ticker = self.__guess_ticker(self.__get_pages_from_pdf(pdf_path))
             except Exception as e:
                 ticker = ''
                 logger.exception(e)
@@ -66,7 +73,12 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             self.collection.insert_one(deepcopy(document))
 
             if ticker:
-                diffs.append(self.__generate_diff(document))
+                # Uploading to cloud storage
+                blob = f"{ticker}/{arrow.utcnow().timestamp}"
+                self._storage_bucket.blob(blob).upload_from_filename(pdf_path)
+                cloud_path = self.CLOUD_STORAGE_BASE_PATH.format(bucket=self.name, blob=blob)
+                diffs.append(self.__generate_diff(document, cloud_path))
+
             else:
                 logger.warning(f"Couldn't resolve ticker for {record_id} at {response.request.url}")
             self.record_id = max(self.record_id, record_id)
@@ -84,16 +96,6 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         return response
 
-    def __get_pages_from_pdf(self, record_id, response) -> List[str]:
-        pages = []
-
-        with fitz.open(self.get_pdf(record_id, response)) as doc:
-
-            for page_number in range(0, doc.pageCount):
-                pages.append(" ".join(doc[page_number].getText().split()))
-
-        return pages
-
     def __generate_document(self, record_id, response, ticker):
         return \
             {
@@ -103,10 +105,11 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 "ticker": ticker
             }
 
-    def __generate_diff(self, document) -> List[Dict]:
+    def __generate_diff(self, document, cloud_path) -> List[Dict]:
         diff = deepcopy(document)
         diff.update({'diff_type': 'add',
-                     'source': self.name
+                     'source': self.name,
+                     'cloud_path': cloud_path
                      })
         return diff
 
@@ -273,6 +276,26 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         return list(set(symbols)) if symbols else []
 
     @staticmethod
+    def get_pdf(record_id, response=None, base_url=None):
+        response = response if response else requests.get(base_url.format(id=record_id))
+        pdf_path = os.path.join(PDF_DIR, f"{record_id}.pdf")
+
+        with open(pdf_path, 'wb') as f:
+            f.write(response.content)
+
+        return pdf_path
+
+    @staticmethod
+    def __get_pages_from_pdf(pdf_path) -> List[str]:
+        pages = []
+
+        with fitz.open(pdf_path) as doc:
+            for page_number in range(0, doc.pageCount):
+                pages.append(" ".join(doc[page_number].getText().split()))
+
+        return pages
+
+    @staticmethod
     def __extract_company_names_from_pdf(text) -> List[str]:
         companies = []
 
@@ -306,13 +329,3 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         _str = RE_BRACKETS.sub('', _str)
 
         return _str
-
-    @staticmethod
-    def get_pdf(record_id, response=None, base_url=None):
-        response = response if response else requests.get(base_url.format(id=record_id))
-        pdf_path = os.path.join(PDF_DIR, f"{record_id}.pdf")
-
-        with open(pdf_path, 'wb') as f:
-            f.write(response.content)
-
-        return pdf_path
