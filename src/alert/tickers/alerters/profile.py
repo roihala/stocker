@@ -160,7 +160,7 @@ class Profile(TickerAlerter):
             logger.exception(e)
 
     def _edit_batch(self, diffs):
-        self.unite_diffs(diffs)
+        diffs = self.unite_diffs(diffs)
         diffs = super()._edit_batch(diffs)
         return self.squash_addresses(diffs)
 
@@ -180,11 +180,11 @@ class Profile(TickerAlerter):
         first_added = None
         first_removed = None
 
-        for d in diffs:
-            if d.get('old') == name:
-                first_removed, roles_removed = self._register_roll(d, roles_removed, first_removed, 'removed')
-            elif d.get('new') == name:
-                first_added, roles_added = self._register_roll(d, roles_added, first_added, 'added')
+        for diff in diffs:
+            if diff.get('old') == name:
+                first_removed, roles_removed = self._register_roll(diff, roles_removed, first_removed, 'removed')
+            elif diff.get('new') == name:
+                first_added, roles_added = self._register_roll(diff, roles_added, first_added, 'added')
 
         if len(roles_removed) > 1:
             first_removed['changed_key'] = roles_removed
@@ -208,6 +208,10 @@ class Profile(TickerAlerter):
                     diff['delete'] = True
                 else:
                     first_diff = diff
+        first_diff['new'] = people
+
+    def __delete_redundent_messages(self, diffs):
+        return [diff for diff in diffs if diff.get('delete', False)]
 
     def unite_diffs(self, diffs):
         """
@@ -230,6 +234,8 @@ class Profile(TickerAlerter):
             diff_type, role = role_diff.split('_')
             if diff_type in ['added', 'removed']:
                 self.unite_roles_diff_names(diff_type, role, diffs)
+
+        return self.__delete_redundent_messages(diffs)
 
     def squash_addresses(self, diffs):
         try:
