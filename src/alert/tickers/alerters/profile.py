@@ -164,26 +164,15 @@ class Profile(TickerAlerter):
         diffs = super()._edit_batch(diffs)
         return self.squash_addresses(diffs)
 
-    def _unite_person_rolls_positive_diff(self, diff, name, roles_added, first_added):
-        if ((diff.get('diff_type') == 'added') or (diff.get('diff_type') == 'changed')) and diff.get('new') == name:
-            roles_added.add(diff.get('changed_key'))
-            if diff.get('diff_type') == 'added':
-                if first_added:
+    def _register_roll(self, diff, roles, first, diff_type):
+        if (diff.get('diff_type') == diff_type) or (diff.get('diff_type') == 'changed'):
+            roles.add(diff.get('changed_key'))
+            if diff.get('diff_type') == diff_type:
+                if first:
                     diff['delete'] = True
                 else:
-                    first_added = diff
-        return first_added
-
-    def _unite_person_rolls_negative_diff(self, diff, name, roles_removed, first_removed):
-        if (diff.get('diff_type') == 'removed' and diff.get('new') == name) or (
-                diff.get('diff_type') == 'changed' and diff.get('old') == name):
-            roles_removed.add(diff.get('changed_key'))
-            if diff.get('diff_type') == 'removed':
-                if first_removed:
-                    diff['delete'] = True
-                else:
-                    first_removed = diff
-        return first_removed
+                    first = diff
+        return first, roles
 
     def unite_person_roles(self, name, diffs):
         roles_added = set()
@@ -192,26 +181,33 @@ class Profile(TickerAlerter):
         first_removed = None
 
         for d in diffs:
-            first_removed = self._unite_person_rolls_negative_diff(d, name, roles_removed, first_removed)
-            first_added = self._unite_person_rolls_positive_diff(d, name, roles_added, first_added)
+            if d.get('old') == name:
+                first_removed, roles_removed = self._register_roll(d, roles_removed, first_removed, 'removed')
+            elif d.get('new') == name:
+                first_added, roles_added = self._register_roll(d, roles_added, first_added, 'added')
 
-        if first_removed and len(roles_removed) > 1:
+        if len(roles_removed) > 1:
             first_removed['changed_key'] = roles_removed
-        if first_added and len(roles_added) > 1:
+        if len(roles_added) > 1:
             first_added['changed_key'] = roles_added
 
-        if first_removed and first_added:
-            # TODO: overwrite one of them and add insight 'role_change' in the other
-            self.register_role_change(name, roles_removed, roles_added)
+        if (len(roles_added) == len(roles_removed) == 1) \
+                and first_removed.get('diff_type') == 'removed' \
+                and first_added.get('diff_type') == 'added':
+            first_added['insight'] = 'role_change'
+            first_added['insight_fields'] = first_removed.get('changed_key')
+            first_removed['delete'] = True
 
-    def register_role_change(self):
-        pass
-
-    def unite_message_same_diff(self):
-        pass
-
-    def find_change(self):
-        pass
+    def unite_roles_diff_names(self, diff_type, role, diffs):
+        people = []
+        first_diff = None
+        for diff in diffs:
+            if diff.get('changed_key') == role and diff.get('diff_type') == diff_type:
+                people.append(diff.get('new') if diff_type == 'added' else diff.get('old'))
+                if first_diff:
+                    diff['delete'] = True
+                else:
+                    first_diff = diff
 
     def unite_diffs(self, diffs):
         """
@@ -221,12 +217,19 @@ class Profile(TickerAlerter):
         """
         positions = ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']
         positions_diffs = [d for d in diffs if d.get('changed_key') in positions]
+
         names_counter = Counter([d['new'] for d in positions_diffs]) + Counter([d['old'] for d in positions_diffs])
         relevant_names = set([k for k, v in names_counter if v > 1])
 
         for name in relevant_names:
             self.unite_person_roles(name, diffs)
-        # TODO: self.unite_roles_diff_names()
+
+        roles_counter = Counter([f"{d['diff_type']}_{d['changed_key']}" for d in positions_diffs])
+        relevant_roles = set([k for k, v in roles_counter if v > 1])
+        for role_diff in relevant_roles:
+            diff_type, role = role_diff.split('_')
+            if diff_type in ['added', 'removed']:
+                self.unite_roles_diff_names(diff_type, role, diffs)
 
     def squash_addresses(self, diffs):
         try:
