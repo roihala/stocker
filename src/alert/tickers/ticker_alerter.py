@@ -14,7 +14,8 @@ class TickerAlerter(AlerterBase):
     def __init__(self, mongo_db, *args, **kwargs):
         super().__init__(mongo_db, *args, **kwargs)
 
-        self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
+        self._reader = factory.Factory.readers_factory(self.name,
+                                                       **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
 
     @staticmethod
     def get_hierarchy() -> dict:
@@ -51,7 +52,8 @@ class TickerAlerter(AlerterBase):
         diff = self.edit_diff(diff)
 
         key = diff['changed_key']
-        diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
+        diff['changed_key'] = self.get_keys_translation()[
+            key] if key in self.get_keys_translation() else key.capitalize()
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:
@@ -65,6 +67,12 @@ class TickerAlerter(AlerterBase):
     def edit_diff(self, diff) -> dict:
         return diff
 
+    def format_message_body(self, symbol, value):
+        if isinstance(value, Iterable):
+            return f"\n{symbol}".join(value)
+        else:
+            return f'{symbol} {value}'
+
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
 
@@ -72,12 +80,13 @@ class TickerAlerter(AlerterBase):
 
         if diff.get('diff_type') == 'remove':
             verb = 'removed'
-            body = '{red_circle_emoji} {old}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                     old=old)
+            body = self.format_message_body(self.RED_CIRCLE_EMOJI_UNICODE, old)
         elif diff.get('diff_type') == 'add':
             verb = 'added'
-            body = '{green_circle_emoji} {new}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                       new=new)
+            body = self.format_message_body(self.GREEN_CIRCLE_EMOJI_UNICODE, new)
+            if diff.get('insight') == 'role_change':
+                body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} ' \
+                        f'{diff.get("changed_key")} changed to {diff.get("insight_fields")}'
         else:
             verb = 'changed'
             body = '{red_circle_emoji} {old}\n' \
@@ -85,10 +94,12 @@ class TickerAlerter(AlerterBase):
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
-        if diff.get('insight'):
-            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace("\'", "")
-
-        title = title.format(key=diff['changed_key'], verb=verb)
+        if diff.get('insight') == 'sympathy':
+            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace(
+                "\'", "")
+        key = diff['changed_key']
+        changed_key = key if not isinstance(key, Iterable) else "&".join(key)
+        title = title.format(key=changed_key, verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
