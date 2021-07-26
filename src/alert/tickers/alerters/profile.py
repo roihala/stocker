@@ -225,6 +225,10 @@ class Profile(TickerAlerter):
                     diff['delete'] = True
                 else:
                     first_diff = diff
+        first_diff['new'] = people
+
+    def __delete_redundent_messages(self, diffs):
+        return [diff for diff in diffs if diff.get('delete', False)]
 
     def unite_diffs(self, diffs):
         """
