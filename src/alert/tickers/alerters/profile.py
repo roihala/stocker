@@ -215,6 +215,16 @@ class Profile(TickerAlerter):
 
     def __delete_redundent_messages(self, diffs):
         return [diff for diff in diffs if diff.get('delete', False)]
+    def unite_roles_diff_names(self, diff_type, role, diffs):
+        people = []
+        first_diff = None
+        for diff in diffs:
+            if diff.get('changed_key') == role and diff.get('diff_type') == diff_type:
+                people.append(diff.get('new') if diff_type == 'added' else diff.get('old'))
+                if first_diff:
+                    diff['delete'] = True
+                else:
+                    first_diff = diff
 
     def unite_diffs(self, diffs):
         """
