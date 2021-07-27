@@ -87,7 +87,8 @@ class Alert(CommonRunnable):
 
                 try:
                     data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
-                    self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
+                    if not self._debug:
+                        self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
                 except Exception as e:
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
