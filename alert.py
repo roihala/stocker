@@ -195,10 +195,8 @@ class Alert(CommonRunnable):
                     self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
                                                         media=media)
             else:
-                idx = str(random.randint(1111,9999))
-                self._mongo_db.fuck_them.insert_one({'chat_id': user.get('chat_id'), 'idx': idx})
                 self._telegram_bot.send_message(chat_id=user.get("chat_id"),
-                                                text=text + f'*T{idx[0:2]}:{idx[2:4]}*',
+                                                text=text,
                                                 parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
