@@ -169,9 +169,6 @@ class Alert(CommonRunnable):
         return registered_users
 
     def __send_msg(self, user, ticker, text, record_ids=None):
-        if user.get('chat_id') in [1865808006, 1151317792]:
-            text += f'\n\n\n\n{arrow.utcnow().format()}'
-
         try:
             if record_ids:
                 files = [DynamicRecordsCollector.get_pdf(record_id, base_url=FILINGS_PDF_URL) for record_id in
@@ -198,8 +195,10 @@ class Alert(CommonRunnable):
                     self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
                                                         media=media)
             else:
+                idx = str(random.randint(1111,9999))
+                self._mongo_db.fuck_them.insert_one({'chat_id': user.get('chat_id'), 'idx': idx})
                 self._telegram_bot.send_message(chat_id=user.get("chat_id"),
-                                                text=text,
+                                                text=text + f'*T{idx[0:2]}:{idx[2:4]}*',
                                                 parse_mode=telegram.ParseMode.MARKDOWN)
 
         except Exception as e:
