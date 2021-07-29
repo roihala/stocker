@@ -104,11 +104,18 @@ class Profile(TickerAlerter):
         except TypeError:
             pass
 
-        self.__check_sympathy(diff)
+        try:
+            sympathy_tickers = self.__get_sympathy_tickers(diff)
+            if sympathy_tickers:
+                diff['insight'] = 'sympathy'
+                diff['insight_fields'] = sympathy_tickers
+        except Exception as e:
+            logger.warning(f"Couldn't find sympathy for {diff}")
+            logger.exception(e)
 
         return diff
 
-    def __check_sympathy(self, diff):
+    def __get_sympathy_tickers(self, diff):
         """
         Currently check only new people that exist also in other companies. Currently works only on names
         """
@@ -135,11 +142,7 @@ class Profile(TickerAlerter):
         df2 = df.explode(field_name)
         df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[field_name]), axis=1)
         res = df2[df2['levenshtein_distance'] < 3].drop_duplicates('ticker')
-        tickers = res['ticker'].tolist()
-
-        if len(tickers) > 0:
-            diff['insight'] = 'sympathy'
-            diff['insight_fields'] = tickers
+        return res['ticker'].tolist()
 
     def __get_extra_data(self, diff):
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
