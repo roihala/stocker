@@ -43,6 +43,7 @@ class FatherBot(BaseBot):
         'a80ddd492ea6c9e652864afcf9c8a89509abd446aab12e794b446624a70bd00d': 'reddit',
         'fc4519d98ffaaed1e227d5214e27bf56f969306d7bb60e87f21eaf432d7c9f02': 'kevin',
         '7354be84e72f6fc3048b72320cc663994f1ba542a5a69ddb9964bfea4d884e1d': 'mambo',
+        '6bf81fb9d29270a8200cb3cd635295829f12d73af3e3b4db8719904f6a2b0fee': 'otcfree',
         'free_trial': 'website'
     }
     DEREGISTER_TOKEN = 'f16e4d4c8ee076e33d27a0c1a5b1adc7886b324c520f55206f913275bc0c075d'
@@ -111,7 +112,7 @@ class FatherBot(BaseBot):
 
             if arg in self.FREE_TRIAL_TOKENS.keys():
                 source = self.FREE_TRIAL_TOKENS[arg]
-                if source in ['judit', 'special', 'kevin']:
+                if source in ['judit', 'special', 'kevin', 'otcfree']:
                     weeks = 4
                 else:
                     weeks = 2
