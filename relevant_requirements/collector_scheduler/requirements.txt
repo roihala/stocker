@@ -4,3 +4,4 @@ retry
 pandas
 argparse
 google-cloud-pubsub
+APScheduler==3.6.3

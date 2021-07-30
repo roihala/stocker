@@ -1,26 +1,26 @@
-#apiVersion: apps/v1
-#kind: Deployment
-#metadata:
-#  name: collector-scheduler-app
-#spec:
-#  selector:
-#    matchLabels:
-#      run: collector-scheduler
-#  replicas: 1
-#  template:
-#    metadata:
-#      labels:
-#        run: collector-scheduler
-#    spec:
-#      containers:
-#        - name: collector-scheduler
-#          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
-#          env:
-#            - name: ENV
-#              value: "production"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collector-scheduler-app
+spec:
+  selector:
+    matchLabels:
+      run: collector-scheduler
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: collector-scheduler
+    spec:
+      containers:
+        - name: collector-scheduler
+          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+          env:
+            - name: ENV
+              value: "production"
 #            - name: DEBUG
 #              value: "true"
-
+#
 ---
 apiVersion: batch/v1beta1
 kind: CronJob
@@ -28,9 +28,10 @@ metadata:
   name: tickers-schedule
   namespace: default
 spec:
-  schedule: "*/3 13-21 * * 1-5"
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
+  schedule: "* 13-21 * * 1-5"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 180
   jobTemplate:
     spec:
       template:
@@ -42,6 +43,8 @@ spec:
               env:
                 - name: ENV
                   value: "production"
+                - name: FUNCTION
+                  value: "true"
 #                - name: DEBUG
 #                  value: "true"
 
@@ -52,9 +55,10 @@ metadata:
   name: tickers-schedule-once-an-hour-non-trade
   namespace: default
 spec:
-  schedule: "0 21-23,0-12 * * 0-5"
+  schedule: "0 21-23,0-12 * * 0-6"
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
   jobTemplate:
     spec:
       template:
@@ -66,5 +70,7 @@ spec:
               env:
                 - name: ENV
                   value: "production"
+                - name: FUNCTION
+                  value: "true"
 #                - name: DEBUG
 #                  value: "true"
