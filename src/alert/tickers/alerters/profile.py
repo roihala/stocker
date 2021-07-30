@@ -163,12 +163,20 @@ class Profile(TickerAlerter):
             logger.exception(e)
 
     def _edit_batch(self, diffs):
-        diffs = self.unite_diffs(diffs)
         diffs = super()._edit_batch(diffs)
+        diffs = self.unite_diffs(diffs)
         return self.squash_addresses(diffs)
 
     def _register_roll(self, diff, roles, first, diff_type):
-        if (diff.get('diff_type') == diff_type) or (diff.get('diff_type') == 'changed'):
+        """
+        TODO: add change
+        :param diff:
+        :param roles:
+        :param first:
+        :param diff_type:
+        :return:
+        """
+        if diff.get('diff_type') == diff_type:
             roles.add(diff.get('changed_key'))
             if diff.get('diff_type') == diff_type:
                 if first:
@@ -185,9 +193,9 @@ class Profile(TickerAlerter):
 
         for diff in diffs:
             if diff.get('old') == name:
-                first_removed, roles_removed = self._register_roll(diff, roles_removed, first_removed, 'removed')
+                first_removed, roles_removed = self._register_roll(diff, roles_removed, first_removed, 'remove')
             elif diff.get('new') == name:
-                first_added, roles_added = self._register_roll(diff, roles_added, first_added, 'added')
+                first_added, roles_added = self._register_roll(diff, roles_added, first_added, 'add')
 
         if len(roles_removed) > 1:
             first_removed['changed_key'] = roles_removed
@@ -195,8 +203,8 @@ class Profile(TickerAlerter):
             first_added['changed_key'] = roles_added
 
         if (len(roles_added) == len(roles_removed) == 1) \
-                and first_removed.get('diff_type') == 'removed' \
-                and first_added.get('diff_type') == 'added':
+                and first_removed.get('diff_type') == 'remove' \
+                and first_added.get('diff_type') == 'add':
             first_added['insight'] = 'role_change'
             first_added['insight_fields'] = first_removed.get('changed_key')
             first_removed['delete'] = True
@@ -206,7 +214,7 @@ class Profile(TickerAlerter):
         first_diff = None
         for diff in diffs:
             if diff.get('changed_key') == role and diff.get('diff_type') == diff_type:
-                people.append(diff.get('new') if diff_type == 'added' else diff.get('old'))
+                people.append(diff.get('new') if diff_type == 'add' else diff.get('old'))
                 if first_diff:
                     diff['delete'] = True
                 else:
@@ -226,16 +234,18 @@ class Profile(TickerAlerter):
         positions_diffs = [d for d in diffs if d.get('changed_key') in positions]
 
         names_counter = Counter([d['new'] for d in positions_diffs]) + Counter([d['old'] for d in positions_diffs])
+        names_counter.pop('None', None)
         relevant_names = set([k for k, v in names_counter.items() if v > 1])
 
         for name in relevant_names:
             self.unite_person_roles(name, diffs)
 
         roles_counter = Counter([f"{d['diff_type']}_{d['changed_key']}" for d in positions_diffs])
+        roles_counter.pop('None', None)
         relevant_roles = set([k for k, v in roles_counter.items() if v > 1])
         for role_diff in relevant_roles:
             diff_type, role = role_diff.split('_')
-            if diff_type in ['added', 'removed']:
+            if diff_type in ['add', 'remove']:
                 self.unite_roles_diff_names(diff_type, role, diffs)
 
         return self.__delete_redundent_messages(diffs)
