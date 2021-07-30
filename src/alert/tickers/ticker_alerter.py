@@ -71,7 +71,7 @@ class TickerAlerter(AlerterBase):
         if isinstance(value, str):
             return f'{symbol} {value}'
         else:
-            return f"\n{symbol}".join(value)
+            return f"\n{symbol}" + f"\n{symbol}".join(value)
 
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
