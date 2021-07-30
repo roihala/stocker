@@ -51,9 +51,14 @@ class TickerAlerter(AlerterBase):
 
         diff = self.edit_diff(diff)
 
-        key = diff['changed_key']
-        diff['changed_key'] = self.get_keys_translation()[
-            key] if key in self.get_keys_translation() else key.capitalize()
+        keys = diff['changed_key']
+        keys = [keys] if isinstance(keys, str) else keys
+        new_keys = []
+        for key in keys:
+            new_keys.append(self.get_keys_translation()[
+            key] if key in self.get_keys_translation() else key.capitalize())
+        diff['changed_key'] = set(new_keys)
+
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:
@@ -144,6 +149,8 @@ class TickerAlerter(AlerterBase):
         :return: The edited diff, None to delete the diff
         """
         key = diff.get('changed_key')
+        # TODO: validate all changed keys not only the first
+        key = key if isinstance(key, str) else list(key)[0]
 
         try:
             if key not in self.relevant_keys or self._is_valid_diff(diff) is False:

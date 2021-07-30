@@ -106,7 +106,7 @@ class Profile(TickerAlerter):
 
         try:
             sympathy_tickers = self.__get_sympathy_tickers(diff)
-            if len(sympathy_tickers) > 0:
+            if sympathy_tickers and len(sympathy_tickers) > 0:
                 diff['insights']['sympathy'] = sympathy_tickers
         except Exception as e:
             logger.warning(f"Couldn't find sympathy for {diff}")
@@ -118,12 +118,15 @@ class Profile(TickerAlerter):
         """
         Currently check only new people that exist also in other companies. Currently works only on names
         """
-        if diff.get('changed_key') not in ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']:
-            return
+        keys = diff.get('changed_key')
+        keys = [keys] if isinstance(keys, str) else list(keys)
+        for key in keys:
+            if diff.get('changed_key') not in ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']:
+                return
         if diff.get('diff_type') == 'remove':
             return
 
-        key = diff.get("changed_key")
+        key = keys[0]
         field_name = f'{key}.name'
         df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
                                                                           'ticker': True,
