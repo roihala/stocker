@@ -8,11 +8,13 @@ import requests
 
 from alert import Alert
 from common_runnable import CommonRunnable
-from src.factory import Factory
+from src.alerters_factory import AlertersFactory
+from src.collector_factory import CollectorsFactory
 from src.find.site import Site
 from src.read import readers
 from src.read.reader_base import ReaderBase
 from src.read.readers import Profile, Symbols, Securities
+from src.readers_factory import ReadersFactory
 
 LOW_FLOATERS_001_1B_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_1B.csv')
 LOW_FLOATERS_001_500M_PATH = os.path.join(os.path.dirname(__file__), 'low_floaters001_500M.csv')
@@ -89,17 +91,17 @@ class Client(CommonRunnable):
 """.format(
             title=Alert.generate_title(ticker, mongo_db),
             subtitle=profile.get_latest().get('name'),
-            symbols=Symbols(mongo_db, ticker).generate_msg(),
-            profile=profile.generate_msg(['website', 'businessDesc'], escape_markdown) + f'\n_{latest_profile.get("businessDesc")}_',
-            securities=Securities(mongo_db, ticker).generate_msg(),
+            symbols=Symbols(mongo_db, ticker).generate_info(),
+            profile=profile.generate_info(['website', 'businessDesc'], escape_markdown) + f'\n_{latest_profile.get("businessDesc")}_',
+            securities=Securities(mongo_db, ticker).generate_info(),
             links=links)
 
     def filter_past(self):
         for ticker in self._tickers_list:
             self.logger.info('filtering {ticker}'.format(ticker=ticker))
-            for collection_name in Factory.TICKER_COLLECTIONS.keys():
+            for collection_name in CollectorsFactory.COLLECTIONS.keys():
                 try:
-                    reader = Factory.readers_factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+                    reader = ReadersFactory.factory(collection_name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
                     collection = self._mongo_db.get_collection(collection_name)
 
                     # get_sorted_history flattens nested keys in order to apply filters,
@@ -123,8 +125,8 @@ class Client(CommonRunnable):
     def get_history(mongo_db, ticker):
         history = pandas.DataFrame()
 
-        for collection_name in Factory.TICKER_COLLECTIONS.keys():
-            reader = Factory.readers_factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
+        for collection_name in ReadersFactory.COLLECTIONS.keys():
+            reader = ReadersFactory.factory(collection_name, **{'mongo_db': mongo_db, 'ticker': ticker})
             current = reader.get_sorted_history(filter_rows=True, filter_cols=True)
 
             if current.empty:
@@ -279,7 +281,7 @@ class Client(CommonRunnable):
             try:
                 alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': None,
                                 'ticker': record.get('ticker'), 'debug': True}
-                alerter = Factory.alerters_factory(record.get('source'), **alerter_args)
+                alerter = AlertersFactory.factory(record.get('source'), **alerter_args)
 
                 _, msg = alerter.generate_messages([record])
                 if not msg:

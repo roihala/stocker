@@ -7,9 +7,10 @@ from abc import ABC, abstractmethod
 from redis import Redis
 import pickle
 
-from src import factory
 from src.collect.collector_base import CollectorBase
 from src.collect.tickers.differ import Differ
+from src import collector_factory
+from src.readers_factory import ReadersFactory
 
 logger = logging.getLogger('Collect')
 
@@ -28,7 +29,7 @@ class TickerCollector(CollectorBase, ABC):
             self.cache[self.name] = {}
 
         self.ticker = ticker.upper()
-        self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
+        self._reader = ReadersFactory.factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': ticker})
 
     @staticmethod
     def get_sons():
@@ -40,10 +41,6 @@ class TickerCollector(CollectorBase, ABC):
         A list of keys to drop. Note that the keys won't even be saved to mongo
         """
         return []
-
-    @staticmethod
-    def get_nested_keys():
-        return {}
 
     @abstractmethod
     def fetch_data(self, data=None) -> dict:
@@ -84,7 +81,8 @@ class TickerCollector(CollectorBase, ABC):
             # Saving the fetched data
             self.__save_document(current)
 
-            diffs = [self.__decorate_diff(diff) for diff in Differ().get_diffs(latest, current, self.get_nested_keys())]
+            diffs = [self.__decorate_diff(diff) for diff in
+                     Differ().get_diffs(latest, current, self._reader.get_nested_keys())]
 
             logger.info('diffs: {diffs}'.format(diffs=diffs))
 
@@ -127,7 +125,7 @@ class TickerCollector(CollectorBase, ABC):
             try:
                 collection_args = {'mongo_db': self._mongo_db, 'ticker': self.ticker, 'date': self._date,
                                    'debug': self._debug, 'cache': self.cache}
-                collector = factory.Factory.collectors_factory(son, **collection_args)
+                collector = collector_factory.CollectorsFactory.factory(son, **collection_args)
                 result = collector.collect(self._raw_data)
                 if result:
                     diffs += result

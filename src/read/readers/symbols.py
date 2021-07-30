@@ -1,6 +1,7 @@
 import arrow
 
 from src.alert.alerter_base import AlerterBase
+from src import alerters_factory
 from src.read.reader_base import ReaderBase
 
 
@@ -16,7 +17,7 @@ class Symbols(ReaderBase):
 
         return history
 
-    def generate_msg(self):
+    def generate_info(self):
         # For every true symbol
         true_symbols = [symbol for symbol, value in self.get_latest().items() if value is True]
 
@@ -24,7 +25,7 @@ class Symbols(ReaderBase):
 
     def generate_line(self, symbol):
         try:
-            hierarchy = self._alerter.get_hierarchy().get(symbol)
+            hierarchy = alerters_factory.AlertersFactory.get_alerter(self.name).get_hierarchy().get(symbol)
             if hierarchy.index(False) < hierarchy.index(True):
                 red_or_green = AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE
             else:

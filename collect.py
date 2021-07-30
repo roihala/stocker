@@ -4,19 +4,17 @@ import json
 import logging
 import os
 from functools import reduce
-from time import sleep
 
 import arrow
 import pymongo
 from bson import json_util
-from google import pubsub_v1
 from google.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1 import PublisherClient
-from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
 from common_runnable import CommonRunnable
-from src.factory import Factory
 from redis import Redis
+
+from src.collector_factory import CollectorsFactory
 
 
 class Collect(CommonRunnable):
@@ -72,17 +70,17 @@ class Collect(CommonRunnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        all_sons = reduce(lambda x, y: x + y.get_sons(), Factory.get_tickers_collectors(), [])
+        all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.get_collectors(), [])
         all_diffs = []
 
-        for collection_name in Factory.TICKER_COLLECTIONS.keys():
+        for collection_name in CollectorsFactory.COLLECTIONS.keys():
             try:
                 if collection_name in all_sons:
                     continue
 
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
-                collector = Factory.collectors_factory(collection_name, **collector_args)
+                collector = CollectorsFactory.factory(collection_name, **collector_args)
                 diffs = collector.collect()
 
                 if diffs:

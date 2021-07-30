@@ -12,25 +12,3 @@ class Profile(SiteCollector):
     @staticmethod
     def get_sons():
         return ['securities']
-
-    @staticmethod
-    def get_nested_keys():
-        return {'officers': [list, dict, 'name'],
-                'premierDirectorList': [list, dict, 'name'],
-                'standardDirectorList': [list, dict, 'name'],
-                'auditors': [list, dict, 'name'],
-                'investorRelationFirms': [list, dict, 'name'],
-                'legalCounsels': [list, dict, 'name'],
-                'investmentBanks': [list, dict, 'name'],
-                'corporateBrokers': [list, dict, 'name'],
-                'notes': [list],
-                'otherSecurities': [list, dict, 'name'],
-                'otcAward': [dict, 'best50'],
-                "indexStatuses": [list, dict, 'indexName'],
-                }
-
-    @staticmethod
-    def get_drop_keys():
-        return ['securities', 'isProfileVerified', 'isCaveatEmptor', 'isShell', 'isBankrupt', 'unableToContact',
-                'isDark', 'numberOfRecordShareholders', 'profileVerifiedAsOfDate', 'tierCode', 'tierStartDate',
-                'estimatedMarketCapAsOfDate', 'estimatedMarketCap']

@@ -14,7 +14,6 @@ import requests
 from pymongo.database import Database
 
 from runnable import Runnable
-from src import factory
 from src.find.site import Site
 
 
@@ -35,10 +34,18 @@ class ReaderBase(ABC):
         self.name = self.__class__.__name__.lower()
         self.collection = mongo_db.get_collection(self.name)
         self._mongo_db = mongo_db
-
-        self._collector = factory.Factory.get_collector(self.name)
-        self._alerter = factory.Factory.get_alerter(self.name)
         self._sorted_history = None
+
+    @staticmethod
+    def get_nested_keys():
+        return {}
+
+    @staticmethod
+    def get_drop_keys():
+        """
+        A list of keys to drop. Note that the keys won't even be saved to mongo
+        """
+        return []
 
     def get_sorted_history(self, filter_rows=False, filter_cols=False, ignore_latest=False):
         """
@@ -56,7 +63,7 @@ class ReaderBase(ABC):
 
         history = pandas.DataFrame(
             self.collection.find({"ticker": self.ticker}, {"_id": False}).sort('date', pymongo.ASCENDING))\
-            .drop(self._collector.get_drop_keys(), axis='columns', errors='ignore')
+            .drop(self.get_drop_keys(), axis='columns', errors='ignore')
 
         if history.empty:
             return history
@@ -98,7 +105,7 @@ class ReaderBase(ABC):
         return self._sorted_history.loc[idx - 1].to_dict(), self._sorted_history.loc[idx].to_dict()
 
     def flatten(self, history):
-        for column, layers in self._collector.get_nested_keys().items():
+        for column, layers in self.get_nested_keys().items():
             if column in history.columns:
                 history[column] = pandas.Series(
                     {date: self.__unfold(value, tee(iter(layers))[1]) for date, value in
@@ -108,7 +115,7 @@ class ReaderBase(ABC):
 
         return history
 
-    def generate_msg(self):
+    def generate_info(self):
         return ''
 
     @classmethod

@@ -17,8 +17,8 @@ from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from src.factory import Factory
 from src.read import readers
+from src.records_factory import RecordsFactory
 
 global records_cache
 records_cache = {}
@@ -58,13 +58,13 @@ class RecordsCollect(CommonRunnable):
     def collect_records(self):
         date = arrow.utcnow()
 
-        for collection_name in Factory.RECORDS_COLLECTIONS.keys():
+        for collection_name in RecordsFactory.COLLECTIONS.keys():
             if collection_name in ['secfilings', 'filings']:
                 continue
             collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
             if collection_name == 'filings_pdf':
                 collector_args.update({'tickers': self.tickers_mapping})
-            collector = Factory.collectors_factory(collection_name, **collector_args)
+            collector = RecordsFactory.factory(collection_name, **collector_args)
             diffs = collector.collect()
 
             if diffs:
