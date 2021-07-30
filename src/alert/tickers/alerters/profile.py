@@ -263,7 +263,7 @@ class Profile(TickerAlerter):
 
         for name in relevant_names:
             self.unite_person_roles(name, diffs)
-
+        diffs = self.__delete_redundent_messages(diffs)
         roles_counter = Counter([f"{d['diff_type']}_{d['changed_key']}" for d in positions_diffs])
         roles_counter.pop('None', None)
         relevant_roles = set([k for k, v in roles_counter.items() if v > 1])
