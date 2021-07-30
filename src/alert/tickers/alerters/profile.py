@@ -125,7 +125,8 @@ class Profile(TickerAlerter):
         if diff.get('diff_type') == 'remove':
             return
 
-        field_name = f'{diff.get("changed_key")}.name'
+        key = diff.get("changed_key")
+        field_name = f'{key}.name'
         df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
                                                                           'ticker': True,
                                                                           'arr_length': {'$size': f"${field_name}"},
@@ -135,12 +136,12 @@ class Profile(TickerAlerter):
                                                             {"$sort": {"date": -1}},
                                                             {'$match': {'arr_length': {'$gt': 0}}},
                                                             {'$group': {'_id': '$ticker',
-                                                                        field_name: {'$first': f"${field_name}"}}},
+                                                                        key: {'$first': f"${field_name}"}}},
                                                             {'$project': {'ticker': '$_id',
-                                                                          field_name: True,
+                                                                          key: True,
                                                                           '_id': False}}]))
-        df2 = df.explode(field_name)
-        df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[field_name]), axis=1)
+        df2 = df.explode(key)
+        df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[key]), axis=1)
         res = df2[df2['levenshtein_distance'] < 3].drop_duplicates('ticker')
         return res['ticker'].tolist()
 
