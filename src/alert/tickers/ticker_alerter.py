@@ -68,10 +68,10 @@ class TickerAlerter(AlerterBase):
         return diff
 
     def format_message_body(self, symbol, value):
-        if isinstance(value, Iterable):
-            return f"\n{symbol}".join(value)
-        else:
+        if isinstance(value, str):
             return f'{symbol} {value}'
+        else:
+            return f"\n{symbol}".join(value)
 
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
@@ -98,7 +98,7 @@ class TickerAlerter(AlerterBase):
             body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace(
                 "\'", "")
         key = diff['changed_key']
-        changed_key = key if not isinstance(key, Iterable) else "&".join(key)
+        changed_key = key if isinstance(key, str) else "&".join(key)
         title = title.format(key=changed_key, verb=verb)
 
         return '{title}\n' \

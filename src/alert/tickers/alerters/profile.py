@@ -215,20 +215,6 @@ class Profile(TickerAlerter):
 
     def __delete_redundent_messages(self, diffs):
         return [diff for diff in diffs if diff.get('delete', False)]
-    def unite_roles_diff_names(self, diff_type, role, diffs):
-        people = []
-        first_diff = None
-        for diff in diffs:
-            if diff.get('changed_key') == role and diff.get('diff_type') == diff_type:
-                people.append(diff.get('new') if diff_type == 'added' else diff.get('old'))
-                if first_diff:
-                    diff['delete'] = True
-                else:
-                    first_diff = diff
-        first_diff['new'] = people
-
-    def __delete_redundent_messages(self, diffs):
-        return [diff for diff in diffs if diff.get('delete', False)]
 
     def unite_diffs(self, diffs):
         """
@@ -240,13 +226,13 @@ class Profile(TickerAlerter):
         positions_diffs = [d for d in diffs if d.get('changed_key') in positions]
 
         names_counter = Counter([d['new'] for d in positions_diffs]) + Counter([d['old'] for d in positions_diffs])
-        relevant_names = set([k for k, v in names_counter if v > 1])
+        relevant_names = set([k for k, v in names_counter.items() if v > 1])
 
         for name in relevant_names:
             self.unite_person_roles(name, diffs)
 
         roles_counter = Counter([f"{d['diff_type']}_{d['changed_key']}" for d in positions_diffs])
-        relevant_roles = set([k for k, v in roles_counter if v > 1])
+        relevant_roles = set([k for k, v in roles_counter.items() if v > 1])
         for role_diff in relevant_roles:
             diff_type, role = role_diff.split('_')
             if diff_type in ['added', 'removed']:
