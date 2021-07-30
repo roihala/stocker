@@ -106,7 +106,7 @@ class Profile(TickerAlerter):
 
         try:
             sympathy_tickers = self.__get_sympathy_tickers(diff)
-            if sympathy_tickers:
+            if len(sympathy_tickers) > 0:
                 diff['insight'] = 'sympathy'
                 diff['insight_fields'] = sympathy_tickers
         except Exception as e:
@@ -119,8 +119,7 @@ class Profile(TickerAlerter):
         """
         Currently check only new people that exist also in other companies. Currently works only on names
         """
-        if diff.get('changed_key') not in ['officers', 'directors', 'auditors', 'premierDirectorList',
-                                           'standardDirectorList']:
+        if diff.get('changed_key') not in ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']:
             return
         if diff.get('diff_type') == 'remove':
             return
