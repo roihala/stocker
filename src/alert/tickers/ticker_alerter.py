@@ -83,10 +83,13 @@ class TickerAlerter(AlerterBase):
             body = self.format_message_body(self.RED_CIRCLE_EMOJI_UNICODE, old)
         elif diff.get('diff_type') == 'add':
             verb = 'added'
-            body = self.format_message_body(self.GREEN_CIRCLE_EMOJI_UNICODE, new)
-            if diff.get('insight') == 'role_change':
-                body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} ' \
-                        f'{diff.get("changed_key")} changed to {diff.get("insight_fields")}'
+            if diff['insights'].get('role_change'):
+                value = diff['insights']['role_change']
+                title = f'\n{value} changed to {diff.get("changed_key")}:'
+                marker = self.YELLOW_CIRCLE_EMOJI_UNICODE
+            else:
+                marker = self.GREEN_CIRCLE_EMOJI_UNICODE
+            body = self.format_message_body(marker, new)
         else:
             verb = 'changed'
             body = '{red_circle_emoji} {old}\n' \
@@ -94,12 +97,14 @@ class TickerAlerter(AlerterBase):
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
-        if diff.get('insight') == 'sympathy':
-            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace(
-                "\'", "")
-        key = diff['changed_key']
-        changed_key = key if isinstance(key, str) else "&".join(key)
-        title = title.format(key=changed_key, verb=verb)
+        if diff['insights'].get('sympathy'):
+            tickers = diff['insights']['sympathy']
+            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {tickers}'.replace("\'", "")
+
+        if title == '*{key}* {verb}:':
+            key = diff['changed_key']
+            changed_key = key if isinstance(key, str) else "&".join(key)
+            title = title.format(key=changed_key, verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
@@ -117,6 +122,8 @@ class TickerAlerter(AlerterBase):
         return msg
 
     def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
+        for diff in diffs:
+            diff['insights'] = {}
         return sorted(diffs, key=itemgetter('changed_key'))
 
     def is_relevant_diff(self, diff) -> bool:

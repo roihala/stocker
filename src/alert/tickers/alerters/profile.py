@@ -107,8 +107,7 @@ class Profile(TickerAlerter):
         try:
             sympathy_tickers = self.__get_sympathy_tickers(diff)
             if len(sympathy_tickers) > 0:
-                diff['insight'] = 'sympathy'
-                diff['insight_fields'] = sympathy_tickers
+                diff['insights']['sympathy'] = sympathy_tickers
         except Exception as e:
             logger.warning(f"Couldn't find sympathy for {diff}")
             logger.exception(e)
@@ -164,8 +163,31 @@ class Profile(TickerAlerter):
 
     def _edit_batch(self, diffs):
         diffs = super()._edit_batch(diffs)
-        diffs = self.unite_diffs(diffs)
+        diffs_copy = deepcopy(diffs)
+        try:
+            diffs = self.unite_diffs(diffs)
+            self._validate_union(diffs, diffs_copy)
+        except Exception as ex:
+            logger.warning("Failed to union diffs, applying fallback")
+            logger.exception(ex)
+            diffs = diffs_copy
         return self.squash_addresses(diffs)
+
+    def _validate_union(self, diffs, diffs_copy):
+        old_values = set([d['old'] for d in diffs_copy])
+        old_values = old_values.union(set(d['new'] for d in diffs_copy))
+        old_values.discard('None')
+
+        for old_value in old_values:
+            exists = False
+            for d in diffs:
+                exists |= old_value in d['old']
+                exists |= old_value in d['new']
+                exists |= (d['insights'].get('role_change', False) and old_value in d['insights'].get('role_change'))
+                if exists:
+                    break
+            if not exists:
+                raise Exception(f'Value "{old_value}" is missing on attempt to union diffs')
 
     def _register_roll(self, diff, roles, first, diff_type):
         """
@@ -205,8 +227,7 @@ class Profile(TickerAlerter):
         if (len(roles_added) == len(roles_removed) == 1) \
                 and first_removed.get('diff_type') == 'remove' \
                 and first_added.get('diff_type') == 'add':
-            first_added['insight'] = 'role_change'
-            first_added['insight_fields'] = first_removed.get('changed_key')
+            first_added['insights']['role_change'] = self.get_keys_translation()[first_removed.get('changed_key')]
             first_removed['delete'] = True
 
     def unite_roles_diff_names(self, diff_type, role, diffs):
