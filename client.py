@@ -5,7 +5,6 @@ import re
 import pymongo
 import pandas
 import requests
-import certifi
 
 from alert import Alert
 from common_runnable import CommonRunnable
@@ -304,40 +303,6 @@ class Client(CommonRunnable):
         self._mongo_db.diffs.delete_many({'_id': {'$in': late_drop_ids}})
         self._mongo_db.diffs.delete_many({'_id': {'$in': old_drop_ids}})
         self._mongo_db.diffs.delete_many({'_id': {'$in': alerted_df[alerted_df['alerted'] == False]['_id'].to_list()}})
-
-    @staticmethod
-    def get_profiles():
-        client = pymongo.MongoClient("mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker",
-                                     tlsCAFile=certifi.where())
-        profile = client.dev.get_collection("profile")
-        df = pandas.DataFrame(profile.aggregate([
-            {
-                '$addFields': {
-                    'dateObject': {
-                        '$dateFromString': {
-                            'dateString': '$date'
-                        }
-                    }
-                }
-            }, {
-                '$sort': {
-                    'dateObject': -1
-                }
-            }, {
-                '$group': {
-                    '_id': '$id',
-                    'ticker': {
-                        '$first': '$ticker'
-                    },
-                    'profile': {
-                        '$first': '$$ROOT'
-                    }
-                }
-            }
-        ]))
-
-        # example usage:  profiles=return_value  print(profiles["XMET"]["name"])
-        return pandas.Series(df.profile.values, index=df.ticker).to_dict()
 
 
 def main():
