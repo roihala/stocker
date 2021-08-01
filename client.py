@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from typing import Mapping
 
 import pymongo
 import pandas
@@ -303,6 +304,37 @@ class Client(CommonRunnable):
         self._mongo_db.diffs.delete_many({'_id': {'$in': late_drop_ids}})
         self._mongo_db.diffs.delete_many({'_id': {'$in': old_drop_ids}})
         self._mongo_db.diffs.delete_many({'_id': {'$in': alerted_df[alerted_df['alerted'] == False]['_id'].to_list()}})
+
+    @staticmethod
+    def get_latest_data(collection) -> Mapping:
+        # This function returns a dictionary containing the latest info for every ticker in the colleciton
+        df = pandas.DataFrame(collection.aggregate([
+            {
+                '$addFields': {
+                    'dateObject': {
+                        '$dateFromString': {
+                            'dateString': '$date'
+                        }
+                    }
+                }
+            }, {
+                '$sort': {
+                    'dateObject': -1
+                }
+            }, {
+                '$group': {
+                    '_id': '$id',
+                    'ticker': {
+                        '$first': '$ticker'
+                    },
+                    'profile': {
+                        '$first': '$$ROOT'
+                    }
+                }
+            }
+        ]))
+
+        return pandas.Series(df.profile.values, index=df.ticker).to_dict()
 
 
 def main():
