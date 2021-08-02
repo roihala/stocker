@@ -57,6 +57,8 @@ class TickerAlerter(AlerterBase):
         for key in keys:
             new_keys.append(self.get_keys_translation()[
             key] if key in self.get_keys_translation() else key.capitalize())
+        if diff['insights'].get('role_change'):
+            diff['insights']['role_change'] = self.get_keys_translation()[diff['insights']['role_change']]
         diff['changed_key'] = set(new_keys)
 
         try:

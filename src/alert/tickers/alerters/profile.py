@@ -193,14 +193,6 @@ class Profile(TickerAlerter):
                 raise Exception(f'Value "{old_value}" is missing on attempt to union diffs')
 
     def _register_roll(self, diff, roles, first, diff_type):
-        """
-        TODO: add change
-        :param diff:
-        :param roles:
-        :param first:
-        :param diff_type:
-        :return:
-        """
         if diff.get('diff_type') == diff_type:
             roles.add(diff.get('changed_key'))
             if diff.get('diff_type') == diff_type:
@@ -211,6 +203,12 @@ class Profile(TickerAlerter):
         return first, roles
 
     def unite_person_roles(self, name, diffs):
+        """
+
+        :param name: The name to unite roles for
+        :param diffs: the diffs batch
+        saves a set for roles that were added and removed to the name. It adds the this set to the first relevant diff
+        """
         roles_added = set()
         roles_removed = set()
         first_added = None
@@ -230,7 +228,7 @@ class Profile(TickerAlerter):
         if (len(roles_added) == len(roles_removed) == 1) \
                 and first_removed.get('diff_type') == 'remove' \
                 and first_added.get('diff_type') == 'add':
-            first_added['insights']['role_change'] = self.get_keys_translation()[first_removed.get('changed_key')]
+            first_added['insights']['role_change'] = first_removed.get('changed_key')
             first_removed['delete'] = True
 
     def unite_roles_diff_names(self, diff_type, role, diffs):
@@ -245,6 +243,9 @@ class Profile(TickerAlerter):
                     first_diff = diff
         first_diff['new'] = people
 
+    def __get_counter(self, diffs, field):
+        return Counter([d[field] for d in diffs])
+
     def __delete_redundent_messages(self, diffs):
         return [diff for diff in diffs if not diff.get('delete', False)]
 
@@ -257,7 +258,7 @@ class Profile(TickerAlerter):
         positions = ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']
         positions_diffs = [d for d in diffs if d.get('changed_key') in positions]
 
-        names_counter = Counter([d['new'] for d in positions_diffs]) + Counter([d['old'] for d in positions_diffs])
+        names_counter = self.__get_counter(positions_diffs, 'new') + self.__get_counter(positions_diffs, 'old')
         names_counter.pop('None', None)
         relevant_names = set([k for k, v in names_counter.items() if v > 1])
 
