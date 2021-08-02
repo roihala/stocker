@@ -1,3 +1,4 @@
+import pandas
 import secrets
 from operator import itemgetter
 
@@ -298,8 +299,14 @@ class FatherBot(BaseBot):
             securities_df = readers.Securities(mongo_db=self.mongo_db, ticker=ticker) \
                 .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
 
+            relevant_keys = [key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns]
+
+            if not relevant_keys:
+                pending_message.edit_text(f"There was not dilution in {ticker}")
+                return
+
             fig = px.line(securities_df, x="date",
-                          y=[key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns],
+                          y=relevant_keys,
                           title=ticker)
             self.__send_df(securities_df, ticker, message.reply_document,
                            plotly_fig=fig, reply_markup=telegram.ReplyKeyboardRemove())
