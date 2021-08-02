@@ -14,7 +14,8 @@ class TickerAlerter(AlerterBase):
     def __init__(self, mongo_db, *args, **kwargs):
         super().__init__(mongo_db, *args, **kwargs)
 
-        self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
+        self._reader = factory.Factory.readers_factory(self.name,
+                                                       **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
 
     @staticmethod
     def get_hierarchy() -> dict:
@@ -50,8 +51,16 @@ class TickerAlerter(AlerterBase):
 
         diff = self.edit_diff(diff)
 
-        key = diff['changed_key']
-        diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
+        keys = diff['changed_key']
+        keys = [keys] if isinstance(keys, str) else keys
+        new_keys = []
+        for key in keys:
+            new_keys.append(self.get_keys_translation()[
+            key] if key in self.get_keys_translation() else key.capitalize())
+        if diff['insights'].get('role_change'):
+            diff['insights']['role_change'] = self.get_keys_translation()[diff['insights']['role_change']]
+        diff['changed_key'] = set(new_keys)
+
         try:
             # Treating the new value as the most accurate piece of information
             if type(diff.get('new')) is bool:
@@ -65,6 +74,12 @@ class TickerAlerter(AlerterBase):
     def edit_diff(self, diff) -> dict:
         return diff
 
+    def format_message_body(self, symbol, value):
+        if isinstance(value, str):
+            return f'{symbol} {value}'
+        else:
+            return f"\n{symbol}" + f"\n{symbol}".join(value)
+
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
 
@@ -72,12 +87,16 @@ class TickerAlerter(AlerterBase):
 
         if diff.get('diff_type') == 'remove':
             verb = 'removed'
-            body = '{red_circle_emoji} {old}'.format(red_circle_emoji=self.RED_CIRCLE_EMOJI_UNICODE,
-                                                     old=old)
+            body = self.format_message_body(self.RED_CIRCLE_EMOJI_UNICODE, old)
         elif diff.get('diff_type') == 'add':
             verb = 'added'
-            body = '{green_circle_emoji} {new}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                       new=new)
+            if diff['insights'].get('role_change'):
+                value = diff['insights']['role_change']
+                title = f'\n{value} changed to {diff.get("changed_key")}:'
+                marker = self.YELLOW_CIRCLE_EMOJI_UNICODE
+            else:
+                marker = self.GREEN_CIRCLE_EMOJI_UNICODE
+            body = self.format_message_body(marker, new)
         else:
             verb = 'changed'
             body = '{red_circle_emoji} {old}\n' \
@@ -85,10 +104,14 @@ class TickerAlerter(AlerterBase):
                                                        old=old,
                                                        green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                        new=new)
-        if diff.get('insight'):
-            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {diff.get("insight_fields")}'.replace("\'", "")
+        if diff['insights'].get('sympathy'):
+            tickers = diff['insights']['sympathy']
+            body += f'\n{self.YELLOW_CIRCLE_EMOJI_UNICODE} Detected {diff.get("new")} in {tickers}'.replace("\'", "")
 
-        title = title.format(key=diff['changed_key'], verb=verb)
+        if title == '*{key}* {verb}:':
+            key = diff['changed_key']
+            changed_key = key if isinstance(key, str) else "&".join(key)
+            title = title.format(key=changed_key, verb=verb)
 
         return '{title}\n' \
                '{body}'.format(title=title, body=body)
@@ -106,6 +129,8 @@ class TickerAlerter(AlerterBase):
         return msg
 
     def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
+        for diff in diffs:
+            diff['insights'] = {}
         return sorted(diffs, key=itemgetter('changed_key'))
 
     def is_relevant_diff(self, diff) -> bool:
@@ -126,6 +151,8 @@ class TickerAlerter(AlerterBase):
         :return: The edited diff, None to delete the diff
         """
         key = diff.get('changed_key')
+        # TODO: validate all changed keys not only the first
+        key = key if isinstance(key, str) else list(key)[0]
 
         try:
             if key not in self.relevant_keys or self._is_valid_diff(diff) is False:
