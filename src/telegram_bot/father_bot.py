@@ -302,7 +302,7 @@ class FatherBot(BaseBot):
             relevant_keys = [key for key in readers.Securities.DILUTION_KEYS if key in securities_df.columns]
 
             if not relevant_keys:
-                pending_message.edit_text(f"There was not dilution in {ticker}")
+                pending_message.edit_text(f"There was no dilution in {ticker}")
                 return
 
             fig = px.line(securities_df, x="date",
