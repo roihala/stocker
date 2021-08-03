@@ -8,10 +8,11 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
 from google.cloud import pubsub_v1
 
-from lighweight_runnable import LightRunnable
+
+from runnable import Runnable
 
 
-class CollectScheduler(LightRunnable):
+class CollectScheduler(Runnable):
     PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-300519/topics/collector-tickers"
 
     def __init__(self, *args, **kwargs):

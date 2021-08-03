@@ -14,12 +14,12 @@ from google.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.subscriber.message import Message as PubSubMessage
 
-from runnable import Runnable
+from common_runnable import CommonRunnable
 from src.factory import Factory
 from redis import Redis
 
 
-class Collect(Runnable):
+class Collect(CommonRunnable):
     PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
     PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
     MAX_MESSAGES = int(os.getenv('MAX_MESSAGES', 10))
@@ -81,7 +81,7 @@ class Collect(Runnable):
                     continue
 
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
-                                  'write': self._write, 'ticker': ticker}
+                                  'ticker': ticker}
                 collector = Factory.collectors_factory(collection_name, **collector_args)
                 diffs = collector.collect()
 

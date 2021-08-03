@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 class CollectorBase(ABC):
     PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
 
-    def __init__(self, mongo_db: Database, cache, date=None, debug=False, write=False):
+    def __init__(self, mongo_db: Database, cache, date=None, debug=False):
         """
         :param mongo_db: mongo db connection
         :param ticker: current ticker
@@ -22,7 +22,6 @@ class CollectorBase(ABC):
         self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
         self._debug = debug
-        self._write = write
 
         self.cache = cache
 
