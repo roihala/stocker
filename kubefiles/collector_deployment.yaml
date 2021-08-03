@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       run: collector-app
-  replicas: 380
+  replicas: 50
   template:
     metadata:
       labels:
