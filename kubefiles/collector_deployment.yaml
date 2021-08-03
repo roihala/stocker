@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       run: collector-app
-  replicas: 380
+  replicas: 50
   template:
     metadata:
       labels:
@@ -17,9 +17,9 @@ spec:
           image: eu.gcr.io/stocker-300519/collector:latest
           resources:
             requests:
-              memory: "130Mi"
+              memory: "110Mi"
             limits:
-              memory: "150Mi"
+              memory: "120Mi"
           env:
             - name: ENV
               value: "production"
@@ -29,3 +29,5 @@ spec:
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
             - name: REDIS_IP
               value: "10.80.176.3"
+            - name: MAX_MESSAGES
+              value: "10"

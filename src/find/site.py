@@ -9,7 +9,7 @@ class Site(object):
     COMPANY_NAME_FORMAT = 'company_name'
 
     TICKER_TRANSLATION_URL = "http://d.yimg.com/autoc.finance.yahoo.com/autoc?query={ticker}&region=1&lang=en"
-    TICKER_PROFILE_URL = 'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}'
+    TICKER_PROFILE_URL = 'http://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}'
 
     def __init__(self, name, url, is_otc):
         self.name = name

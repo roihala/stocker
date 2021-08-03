@@ -6,7 +6,7 @@ class Profile(SiteCollector):
     @property
     def site(self):
         return Site(self.collection,
-                    'https://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
+                    'http://backend.otcmarkets.com/otcapi/company/profile/full/{ticker}?symbol={ticker}',
                     True)
 
     @staticmethod

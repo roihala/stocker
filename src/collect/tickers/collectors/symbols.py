@@ -6,4 +6,4 @@ class Symbols(SiteCollector):
     @property
     def site(self):
         return Site(self.collection,
-                    'https://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)
+                    'http://backend.otcmarkets.com/otcapi/company/profile/{ticker}/badges?symbol={ticker}', True)

@@ -22,7 +22,6 @@ class CollectorBase(ABC):
         self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
         self._debug = debug
-        self._write = write
 
         self.cache = cache
 

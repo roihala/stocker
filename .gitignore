@@ -17,3 +17,4 @@ src/games
 .ipynb_checkpoints/
 pdfs/
 .gitignore
+tests.py

@@ -44,3 +44,4 @@ requests==2.25.1
 kaleido==0.2.1
 
 textdistance~=4.2.1
+cachetools==4.2.2

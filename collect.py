@@ -22,7 +22,7 @@ from redis import Redis
 class Collect(CommonRunnable):
     PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
     PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
-    MAX_MESSAGES = 10
+    MAX_MESSAGES = int(os.getenv('MAX_MESSAGES', 10))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,8 +40,18 @@ class Collect(CommonRunnable):
 
     def run(self):
 
+        # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
+        ack_ids = [msg.ack_id for msg in response.received_messages]
+
+        # if len(ack_ids) > 0:
+        #     self._subscriber.acknowledge(
+        #         request={
+        #             "subscription": self._subscription_name,
+        #             "ack_ids": ack_ids,
+        #         }
+        #     )
 
         for msg in response.received_messages:
             self.queue_listen(msg.message.data, msg.ack_id)
