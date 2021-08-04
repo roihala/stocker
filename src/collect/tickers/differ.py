@@ -55,17 +55,13 @@ class Differ(object):
                         if not issubclass(type(latest_value), type(current_value)):
                             latest_value = current_value.__class__()
                         self.__handle_nested_keys([key], latest_value, current_value, iter(self._hierarchy[key]))
-
-                        continue
+                    else:
+                        self.__build_flat_diff(key, latest_value, current_value)
 
                 except Exception as e:
                     logger.warning(f"Couldn't generate diffs for {key} between current {current} to latest {latest}")
                     logger.exception(e)
-
-                # If couldn't or wouldn't generate nested diff
-                diff_type = self.__get_diff_type(current=current_value, latest=latest_value)
-                if diff_type:
-                    self._diffs.append(Differ.__build_diff(diff_type, key, latest_value, current_value))
+                    self.__build_flat_diff(key, latest_value, current_value)
 
         return self._diffs
 
@@ -177,6 +173,11 @@ class Differ(object):
 
         else:
             raise DifferException("Can't figure out which dig mode type to use")
+
+    def __build_flat_diff(self, key, latest_value, current_value):
+        diff_type = self.__get_diff_type(current=current_value, latest=latest_value)
+        if diff_type:
+            self._diffs.append(Differ.__build_diff(diff_type, key, latest_value, current_value))
 
     @staticmethod
     def __is_iterable(value):
