@@ -37,9 +37,6 @@ def get_ips():
         return res.json()['ips']
 
 
-get_ips()
-
-
 class SiteCollector(TickerCollector, ABC):
     @property
     @abstractmethod
