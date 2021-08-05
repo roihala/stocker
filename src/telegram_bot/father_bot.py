@@ -29,6 +29,8 @@ from src.telegram_bot.resources.messages import Messages
 
 
 class FatherBot(BaseBot):
+    POOP_EMOJI_UNICODE = u'\U0001F4A9'
+
     def __init__(self, registration_bot: RegistrationBot, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.registration_bot = registration_bot
@@ -175,6 +177,14 @@ class FatherBot(BaseBot):
                               update.message.from_user,
                               ticker)
 
+        try:
+            # Joe Cazz
+            if update.message.from_user.id == 797932115:
+                self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /alerts on {ticker}')
+        except Exception as e:
+            self.logger.warning("Couldn't send message to ofek")
+            self.logger.exception(e)
+
     def alerts_callback(self, update, context):
         ticker = update.message.text.upper()
 
@@ -231,9 +241,17 @@ class FatherBot(BaseBot):
             update.message.reply_text(Messages.UNREGISTERED)
 
         else:
+
             self.print_info(update.message,
                             update.message.from_user,
                             ticker)
+            try:
+                # Joe Cazz
+                if update.message.from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /info on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
 
     def info_callback(self, update, context):
         ticker = update.message.text.upper()
@@ -275,6 +293,14 @@ class FatherBot(BaseBot):
             self.print_dilution(update.message,
                                 update.message.from_user,
                                 ticker)
+
+            try:
+                # Joe Cazz
+                if update.message.from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /dilution on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
 
     def dilution_callback(self, update, context):
         ticker = update.message.text.upper()
