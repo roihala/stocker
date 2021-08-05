@@ -43,9 +43,13 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __init__(self, tickers, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from client import Client
         self.record_id = int(self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
-        self._tickers = {symbol: self.__clear_text(tickers[symbol]) for symbol in tickers.keys()}
+
         self._mongo__profile = self._mongo_db.get_collection("profile")
+        self._profile_mapping = Client.get_latest_data(self._mongo__profile)
+        self._symbols_and_names = [(ticker, self.__clear_text(self._profile_mapping[ticker]["name"]))
+                                   for ticker in self._profile_mapping]
 
         self._bucket_name = self.name + '-dev' if self._debug else self.name
         self._storage_bucket = storage.Client().bucket(self._bucket_name)
@@ -177,7 +181,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             return ""
 
         # the exact same company name
-        for symbol, name in self._tickers.items():
+        for symbol, name in self._symbols_and_names:
             if comp_name == name:
                 return symbol
 
@@ -200,7 +204,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             [['otc', 'markets', 'group', 'inc'], ['guidelines', 'v', 'group', 'inc']] ->
             [['otc markets group inc', 'markets group inc', 'group inc'], ['guidelines v group', 'v group', 'group', 'inc']]
             """
-            optional_companies = [[" ".join(comp[i:]) for i in range(0, len(comp) - 1)] for comp in companies_opt]
+            optional_companies = [[" ".join(comp[i:]) for i in range(0, len(comp) - 2)] for comp in companies_opt]
             """
             optional companies -> [["a b c", "b c"], ["d g b c", "g b c", "b c"]]
             search "a b c" -> "d g b c" -> "b c" -> "g b c" ...
