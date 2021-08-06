@@ -107,7 +107,7 @@ class Profile(TickerAlerter):
             if diff.get('changed_key') in ['officers', 'directors', 'premierDirectorList',
                                            'standardDirectorList'] and diff.get('diff_type') != 'remove':
                 sympathy_tickers = self.__get_sympathy_tickers(diff)
-                if len(sympathy_tickers) > 0:
+                if sympathy_tickers and len(sympathy_tickers) > 0:
                     diff['insight'] = 'sympathy'
                     diff['insight_fields'] = sympathy_tickers
         except Exception as e:
