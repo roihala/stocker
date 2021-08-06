@@ -104,10 +104,12 @@ class Profile(TickerAlerter):
             pass
 
         try:
-            sympathy_tickers = self.__get_sympathy_tickers(diff)
-            if len(sympathy_tickers) > 0:
-                diff['insight'] = 'sympathy'
-                diff['insight_fields'] = sympathy_tickers
+            if diff.get('changed_key') in ['officers', 'directors', 'premierDirectorList',
+                                           'standardDirectorList'] and diff.get('diff_type') != 'remove':
+                sympathy_tickers = self.__get_sympathy_tickers(diff)
+                if len(sympathy_tickers) > 0:
+                    diff['insight'] = 'sympathy'
+                    diff['insight_fields'] = sympathy_tickers
         except Exception as e:
             logger.warning(f"Couldn't find sympathy for {diff}")
             logger.exception(e)
@@ -118,30 +120,22 @@ class Profile(TickerAlerter):
         """
         Currently check only new people that exist also in other companies. Currently works only on names
         """
-        if diff.get('changed_key') not in ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']:
-            return
-        if diff.get('diff_type') == 'remove':
-            return
 
-        key = diff.get("changed_key")
-        field_name = f'{key}.name'
-        df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {field_name: True,
-                                                                          'ticker': True,
-                                                                          'arr_length': {'$size': f"${field_name}"},
-                                                                          'date': True,
-                                                                          '_id': False}
+        names = [f'${i}.name' for i in ['officers', 'directors', 'premierDirectorList', 'standardDirectorList']]
+        name_field = {'$setUnion': [names]}
+        df = pd.DataFrame(self._mongo_db.profile.aggregate([{'$project': {'names': name_field, 'ticker': True,
+                                                                          'arr_length': {'$size': name_field},
+                                                                          'date': True, '_id': False}
                                                              },
-                                                            {"$sort": {"date": -1}},
                                                             {'$match': {'arr_length': {'$gt': 0}}},
-                                                            {'$group': {'_id': '$ticker',
-                                                                        key: {'$first': f"${field_name}"}}},
-                                                            {'$project': {'ticker': '$_id',
-                                                                          key: True,
-                                                                          '_id': False}}]))
-        df2 = df.explode(key)
-        df2['levenshtein_distance'] = df2.apply(lambda x: levenshtein.distance(diff['new'], x[key]), axis=1)
-        res = df2[df2['levenshtein_distance'] < 3].drop_duplicates('ticker')
-        return res['ticker'].tolist()
+                                                            {"$sort": {"date": -1}},
+                                                            {'$group': {'_id': '$ticker', 'names': {'$first': "$names"}}},
+                                                            {'$project': {'ticker': '$_id', 'names': True, '_id': False}}
+                                                            ], allowDiskUse=True))
+        df2 = df.explode('names').explode('names').dropna()
+        df2.names = df2.names.str.replace('\s{2,}', ' ')
+        name = diff['new'].split('\n')[0]
+        return df2[df2.names == name].drop_duplicates('ticker')['ticker'].tolist()
 
     def __get_extra_data(self, diff):
         profile = readers.Profile(mongo_db=self._mongo_db, ticker=diff.get('ticker'))
