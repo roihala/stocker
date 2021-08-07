@@ -180,7 +180,8 @@ class FatherBot(BaseBot):
         try:
             # Joe Cazz
             if update.message.from_user.id == 797932115:
-                self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /alerts on {ticker}')
+                self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
+                self.bot_instance.send_message(1151317792, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
         except Exception as e:
             self.logger.warning("Couldn't send message to ofek")
             self.logger.exception(e)
@@ -248,7 +249,10 @@ class FatherBot(BaseBot):
             try:
                 # Joe Cazz
                 if update.message.from_user.id == 797932115:
-                    self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /info on {ticker}')
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
             except Exception as e:
                 self.logger.warning("Couldn't send message to ofek")
                 self.logger.exception(e)
@@ -297,7 +301,10 @@ class FatherBot(BaseBot):
             try:
                 # Joe Cazz
                 if update.message.from_user.id == 797932115:
-                    self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} /dilution on {ticker}')
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution  on {ticker}')
             except Exception as e:
                 self.logger.warning("Couldn't send message to ofek")
                 self.logger.exception(e)
