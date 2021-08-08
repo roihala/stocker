@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import re
@@ -6,6 +7,8 @@ from typing import Mapping
 import pymongo
 import pandas
 import requests
+from bson import ObjectId
+from numpy import nan
 
 from alert import Alert
 from common_runnable import CommonRunnable
@@ -155,7 +158,8 @@ class Client(CommonRunnable):
                 logging.getLogger('Client').info('running on {ticker}'.format(ticker=ticker))
 
                 url = Site(name='sec_filings', url='https://backend.otcmarkets.com/otcapi/company/sec-filings/{ticker}?'
-                                                   'symbol={ticker}&page=1&pageSize=10', is_otc=True).get_ticker_url(ticker)
+                                                   'symbol={ticker}&page=1&pageSize=10', is_otc=True).get_ticker_url(
+                    ticker)
 
                 securities = readers.Securities(mongo_db, ticker).get_latest()
                 outstanding, tier_code = int(securities['outstandingShares']), securities['tierCode']
@@ -174,7 +178,8 @@ class Client(CommonRunnable):
                     ev_tickers = ev_tickers.append({'Symbol': ticker}, ignore_index=True)
                 if last_price <= 0.003 and readers.Profile(mongo_db, ticker).get_latest().get('state') == 'FL':
                     florida_tickers.append({'Symbol': ticker, 'Price': last_price})
-                if requests.get(url).json().get('records')[0].get('formType') == '15-12G' and readers.Symbols(mongo_db, ticker).get_latest()['isDelinquent']:
+                if requests.get(url).json().get('records')[0].get('formType') == '15-12G' and \
+                        readers.Symbols(mongo_db, ticker).get_latest()['isDelinquent']:
                     deliq_tickers.append({'Symbol': ticker, 'Price': last_price}, ignore_index=True)
 
             except Exception as e:
@@ -194,7 +199,6 @@ class Client(CommonRunnable):
             florida_tickers.to_csv(tmp)
         with open(DELIQ_TICKERS_PATH, 'w') as tmp:
             deliq_tickers.to_csv(tmp)
-
 
     @staticmethod
     def is_substring(text, *args):
@@ -306,7 +310,7 @@ class Client(CommonRunnable):
         self._mongo_db.diffs.delete_many({'_id': {'$in': alerted_df[alerted_df['alerted'] == False]['_id'].to_list()}})
 
     @staticmethod
-    def get_latest_data(collection) -> Mapping:
+    def get_latest_data(collection, as_df=False):
         # This function returns a dictionary containing the latest info for every ticker in the colleciton
         df = pandas.DataFrame(collection.aggregate([
             {
@@ -327,14 +331,21 @@ class Client(CommonRunnable):
                     'ticker': {
                         '$first': '$ticker'
                     },
-                    'profile': {
+                    f'{collection.name}': {
                         '$first': '$$ROOT'
                     }
                 }
             }
-        ]))
+        ], allowDiskUse=True))
 
-        return pandas.Series(df.profile.values, index=df.ticker).to_dict()
+        try:
+            if as_df:
+                return pandas.json_normalize(df[collection.name])
+        except Exception as e:
+            logging.warning(f"Couldn't convert {collection} to df")
+            logging.exception(e)
+
+        return pandas.Series(df[collection.name].values, index=df.ticker).to_dict()
 
 
 def main():
