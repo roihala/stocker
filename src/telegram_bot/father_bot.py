@@ -179,7 +179,7 @@ class FatherBot(BaseBot):
 
         try:
             # Joe Cazz
-            if update.message.from_user.id == 797932115:
+            if update.message.from_user.id in [797932115, 1151317792]:
                 self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
                 self.bot_instance.send_message(1151317792, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
         except Exception as e:
