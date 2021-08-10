@@ -139,13 +139,6 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
 
-        # logger.info("By company names: " + str(by_comp_names))
-        # logger.info("By symbols: " + str(by_symbols))
-        # logger.info("By mail addresses: " + str(by_mail_addresses))
-        # logger.info("By urls: " + str(by_web_urls))
-        # logger.info("By phone numbers: " + str(by_phone_numbers))
-        # logger.info("By zip codes: " + str(by_zip_codes))
-
         all_symbols = set(
             by_comp_names +
             by_symbols +
