@@ -80,7 +80,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 # Uploading to cloud storage
                 blob = f"{ticker}/{arrow.utcnow().timestamp}"
                 self._storage_bucket.blob(blob).upload_from_filename(pdf_path)
-                cloud_path = self.CLOUD_STORAGE_BASE_PATH.format(bucket=self.name, blob=blob)
+                cloud_path = self.CLOUD_STORAGE_BASE_PATH.format(bucket=self._bucket_name, blob=blob)
                 diffs.append(self.__generate_diff(document, cloud_path))
 
             else:

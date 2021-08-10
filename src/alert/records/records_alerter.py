@@ -13,7 +13,7 @@ from src.find.site import Site
 logger = logging.getLogger('Alert')
 
 
-class RecordsAlerter(AlerterBase, ABC):
+class FilingsAlerter(AlerterBase, ABC):
     @property
     @abstractmethod
     def site(self) -> Site:

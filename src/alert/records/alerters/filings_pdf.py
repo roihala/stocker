@@ -1,9 +1,9 @@
-from src.alert.records.records_alerter import RecordsAlerter
+from src.alert.records.records_alerter import FilingsAlerter
 from src.find.site import Site
 from src.read.reader_base import ReaderBase
 
 
-class FilingsPdf(RecordsAlerter):
+class FilingsPdf(FilingsAlerter):
     @property
     def site(self) -> Site:
         return Site('filings',
