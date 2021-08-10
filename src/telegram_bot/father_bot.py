@@ -176,15 +176,6 @@ class FatherBot(BaseBot):
                               update.message.from_user,
                               ticker)
 
-        try:
-            # Joe Cazz
-            if update.message.from_user.id in [797932115, 1151317792]:
-                self.bot_instance.send_message(406000980, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
-                self.bot_instance.send_message(1151317792, text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
-        except Exception as e:
-            self.logger.warning("Couldn't send message to ofek")
-            self.logger.exception(e)
-
     def alerts_callback(self, update, context):
         ticker = update.message.text.upper()
 
@@ -224,6 +215,17 @@ class FatherBot(BaseBot):
             else:
                 pending_message.edit_text(text, parse_mode=telegram.ParseMode.MARKDOWN)
 
+            # Joe Cazz
+            try:
+                if from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/alerts on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
+
         except Exception as e:
             self.logger.exception(e, exc_info=True)
             message.reply_text("Couldn't produce alerts for {ticker}".format(ticker=ticker))
@@ -241,20 +243,9 @@ class FatherBot(BaseBot):
             update.message.reply_text(Messages.UNREGISTERED)
 
         else:
-
             self.print_info(update.message,
                             update.message.from_user,
                             ticker)
-            try:
-                # Joe Cazz
-                if update.message.from_user.id == 797932115:
-                    self.bot_instance.send_message(406000980,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
-                    self.bot_instance.send_message(1151317792,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
-            except Exception as e:
-                self.logger.warning("Couldn't send message to ofek")
-                self.logger.exception(e)
 
     def info_callback(self, update, context):
         ticker = update.message.text.upper()
@@ -278,6 +269,17 @@ class FatherBot(BaseBot):
             message.reply_text(Client.info(self.mongo_db, ticker),
                                parse_mode=telegram.ParseMode.MARKDOWN)
 
+            # Joe Cazz
+            try:
+                if from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/info on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
+
         except Exception as e:
             self.logger.exception(e, exc_info=True)
             message.reply_text("Couldn't produce info for {ticker}".format(ticker=ticker))
@@ -296,17 +298,6 @@ class FatherBot(BaseBot):
             self.print_dilution(update.message,
                                 update.message.from_user,
                                 ticker)
-
-            try:
-                # Joe Cazz
-                if update.message.from_user.id == 797932115:
-                    self.bot_instance.send_message(406000980,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution on {ticker}')
-                    self.bot_instance.send_message(1151317792,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution  on {ticker}')
-            except Exception as e:
-                self.logger.warning("Couldn't send message to ofek")
-                self.logger.exception(e)
 
     def dilution_callback(self, update, context):
         ticker = update.message.text.upper()
@@ -342,6 +333,17 @@ class FatherBot(BaseBot):
                           title=ticker)
             self.__send_df(securities_df, ticker, message.reply_document,
                            plotly_fig=fig, reply_markup=telegram.ReplyKeyboardRemove())
+
+            # Joe Cazz
+            try:
+                if from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/dilution  on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
 
         except Exception as e:
             self.logger.exception(e, exc_info=True)
