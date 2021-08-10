@@ -1,0 +1,25 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: priority
+  namespace: default
+spec:
+  schedule: "0 13-21 * * *"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 180
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: priority
+              image: eu.gcr.io/stocker-300519/priority:latest
+              env:
+                - name: ENV
+                  value: "production"
+                - name: MONGO_URI
+                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+#                - name: DEBUG
+#                  value: "true"
