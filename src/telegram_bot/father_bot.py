@@ -11,7 +11,6 @@ import dataframe_image as dfi
 import plotly.express as px
 import telegram
 
-from src.factory import Factory
 from telegram.ext import ConversationHandler
 from telegram import InlineKeyboardMarkup
 
@@ -357,13 +356,6 @@ class FatherBot(BaseBot):
         if user and user.get('activation') in [ActivationCodes.ACTIVE, ActivationCodes.TRIAL]:
             return True
         return False
-
-    @staticmethod
-    def invalid_collection(update, context):
-        update.message.reply_text(
-            'Invalid input. Please choose one of this collections: {}'.format(Factory.TICKER_COLLECTIONS.keys()))
-
-        return ConversationHandler.END
 
     @staticmethod
     def invalid_ticker_format(update, context):

@@ -2,10 +2,8 @@ import logging
 from operator import itemgetter
 from typing import Iterable, List
 
-from bson import ObjectId
-
-from src import factory
 from src.alert.alerter_base import AlerterBase
+from src import readers_factory
 
 logger = logging.getLogger('Alert')
 
@@ -14,7 +12,7 @@ class TickerAlerter(AlerterBase):
     def __init__(self, mongo_db, *args, **kwargs):
         super().__init__(mongo_db, *args, **kwargs)
 
-        self._reader = factory.Factory.readers_factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
+        self._reader = readers_factory.ReadersFactory.factory(self.name, **{'mongo_db': self._mongo_db, 'ticker': self._ticker})
 
     @staticmethod
     def get_hierarchy() -> dict:

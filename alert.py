@@ -16,10 +16,10 @@ from bson import ObjectId
 from telegram import InputMediaDocument
 
 from common_runnable import CommonRunnable
+from src.alerters_factory import AlertersFactory
 from src.collect.records.dynamic_records_collector import DynamicRecordsCollector
 from src.collect.records.collectors.filings_pdf import FILINGS_PDF_URL
 
-from src.factory import Factory
 from src.read import readers
 from src.read.reader_base import ReaderBase
 from src.alert.tickers.alerters import Securities
@@ -114,11 +114,11 @@ class Alert(CommonRunnable):
 
         for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
             try:
-                alerter = Factory.alerters_factory(source, **alerter_args)
+                alerter = AlertersFactory.factory(source, **alerter_args)
                 messages_dict = alerter.generate_messages([diff for diff in diffs if diff.get('source') == source])
                 messages.update(messages_dict)
             except Exception as e:
-                logger = logging.getLogger(Factory.get_alerter(source).__class__.__name__)
+                logger = logging.getLogger(AlertersFactory.get_alerter(source).__class__.__name__)
                 logger.warning(f"Couldn't generate msg {diffs}: {source}")
                 logger.exception(e)
 
