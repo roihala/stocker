@@ -1,24 +1,20 @@
+import asyncio
+
 import arrow
-import datetime
 import json
 import logging
 import os
 import random
-import time
-from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy
-from functools import reduce
-
 import pandas
 import telegram
 
 from bson import ObjectId
-from telegram import InputMediaDocument
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import exceptions, executor
 
 from common_runnable import CommonRunnable
 from src.alerters_factory import AlertersFactory
-from src.collect.records.dynamic_records_collector import DynamicRecordsCollector
-from src.collect.records.collectors.filings_pdf import FILINGS_PDF_URL
 
 from src.read import readers
 from src.read.reader_base import ReaderBase
@@ -46,10 +42,11 @@ class Alert(CommonRunnable):
     def __init__(self):
         super().__init__()
         self.publisher = pubsub_v1.PublisherClient()
-        self._executor = ThreadPoolExecutor(max_workers=30)
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
+        self._aiogram_bot = Bot(token=self.args.token)
+        self._aiogram_bot_dp = Dispatcher(self._aiogram_bot)
 
     def run(self):
         streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
@@ -93,7 +90,10 @@ class Alert(CommonRunnable):
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
 
-                self.__send_no_delay(msg, ticker, price)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                executor.start(self._aiogram_bot_dp, self.__send_no_delay(msg, ticker, price))
 
             batch.ack()
         except Exception as e:
@@ -149,18 +149,6 @@ class Alert(CommonRunnable):
             return True
         return False
 
-    def __send_no_delay(self, msg: dict, ticker, price):
-        # Alerting with current date to avoid difference between collect to alert
-        text = self.__extract_text(msg, ticker, price, date=arrow.utcnow())
-        record_ids = reduce(lambda _, value: _ + value['pdf_record_ids'] if 'pdf_record_ids' in value else _,
-                            msg.values(), [])
-
-        users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
-                [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
-
-        for user in users:
-            self._executor.submit(self.__send_msg, user, ticker, text, record_ids)
-
     def __get_users(self):
         registered_users = [user for user in self._mongo_db.telegram_users.find() if
                             user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE] and
@@ -168,45 +156,45 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
-    def __send_msg(self, user, ticker, text, record_ids=None):
+    # async def __send_no_delay(self):
+    async def __send_no_delay(self, msg: dict, ticker, price):
         try:
-            if record_ids:
-                files = [DynamicRecordsCollector.get_pdf(record_id, base_url=FILINGS_PDF_URL) for record_id in
-                         record_ids]
+            # Alerting with current date to avoid difference between collect to alert
+            text = self.__extract_text(msg, ticker, price, date=arrow.utcnow())
+            users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
+                    [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
-                media = [InputMediaDocument(media=open(file, 'rb'),
-                                            filename=f"{ticker}.pdf",
-                                            thumb=open(LOGO_PATH, 'rb')) for file in files]
-
-                media[-1].caption = text
-                media[-1].parse_mode = telegram.ParseMode.MARKDOWN
-
-                if len(media) == 0:
-                    raise ValueError("Media should contain at least one pdf location")
-                elif len(media) == 1:
-                    first_media = media[0]
-                    self._telegram_bot.send_document(chat_id=user.get("chat_id"),
-                                                     document=first_media.media,
-                                                     filename=f"{ticker}.pdf",
-                                                     thumb=first_media.thumb,
-                                                     parse_mode=first_media.parse_mode,
-                                                     caption=first_media.caption)
-                elif len(media) > 1:
-                    self._telegram_bot.send_media_group(chat_id=user.get("chat_id"),
-                                                        media=media)
-            else:
-                self._telegram_bot.send_message(chat_id=user.get("chat_id"),
-                                                text=text,
-                                                parse_mode=telegram.ParseMode.MARKDOWN)
-
+            for user in users:
+                await self.__send_msg(user, text)
+                await asyncio.sleep(.0333333)
         except Exception as e:
-            self.logger.warning(
-                "Couldn't alert {message} to {user} at {chat_id}:".format(user=user.get("user_name"),
-                                                                          chat_id=user.get("chat_id"),
-                                                                          message=text))
+            self.logger.warning("Couldn't send_no_delay")
             self.logger.exception(e)
 
-        time.sleep(1)
+    async def __send_msg(self, user, text):
+        try:
+            self._telegram_bot.send_message(chat_id=user.get("chat_id"),
+                                            text=text,
+                                            parse_mode=telegram.ParseMode.MARKDOWN)
+
+        except telegram.error.TimedOut as e:
+            self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}: "
+                                f"Timed out")
+            await asyncio.sleep(10)
+            return await self.__send_msg(user, text)  # Recursive call
+
+        except exceptions.RetryAfter as e:
+            self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}: "
+                                f"Flood limit is exceeded. Sleep {e.timeout} seconds.")
+            await asyncio.sleep(e.timeout)
+            return await self.__send_msg(user, text)  # Recursive call
+        except Exception as e:
+            self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}")
+            self.logger.exception(e)
+        else:
+            return True
+
+        return False
 
     def __extract_text(self, msg: dict, ticker, price, date=None):
         alert_text = '\n\n'.join([value['message'] for value in msg.values() if value.get('message')])
@@ -220,8 +208,8 @@ class Alert(CommonRunnable):
                '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
                                alert_msg=alert_text,
                                date=ReaderBase.format_stocker_date(date if date else
-                                                                sorted([value['date'] for value in msg.values() if
-                                                                        'date' in value])[-1]))
+                                                                   sorted([value['date'] for value in msg.values() if
+                                                                           'date' in value])[-1]))
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
