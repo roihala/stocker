@@ -45,7 +45,7 @@ class Alert(CommonRunnable):
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
-        self._aiogram_bot = Bot(token=self.args.token)
+        self._aiogram_bot = Bot(token=self._telegram_token)
         self._aiogram_bot_dp = Dispatcher(self._aiogram_bot)
 
     def run(self):
