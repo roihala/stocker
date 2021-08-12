@@ -1,4 +1,4 @@
-from src.alert.records.records_alerter import FilingsAlerter
+from src.alert.records.filings_alerter import FilingsAlerter
 from src.find.site import Site
 
 

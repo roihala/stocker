@@ -9,6 +9,8 @@ from retry import retry
 
 from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
+from src.read import readers
+from src.alert.tickers import alerters
 
 logger = logging.getLogger('Alert')
 
@@ -23,8 +25,15 @@ class FilingsAlerter(AlerterBase, ABC):
         messages = {}
         prev_date = self._get_previous_date(diffs)
 
-        if not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 180:
+        # TODO: Match shmul
+        alerters.Profile.get_hierarchy()
 
+        tier = readers.Profile(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierDisplayName')
+        hierarchy = alerters.Securities.get_hierarchy()['tierDisplayName']
+
+        # if not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 180:
+        if hierarchy.index(tier) < hierarchy('Pink Current Information') or \
+                not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 90:
             messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
             # Adding empty ids in order to save those diffs
             messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
