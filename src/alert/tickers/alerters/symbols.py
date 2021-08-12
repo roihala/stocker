@@ -12,7 +12,7 @@ class Symbols(TickerAlerter):
             "hasPromotion": "Promotion",
             "isBankrupt": "Bankrupt",
             "isCaveatEmptor": "Caveat Emptor",
-            "isDark": "Dark of Defunct",
+            "isDark": "Dark or Defunct",
             "isDelinquent": "Delinquent SEC Reporting",
             "isLinkedToProhibitedSP": "Prohibited Service Provider",
             "isPennyStockExempt": "Penny Stock Exempt",
