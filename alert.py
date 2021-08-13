@@ -28,7 +28,7 @@ from bson import json_util
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
-
+STOCKER_ALERTS_BOT = "stocker_alerts_bot"
 
 class Alert(CommonRunnable):
     ALERT_EMOJI_UNICODE = u'\U0001F6A8'
@@ -42,6 +42,9 @@ class Alert(CommonRunnable):
     def __init__(self):
         super().__init__()
         self.publisher = pubsub_v1.PublisherClient()
+
+        self._telegram_bot = None
+        self._telegram_bots = self.init_telegram_bots(self.__get_bots())
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
@@ -73,7 +76,7 @@ class Alert(CommonRunnable):
                 batch.ack()
                 return
 
-            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bots[STOCKER_ALERTS_BOT],
                             'ticker': ticker, 'debug': self._debug}
 
             msg = self.get_msg(diffs, alerter_args)
@@ -173,7 +176,8 @@ class Alert(CommonRunnable):
 
     async def __send_msg(self, user, text):
         try:
-            self._telegram_bot.send_message(chat_id=user.get("chat_id"),
+            self._telegram_bots[user.get("bot") if user.get("bot") else STOCKER_ALERTS_BOT].send_message(
+                                            chat_id=user.get("chat_id"),
                                             text=text,
                                             parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -210,6 +214,21 @@ class Alert(CommonRunnable):
                                date=ReaderBase.format_stocker_date(date if date else
                                                                    sorted([value['date'] for value in msg.values() if
                                                                            'date' in value])[-1]))
+
+    def __get_bots(self):
+        return pandas.DataFrame(self._mongo_db.bots.find())
+
+    @staticmethod
+    def init_telegram_bots(bots: pandas.DataFrame) -> dict:
+        telegram_bots = {}
+
+        for index, bot in bots.iterrows():
+            try:
+                telegram_bots[bot['name']] = telegram.Bot(bot['token'])
+            except telegram.error.Unauthorized:
+                raise ValueError("Couldn't connect to telegram, check your credentials")
+
+        return telegram_bots
 
     @staticmethod
     def generate_title(ticker, mongo_db, price=None):
