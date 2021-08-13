@@ -26,7 +26,11 @@ class Priority(Runnable):
         result = {}
         for ticker in stock_data:
             result[ticker] = {'ask': stock_data[ticker]['askPrice'],
-                              'bid': stock_data[ticker]['bidPrice']}
+                              'bid': stock_data[ticker]['bidPrice'],
+                              'last_price': stock_data[ticker]['lastPrice'],
+                              'ask_size': stock_data[ticker]['askSize'],
+                              'bid_size': stock_data[ticker]['bidSize'],
+                              'total_volume': stock_data[ticker]['totalVolume']}
 
         return result
 
