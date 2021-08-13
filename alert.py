@@ -143,8 +143,8 @@ class Alert(CommonRunnable):
             relevant_tier = tier_hierarchy.index(tier) < tier_hierarchy.index('OTCQB')
 
             if not relevant_tier:
-                tier_hierarchy = list(Securities.get_tier_translation().keys())
-                relevant_tier = tier_hierarchy.index(tier) > tier_hierarchy.index('OT')
+                tier_hierarchy = Securities.get_hierarchy()['tierCode']
+                relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('OT')
 
         except (ValueError, AttributeError):
             relevant_tier = True

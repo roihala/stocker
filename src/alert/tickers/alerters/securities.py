@@ -26,7 +26,9 @@ class Securities(TickerAlerter):
     def get_hierarchy() -> dict:
         return {
             'tierDisplayName': ['Expert Market', 'Grey Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
-                                'OTCQX International']}
+                                'OTCQX International'],
+            'tierCode': ['GM', 'EM', 'PN', 'PL', 'PC', 'QB']
+        }
 
     @staticmethod
     def get_tier_translation():
