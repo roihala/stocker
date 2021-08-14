@@ -25,14 +25,12 @@ class FilingsAlerter(AlerterBase, ABC):
         messages = {}
         prev_date = self._get_previous_date(diffs)
 
+        tier = readers.Securities(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierDisplayName')
         # TODO: Match shmul
-        alerters.Profile.get_hierarchy()
-
-        tier = readers.Profile(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierDisplayName')
         hierarchy = alerters.Securities.get_hierarchy()['tierDisplayName']
 
         # if not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 180:
-        if hierarchy.index(tier) < hierarchy('Pink Current Information') or \
+        if hierarchy.index(tier) < hierarchy.index('Pink Current Information') or \
                 not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 90:
             messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
             # Adding empty ids in order to save those diffs

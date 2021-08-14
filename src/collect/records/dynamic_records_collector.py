@@ -41,7 +41,7 @@ RE_PARENTHESES = re.compile(r"\([^)]*\)")
 class DynamicRecordsCollector(CollectorBase, ABC):
     CLOUD_STORAGE_BASE_PATH = 'https://storage.googleapis.com/{bucket}/{blob}'
 
-    def __init__(self, tickers, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from client import Client
         self.record_id = int(self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
@@ -120,7 +120,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
     def __get_responses(self):
         responses = {}
 
-        for i in range(10):
+        for i in range(15):
             try:
                 responses[self.record_id + i] = self.fetch_data(i)
             except Exception as e:
