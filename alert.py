@@ -136,15 +136,10 @@ class Alert(CommonRunnable):
     def is_relevant(self, ticker, price):
         try:
             sec = readers.Securities(self._mongo_db, ticker).get_latest()
-            tier = sec.get('tierDisplayName')
             tier_code = sec.get('tierCode')
 
-            tier_hierarchy = Securities.get_hierarchy()['tierDisplayName']
-            relevant_tier = tier_hierarchy.index(tier) < tier_hierarchy.index('OTCQB')
-
-            if not relevant_tier:
-                tier_hierarchy = Securities.get_hierarchy()['tierCode']
-                relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('OT')
+            tier_hierarchy = Securities.get_hierarchy()['tierCode']
+            relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
 
         except (ValueError, AttributeError):
             relevant_tier = True
