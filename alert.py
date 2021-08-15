@@ -74,7 +74,7 @@ class Alert(CommonRunnable):
                 return
 
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug}
+                            'ticker': ticker, 'last_price': price, 'debug': self._debug}
 
             msg = self.get_msg(diffs, alerter_args)
 

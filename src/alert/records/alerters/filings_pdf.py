@@ -14,7 +14,6 @@ class FilingsPdf(FilingsAlerter):
         msg = '\n'.join(['{green_circle_emoji} {cloud_path}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                                     cloud_path=ReaderBase.escape_markdown(diff.get('cloud_path'))) for diff in diffs])
         prev_date_msg = f"_Previous filing date: {ReaderBase.format_stocker_date(prev_date, format='YYYY-MM-DD', style='')}_\n"
-        print(prev_date)
 
         return f"*Filings* added:\n{msg}\n{prev_date_msg if prev_date else ''}"
 
