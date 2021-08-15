@@ -1,9 +1,9 @@
 from src.alert.records.alerters.sec_filings import SecFilings
-from src.alert.records.records_alerter import RecordsAlerter
+from src.alert.records.filings_alerter import FilingsAlerter
 from src.find.site import Site
 
 
-class Filings(RecordsAlerter):
+class Filings(FilingsAlerter):
     @property
     def site(self) -> Site:
         return Site('filings',

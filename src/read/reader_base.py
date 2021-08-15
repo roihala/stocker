@@ -212,6 +212,6 @@ class ReaderBase(ABC):
         return msg.replace("_", "\\_").replace("[", "\\[").replace("`", "\\`").replace("*", "\\*")
 
     @staticmethod
-    def format_stocker_date(date, format='YYYY-MM-DD HH:mm', timezone='US/Eastern'):
+    def format_stocker_date(date, format='YYYY-MM-DD HH:mm', timezone='US/Eastern', style='*'):
         date = arrow.get(date).to(timezone)
-        return f"*{date.format(format)}*"
+        return f"{style}{date.format(format)}{style}"

@@ -74,7 +74,7 @@ class Alert(CommonRunnable):
                 return
 
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'debug': self._debug}
+                            'ticker': ticker, 'last_price': price, 'debug': self._debug}
 
             msg = self.get_msg(diffs, alerter_args)
 
@@ -158,7 +158,6 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
-    # async def __send_no_delay(self):
     async def __send_no_delay(self, msg: dict, ticker, price):
         try:
             # Alerting with current date to avoid difference between collect to alert
