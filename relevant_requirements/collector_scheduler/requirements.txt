@@ -5,3 +5,5 @@ pandas
 argparse
 google-cloud-pubsub
 APScheduler==3.6.3
+pymongo==3.11.4
+python-telegram-bot==13.6

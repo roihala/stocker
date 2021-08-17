@@ -1,31 +1,31 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: collector-scheduler-app
-spec:
-  selector:
-    matchLabels:
-      run: collector-scheduler
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        run: collector-scheduler
-    spec:
-      containers:
-        - name: collector-scheduler
-          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
-          env:
-            - name: ENV
-              value: "production"
-#            - name: DEBUG
-#              value: "true"
-#
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: collector-scheduler-app
+#spec:
+#  selector:
+#    matchLabels:
+#      run: collector-scheduler
+#  replicas: 1
+#  template:
+#    metadata:
+#      labels:
+#        run: collector-scheduler
+#    spec:
+#      containers:
+#        - name: collector-scheduler
+#          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+#          env:
+#            - name: ENV
+#              value: "production"
+##            - name: DEBUG
+##              value: "true"
+##
 ---
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: tickers-schedule
+  name: tickers-schedule-high
   namespace: default
 spec:
   schedule: "* 13-21 * * 1-5"
@@ -45,8 +45,48 @@ spec:
                   value: "production"
                 - name: FUNCTION
                   value: "true"
+                - name: INTERVAL
+                  value: 'high'
+                - name: MONGO_URI
+                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                - name: TELEGRAM_TOKEN
+                  value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
 #                - name: DEBUG
 #                  value: "true"
+
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: tickers-schedule-medium
+  namespace: default
+spec:
+  schedule: "30 13-21 * * 1-5"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 180
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: collector-scheduler
+              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"
+                - name: FUNCTION
+                  value: "true"
+                - name: INTERVAL
+                  value: 'medium'
+                - name: MONGO_URI
+                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                - name: TELEGRAM_TOKEN
+                  value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
+#                - name: DEBUG
+#                  value: "true"
+
 
 ---
 apiVersion: batch/v1beta1
@@ -72,5 +112,11 @@ spec:
                   value: "production"
                 - name: FUNCTION
                   value: "true"
+                - name: INTERVAL
+                  value: 'all'
+                - name: MONGO_URI
+                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                - name: TELEGRAM_TOKEN
+                  value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
 #                - name: DEBUG
 #                  value: "true"
