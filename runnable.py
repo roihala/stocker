@@ -96,7 +96,7 @@ class Runnable(ABC):
                 csv = DEFAULT_CSV_PATH
 
             df = pandas.read_csv(csv)
-            df.Symbol = df.Symbol.apply(lambda ticker: ticker.upper())
+            df.Symbol = df.Symbol.astype(str).apply(lambda ticker: ticker.upper())
             if as_df:
                 return df
             else:
