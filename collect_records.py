@@ -62,8 +62,6 @@ class RecordsCollect(CommonRunnable):
             if collection_name in ['secfilings', 'filings']:
                 continue
             collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
-            if collection_name == 'filings_pdf':
-                collector_args.update({'tickers': self.tickers_mapping})
             collector = RecordsFactory.factory(collection_name, **collector_args)
             diffs = collector.collect()
 

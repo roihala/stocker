@@ -9,11 +9,13 @@ from retry import retry
 
 from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
+from src.read import readers
+from src.alert.tickers import alerters
 
 logger = logging.getLogger('Alert')
 
 
-class RecordsAlerter(AlerterBase, ABC):
+class FilingsAlerter(AlerterBase, ABC):
     @property
     @abstractmethod
     def site(self) -> Site:
@@ -23,7 +25,11 @@ class RecordsAlerter(AlerterBase, ABC):
         messages = {}
         prev_date = self._get_previous_date(diffs)
 
-        if not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 180:
+        tier = readers.Securities(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierCode')
+        hierarchy = alerters.Securities.get_hierarchy()['tierCode']
+
+        if hierarchy.index(tier) < hierarchy.index('PC') or \
+                ((not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 90) and self._last_price < 0.05):
             messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
             # Adding empty ids in order to save those diffs
             messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
@@ -34,7 +40,7 @@ class RecordsAlerter(AlerterBase, ABC):
         msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                                title=diff.get('title')) for diff in diffs])
 
-        return f'*{self.name}* added:\n{msg}'
+        return f'*{self.name.capitalize()}* added:\n{msg}'
 
     def generate_payload(self, diffs, prev_date):
         return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}
