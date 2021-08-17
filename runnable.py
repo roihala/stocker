@@ -90,14 +90,14 @@ class Runnable(ABC):
             raise ValueError("Couldn't connect to telegram, check your credentials")
 
     @staticmethod
-    def extract_tickers(csv=None, all_columns=False):
+    def extract_tickers(csv=None, as_df=False):
         try:
             if not csv:
                 csv = DEFAULT_CSV_PATH
 
             df = pandas.read_csv(csv)
             df.Symbol = df.Symbol.apply(lambda ticker: ticker.upper())
-            if all_columns:
+            if as_df:
                 return df
             else:
                 return df.Symbol
