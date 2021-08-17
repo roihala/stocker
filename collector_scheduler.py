@@ -4,16 +4,15 @@ import os
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.combining import OrTrigger
-from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
 from google.cloud import pubsub_v1
 
+from common_runnable import CommonRunnable
 
-from runnable import Runnable
 
-
-class CollectScheduler(Runnable):
+class CollectScheduler(CommonRunnable):
     PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-300519/topics/collector-tickers"
+    interval = os.environ['INTERVAL'].lower()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -21,9 +20,17 @@ class CollectScheduler(Runnable):
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = self.PUBSUB_TICKERS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_TICKERS_TOPIC_NAME
 
+    def get_tickers(self):
+        if self.interval == 'all':
+            return self._tickers_list
+        else:
+            result = self._mongo_db.tickers.find({"profile": self.interval}, {'ticker'})
+        return [ticker['ticker'] for ticker in result]
+
     def publish(self):
         self.logger.info("Publishing tickers")
-        for ticker in self._tickers_list:
+        tickers = self.get_tickers()
+        for ticker in tickers:
             self.publisher.publish(self.topic_name, ticker.encode('utf-8'))
         self.logger.info("Finished publishing tickers")
 
