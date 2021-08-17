@@ -4,6 +4,7 @@ import os
 from copy import deepcopy
 
 import pandas
+import requests
 
 from td.client import TDClient
 
@@ -23,7 +24,10 @@ class PriorityCodes(object):
 
 
 class Priority(CommonRunnable):
+    ALL_TICKERS_URL = r'https://www.otcmarkets.com/research/stock-screener/api/downloadCSV?pageSize=20'
     TD_TICKERS_CHUNK = 300
+
+    QUERY_COLUMNS = ['tierCode', 'isCaveatEmptor']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,10 +41,12 @@ class Priority(CommonRunnable):
         self._prioritized_tickers = self.extract_tickers(ALL_TICKERS_CSV, as_df=True)
 
     def run(self):
-        query_columns = ['tierCode', 'isCaveatEmptor']
+        # Updating all_tickers.csv file
+        self.__update_all_tickers()
 
         # DataFrame with ticker, tierCode, isCaveatEmptor columns
-        tickers = Client.get_latest_data(self._mongo_db.profile, as_df=True).reindex(['ticker'] + query_columns, axis=1)
+        tickers = Client.get_latest_data(self._mongo_db.profile, as_df=True)\
+            .reindex(['ticker'] + self.QUERY_COLUMNS, axis=1)
 
         # Adding default interval values for every collection
         for collection in CollectorsFactory.COLLECTIONS.keys():
@@ -97,6 +103,17 @@ class Priority(CommonRunnable):
             priced_tickers = pandas.concat([priced_tickers, df])
 
         return priced_tickers
+
+    def __update_all_tickers(self):
+        try:
+            response = requests.get(self.ALL_TICKERS_URL)
+
+            with open(ALL_TICKERS_CSV, 'wb') as f:
+                f.write(response.content)
+
+        except Exception as e:
+            self.logger.warning("Couldn't update all_tickers.csv")
+            self.logger.error(e)
 
 
 def main():
