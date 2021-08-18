@@ -22,9 +22,9 @@ try:
 except Exception:
     logger.warning("Couldn't import fitz")
 
-
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
-COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "adr", "corporation", "incorporated"]
+COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "adr", "corporation", "limited", "incorporated"]
+
 # ["technologies", "solutions", "resources"]
 SYMBOLS_BLACKLIST_SET = {"OTCM", "FINRA"}
 
@@ -44,7 +44,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from client import Client
-        self.record_id = int(self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+        self.record_id = int(
+            self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
 
         self._mongo__profile = self._mongo_db.get_collection("profile")
         self._profile_mapping = Client.get_latest_data(self._mongo__profile)
@@ -119,8 +120,9 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __get_responses(self):
         responses = {}
+        self.record_id = 295387
 
-        for i in range(15):
+        for i in range(2):
             try:
                 responses[self.record_id + i] = self.fetch_data(i)
             except Exception as e:
@@ -139,6 +141,13 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
 
+        # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
+        # logger.info("SYMBOLS RESULT: " + str(by_symbols))
+        # logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
+        # logger.info("WEB: " + str(by_web_urls))
+        # logger.info("PHONES: " + str(by_phone_numbers))
+        # logger.info("ZIP_CODES: " + str(by_zip_codes))
+
         all_symbols = set(
             by_comp_names +
             by_symbols +
@@ -150,9 +159,9 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             symbols_scores[symbol] = 0
 
             if symbol in by_comp_names:
-                symbols_scores[symbol] += 3
-            if symbol in by_symbols:
                 symbols_scores[symbol] += 2
+            if symbol in by_symbols:
+                symbols_scores[symbol] += 1 if len(by_symbols) > 1 else 2
             if symbol in by_mail_addresses:
                 symbols_scores[symbol] += 1 if len(by_mail_addresses) > 1 else 2
             if symbol in by_web_urls:
@@ -165,7 +174,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         # Return the symbol with the highest score.
         if symbols_scores:
             symbol = max(symbols_scores, key=symbols_scores.get)
-            return symbol if symbols_scores[symbol] > 3 else ""
+            return symbol if symbols_scores[symbol] > 4 else ""
         else:
             return ""
 
@@ -175,7 +184,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         # the exact same company name
         for symbol, name in self._symbols_and_names:
-            if comp_name == name:
+            if self.__clear_text(comp_name) == name:
                 return symbol
 
         return ""
@@ -190,6 +199,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
             if not companies:
                 continue
+
+            # logger.info("COMPANY_NAMES: " + str(companies))
 
             # split to words & remove commas & dots
             companies_opt = [comp.split() for comp in companies]
@@ -223,8 +234,11 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
         # logger.info("MAILS: " + str(mail_addresses))
         for address in mail_addresses:
+            domain = address.split('@')[1]
+
             # search mongo for email address
-            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": address})])
+            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": {"$regex": ".*" +
+                                                                                                            domain}})])
 
         return list(set(symbols)) if symbols else []
 
@@ -239,7 +253,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for url in web_urls:
             # search mongo for web URLs --> contains
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"website": {"$regex": ".*" +
-                                                                                                    url + ".*"}})])
+                                                                                                              url + ".*"}})])
 
         return list(set(symbols)) if symbols else []
 
@@ -268,7 +282,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for _zip in zip_codes:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
-                                                                                                _zip + ".*"}})])
+                                                                                                          _zip + ".*"}})])
 
         return list(set(symbols)) if symbols else []
 
@@ -296,6 +310,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
     def __extract_company_names_from_pdf(text) -> List[str]:
         companies = []
 
+        # TODO: if regex captures shortcut abr then add the full abr and vice versa
         for abr in COMP_ABBREVIATIONS:
             regex = fr"((?:[a-z\.,-]+ ){{1,4}}{abr}[\. ])"
             matches = list(set(re.findall(regex, text)))
