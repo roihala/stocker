@@ -22,6 +22,7 @@ class FilingsAlerter(AlerterBase, ABC):
         pass
 
     def generate_messages(self, diffs: List[dict]):
+        # TODO: delete
         messages = {}
         prev_date = self._get_previous_date(diffs)
 

@@ -1,4 +1,6 @@
 import asyncio
+import itertools
+from typing import List
 
 import arrow
 import json
@@ -14,6 +16,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import exceptions, executor
 
 from common_runnable import CommonRunnable
+from src.alert.alerter_base import AlerterBase
 from src.alerters_factory import AlertersFactory
 
 from src.read import readers
@@ -59,8 +62,6 @@ class Alert(CommonRunnable):
 
         [diff.update({'_id': ObjectId()}) for diff in diffs if '_id' not in diff]
 
-        raw_diffs = deepcopy(diffs)
-
         try:
             ticker, price = self.__extract_ticker(diffs)
 
@@ -76,10 +77,10 @@ class Alert(CommonRunnable):
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
                             'ticker': ticker, 'last_price': price, 'debug': self._debug}
 
-            msg = self.get_msg(diffs, alerter_args)
+            alerters = self.get_alerters(diffs, alerter_args)
 
-            if msg:
-                processed_diffs = [diff for diff in raw_diffs if diff.get('_id') in msg.keys()]
+            if any([alerter for alerter in alerters if alerter.generate_messages()]):
+                processed_diffs = [diff for alerter in alerters for diff in alerter.processed_diffs]
                 self._mongo_db.diffs.insert_many(processed_diffs)
 
                 try:
@@ -90,10 +91,18 @@ class Alert(CommonRunnable):
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
 
+                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
+
+                # Alerting with current date to avoid difference between collect to alert
+                text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
+
+                users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
+                        [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
+
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
-                executor.start(self._aiogram_bot_dp, self.__send_no_delay(msg, ticker, price))
+                executor.start(self._aiogram_bot_dp, self.__send_no_delay(alerters, users, text))
 
             batch.ack()
         except Exception as e:
@@ -102,27 +111,19 @@ class Alert(CommonRunnable):
             batch.nack()
 
     @staticmethod
-    def get_msg(diffs, alerter_args) -> dict:
-        """
-        returns a dict of the form:
-        {
-        ObjectId('60cc6a43096cb97b35b1ee3c'): {'message': 'kaki'},
-        ObjectId('60cc6a43096cb97b35b1ee3c'): {'message': 'pipi', 'file': 'path/to/file'}
-        }
-        """
-        messages = {}
+    def get_alerters(diffs, alerter_args) -> list:
+        alerters = []
 
         for source in set([diff.get('source') for diff in diffs if diff.get('source')]):
             try:
-                alerter = AlertersFactory.factory(source, **alerter_args)
-                messages_dict = alerter.generate_messages([diff for diff in diffs if diff.get('source') == source])
-                messages.update(messages_dict)
+                alerter_args.update({'diffs': [diff for diff in diffs if diff['source'] == source]})
+                alerters.append(AlertersFactory.factory(source, **alerter_args))
             except Exception as e:
                 logger = logging.getLogger(AlertersFactory.get_alerter(source).__class__.__name__)
-                logger.warning(f"Couldn't generate msg {diffs}: {source}")
+                logger.warning(f"Couldn't generate {source} alerter for {diffs}")
                 logger.exception(e)
 
-        return messages
+        return alerters
 
     def __extract_ticker(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -158,12 +159,9 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
-    async def __send_no_delay(self, msg: dict, ticker, price):
+    async def __send_no_delay(self, alerters: List[AlerterBase], users, text):
         try:
-            # Alerting with current date to avoid difference between collect to alert
-            text = self.__extract_text(msg, ticker, price, date=arrow.utcnow())
-            users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
-                    [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
+            # TODO: user specific logic here
 
             for user in users:
                 await self.__send_msg(user, text)
@@ -197,36 +195,36 @@ class Alert(CommonRunnable):
 
         return False
 
-    def __extract_text(self, msg: dict, ticker, price, date=None):
-        alert_text = '\n\n'.join([value['message'] for value in msg.values() if value.get('message')])
-
-        # Add title
-        if pandas.DataFrame(self._mongo_db.diffs.find({'ticker': ticker})).empty:
-            alert_text = f'{self.BANG_EMOJI_UNICODE} First ever alert for this ticker\n{alert_text}'
-
+    @classmethod
+    def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None):
         return '{title}\n' \
                '{alert_msg}\n' \
-               '{date}'.format(title=self.generate_title(ticker, self._mongo_db, price),
-                               alert_msg=alert_text,
-                               date=ReaderBase.format_stocker_date(date if date else
-                                                                   sorted([value['date'] for value in msg.values() if
-                                                                           'date' in value])[-1]))
+               '{date}'.format(title=cls.generate_title(ticker, mongo_db, price),
+                               alert_msg=alert_body,
+                               date=ReaderBase.format_stocker_date(date) if date else '')
 
-    @staticmethod
-    def generate_title(ticker, mongo_db, price=None):
+    @classmethod
+    def generate_title(cls, ticker, mongo_db, price=None):
         try:
             tier = readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName')
         except AttributeError:
             logging.warning(f"Couldn't get tier of {ticker}")
             tier = ''
 
-        return '{alert_emoji} *{ticker}*\n{money_emoji}{last_price}\n{trophy_emoji}{tier}\n'.format(
+        # Add title
+        if pandas.DataFrame(mongo_db.diffs.find({'ticker': ticker})).empty:
+            additions = f'{cls.BANG_EMOJI_UNICODE} First ever alert for this ticker!'
+        else:
+            additions = ''
+
+        return '{alert_emoji} *{ticker}*\n{money_emoji}{last_price}\n{trophy_emoji}{tier}\n{additions}'.format(
             alert_emoji=Alert.ALERT_EMOJI_UNICODE,
             ticker=ticker,
             money_emoji=Alert.DOLLAR_EMOJI_UNICODE,
             last_price=price if price else ReaderBase.get_last_price(ticker),
             trophy_emoji=Alert.TROPHY_EMOJI_UNICODE,
-            tier=tier)
+            tier=tier,
+            additions=additions + '\n' if additions else '')
 
 
 if __name__ == '__main__':
