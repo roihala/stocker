@@ -6,7 +6,8 @@ class ReadersFactory(BaseFactory):
     COLLECTIONS = {
         'profile': readers.Profile,
         'securities': readers.Securities,
-        'symbols': readers.Symbols
+        'symbols': readers.Symbols,
+        'otciq': readers.Otciq
     }
 
     @classmethod
