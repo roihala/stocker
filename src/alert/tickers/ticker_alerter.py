@@ -31,23 +31,7 @@ class TickerAlerter(AlerterBase):
     def get_keys_translation() -> dict:
         return {}
 
-    def generate_messages(self, diffs: List[dict]):
-        messages = {}
-        for diff in self._edit_batch(diffs):
-            msg = self.generate_msg(diff)
-            if not msg:
-                continue
-
-            messages[diff['_id']] = {'message': msg, 'date': diff.get('date')}
-
-        return messages
-
     def generate_msg(self, diff):
-        if not self.is_relevant_diff(diff):
-            return ''
-
-        diff = self.edit_diff(diff)
-
         key = diff['changed_key']
         diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
         try:
@@ -59,9 +43,6 @@ class TickerAlerter(AlerterBase):
             logging.exception(e)
 
         return self.generate_default_msg(diff)
-
-    def edit_diff(self, diff) -> dict:
-        return diff
 
     def generate_default_msg(self, diff):
         old, new = diff['old'], diff['new']
@@ -103,7 +84,7 @@ class TickerAlerter(AlerterBase):
 
         return msg
 
-    def _edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
+    def edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
         return sorted(diffs, key=itemgetter('changed_key'))
 
     def is_relevant_diff(self, diff) -> bool:
