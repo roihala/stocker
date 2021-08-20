@@ -25,8 +25,8 @@ DAY_TTL = 60 * 60 * 24
 
 @retry(tries=3, delay=2)
 @ttl_cache(maxsize=2, ttl=DAY_TTL)
-def get_ips():
-    if os.getenv('ENV') == 'production':
+def get_ips(is_debug):
+    if not is_debug:
         redis_cache = Redis(os.getenv('REDIS_IP'))
         result = redis_cache.get('PROXY_IPS')
         cached_ips = pickle.loads(result)
@@ -44,16 +44,16 @@ class SiteCollector(TickerCollector, ABC):
         pass
 
     @staticmethod
-    def get_random_ip():
-        ips = get_ips()
+    def get_random_ip(is_debug):
+        ips = get_ips(is_debug)
         ip = random.choice(ips)
         return ip['ip']
 
     @staticmethod
-    def get_proxy_auth():
+    def get_proxy_auth(is_debug):
         username = 'lum-customer-c_050c0806-zone-data_center'
         password = '/ykw+71y9e~o'
-        ip = SiteCollector.get_random_ip()
+        ip = SiteCollector.get_random_ip(is_debug)
         auth = HTTPProxyAuth("%s-ip-%s" % (username, ip), password)
         return auth
 
@@ -73,8 +73,16 @@ class SiteCollector(TickerCollector, ABC):
         """
         if not data:
             url = self.site.get_ticker_url(self.ticker)
+
+            if self._debug:
+                response = requests.get(url)
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    raise InvalidTickerExcpetion(self.ticker)
+                
             session = requests.Session()
-            session.auth = self.get_proxy_auth()
+            session.auth = self.get_proxy_auth(self._debug)
 
             session.proxies = {"http": proxy, "https": proxy}
             response = session.get(url, timeout=5)

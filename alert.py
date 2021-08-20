@@ -164,6 +164,8 @@ class Alert(CommonRunnable):
             # TODO: user specific logic here
 
             for user in users:
+                if user is None:
+                    continue
                 await self.__send_msg(user, text)
                 await asyncio.sleep(.0333333)
         except Exception as e:

@@ -36,20 +36,21 @@ class Collect(CommonRunnable):
         else:
             self.cache = {}
 
-    def run(self):
+        self._patch_hour = arrow.utcnow().floor('hour')
 
-        # flow_control = pubsub_v1.types.FlowControl(max_messages=self.MAX_MESSAGES)
+    def create_parser(self):
+        parser = super().create_parser()
+        parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers', default=False, action='store_true')
+
+        return parser
+
+    def run(self):
+        if self.args.static_tickers:
+            for ticker in self.extract_tickers(csv=self.args.csv):
+                self.ticker_collect(str.encode(ticker))
+            return
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
-        ack_ids = [msg.ack_id for msg in response.received_messages]
-
-        # if len(ack_ids) > 0:
-        #     self._subscriber.acknowledge(
-        #         request={
-        #             "subscription": self._subscription_name,
-        #             "ack_ids": ack_ids,
-        #         }
-        #     )
 
         for msg in response.received_messages:
             self.queue_listen(msg.message.data, msg.ack_id)
@@ -62,7 +63,9 @@ class Collect(CommonRunnable):
     def queue_listen(self, msg: bytes, ack_id):
         self.executor.submit(self.ticker_collect, msg, ack_id)
 
-    def ticker_collect(self, msg: bytes, ack_id):
+    def ticker_collect(self, msg: bytes, ack_id=None):
+        if not ack_id and not self.args.static_tickers:
+            raise ValueError("ticker_collect: ack_id is optional only for static_tickers debug mode")
 
         # ticker = msg.data.decode('utf-8')
         ticker = msg.decode('utf-8')
@@ -96,6 +99,10 @@ class Collect(CommonRunnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
+
+        # static_tickers debug mode ends here
+        if self.args.static_tickers:
+            return
 
         self._subscriber.acknowledge(
             request={

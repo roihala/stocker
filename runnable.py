@@ -63,6 +63,7 @@ class Runnable(ABC):
         parser = argparse.ArgumentParser()
         parser.add_argument('--debug', dest='debug', help='debug_mode', default=False, action='store_true')
         parser.add_argument('--verbose', dest='verbose', help='Print logs', default=False, action='store_true')
+        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
 
         return parser
 
