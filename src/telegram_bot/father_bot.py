@@ -200,7 +200,7 @@ class FatherBot(BaseBot):
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
 
-            alert_body = '\n\n'.join([alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args)])
+            alert_body = '\n\n'.join([alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if alerter.get_text(append_dates=True)])
 
             text = Alert.build_text(alert_body, ticker, self.mongo_db)
 
