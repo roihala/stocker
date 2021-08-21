@@ -23,7 +23,8 @@ except Exception:
     logger.warning("Couldn't import fitz")
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
-COMP_ABBREVIATIONS = ["inc", "ltd", "corp", "adr", "corporation", "limited", "incorporated"]
+COMP_ABBREVIATIONS = {"inc": "incorporated", "ltd": "limited", "corp": "corporation", "adr": None,
+                      "incorporated": "inc", "limited": "ltd", "corporation":"corp"}
 
 # ["technologies", "solutions", "resources"]
 SYMBOLS_BLACKLIST_SET = {"OTCM", "FINRA"}
@@ -120,6 +121,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __get_responses(self):
         responses = {}
+        #TODO: change it to normal
         self.record_id = 295387
 
         for i in range(2):
@@ -141,12 +143,12 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
 
-        # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
-        # logger.info("SYMBOLS RESULT: " + str(by_symbols))
-        # logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
-        # logger.info("WEB: " + str(by_web_urls))
-        # logger.info("PHONES: " + str(by_phone_numbers))
-        # logger.info("ZIP_CODES: " + str(by_zip_codes))
+        logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
+        logger.info("SYMBOLS RESULT: " + str(by_symbols))
+        logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
+        logger.info("WEB: " + str(by_web_urls))
+        logger.info("PHONES: " + str(by_phone_numbers))
+        logger.info("ZIP_CODES: " + str(by_zip_codes))
 
         all_symbols = set(
             by_comp_names +
@@ -200,7 +202,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             if not companies:
                 continue
 
-            # logger.info("COMPANY_NAMES: " + str(companies))
+            logger.info("COMPANY_NAMES: " + str(companies))
 
             # split to words & remove commas & dots
             companies_opt = [comp.split() for comp in companies]
@@ -232,7 +234,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             mail_addresses.extend(RE_MAIL.findall(page))
 
-        # logger.info("MAILS: " + str(mail_addresses))
+        logger.info("MAILS: " + str(mail_addresses))
         for address in mail_addresses:
             domain = address.split('@')[1]
 
@@ -249,7 +251,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             web_urls.extend(RE_WEB_URL.findall(page))
 
-        # logger.info("WEBSITES: " + str(web_urls))
+        logger.info("WEBSITES: " + str(web_urls))
         for url in web_urls:
             # search mongo for web URLs --> contains
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"website": {"$regex": ".*" +
@@ -264,7 +266,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             phone_numbers.extend(RE_PHONE_NUMBER.findall(page))
 
-        # logger.info("PHONE NUMBERS: " + str(phone_numbers))
+        logger.info("PHONE NUMBERS: " + str(phone_numbers))
         for phone_num in phone_numbers:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"phone": phone_num})])
@@ -278,7 +280,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             zip_codes.extend(RE_ZIP_CODE.findall(page))
 
-        # logger.info("ZIP CODES: " + str(zip_codes))
+        logger.info("ZIP CODES: " + str(zip_codes))
         for _zip in zip_codes:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
@@ -309,14 +311,20 @@ class DynamicRecordsCollector(CollectorBase, ABC):
     @staticmethod
     def __extract_company_names_from_pdf(text) -> List[str]:
         companies = []
+        matches = []
 
-        # TODO: if regex captures shortcut abr then add the full abr and vice versa
-        for abr in COMP_ABBREVIATIONS:
+        # if regex captures shortcut abr then add the full abr and vice versa
+        for abr in COMP_ABBREVIATIONS.keys():
             regex = fr"((?:[a-z\.,-]+ ){{1,4}}{abr}[\. ])"
-            matches = list(set(re.findall(regex, text)))
+            results = list(set(re.findall(regex, text)))
 
-            if matches:
-                companies.extend(matches)
+            for res in results:
+                matches.append(res)
+                if COMP_ABBREVIATIONS[abr]:
+                    matches.append(res.replace(abr, COMP_ABBREVIATIONS[abr]))
+
+        if matches:
+            companies.extend(matches)
 
         return None if not companies else companies
 
