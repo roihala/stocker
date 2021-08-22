@@ -80,7 +80,7 @@ class Collect(CommonRunnable):
                     continue
 
                 # otciq patch
-                if collection_name == 'otciq' and not arrow.utcnow().floor('minute').minutes == 0:
+                if collection_name == 'otciq' and not arrow.utcnow().floor('minute').minutes in [0, 5]:
                     continue
 
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
