@@ -196,18 +196,13 @@ class FatherBot(BaseBot):
                     ticker=ticker
                 ))
             diffs = Client.get_diffs(self.mongo_db, ticker).to_dict('records')
+
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
 
-            sorted_messages = sorted([
-                {'date': value['date'],
-                 'message': value['message']
-                 } for value in Alert.get_msg(diffs, alerter_args).values()], key=itemgetter('date'))
+            alert_body = '\n\n'.join([alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if alerter.get_text(append_dates=True)])
 
-            text = '\n\n'.join([self.__format_message(_['message'], _['date']) for _ in sorted_messages])
-            text = Alert.generate_title(ticker, self.mongo_db) + '\n' + text
-
-            # messages = Alert.generate_msg(diffs, alerter_args, as_dict=True)
+            text = Alert.build_text(alert_body, ticker, self.mongo_db)
 
             if len(text) > self.MAX_MESSAGE_LENGTH:
                 pending_message.delete()
