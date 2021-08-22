@@ -103,14 +103,14 @@ class Profile(TickerAlerter):
         except TypeError:
             pass
 
-        # try:
-        #     sympathy_tickers = self.__get_sympathy_tickers(diff)
-        #     if len(sympathy_tickers) > 0:
-        #         diff['insight'] = 'sympathy'
-        #         diff['insight_fields'] = sympathy_tickers
-        # except Exception as e:
-        #     logger.warning(f"Couldn't find sympathy for {diff}")
-        #     logger.exception(e)
+        try:
+            sympathy_tickers = self.__get_sympathy_tickers(diff)
+            if sympathy_tickers and len(sympathy_tickers) > 1:
+                diff['insight'] = 'sympathy'
+                diff['insight_fields'] = sympathy_tickers
+        except Exception as e:
+            logger.warning(f"Couldn't find sympathy for {diff}")
+            logger.exception(e)
 
         return diff
 
