@@ -88,6 +88,9 @@ class Collect(CommonRunnable):
                 if collection_name == 'otciq' and not arrow.utcnow().floor('minute').minutes in [0, 5]:
                     continue
 
+                if collection_name == 'symbols' and arrow.utcnow().floor('minute').minutes in [0, 5]:
+                    continue
+
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
                 collector = CollectorsFactory.factory(collection_name, **collector_args)
