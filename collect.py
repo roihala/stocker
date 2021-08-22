@@ -36,8 +36,6 @@ class Collect(CommonRunnable):
         else:
             self.cache = {}
 
-        self._patch_hour = arrow.utcnow().floor('hour')
-
     def create_parser(self):
         parser = super().create_parser()
         parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers', default=False, action='store_true')
@@ -79,6 +77,10 @@ class Collect(CommonRunnable):
         for collection_name in CollectorsFactory.COLLECTIONS.keys():
             try:
                 if collection_name in all_sons:
+                    continue
+
+                # otciq patch
+                if collection_name == 'otciq' and not arrow.utcnow().floor('minute').minutes == 0:
                     continue
 
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
