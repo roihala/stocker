@@ -36,6 +36,11 @@ class Collect(CommonRunnable):
         else:
             self.cache = {}
 
+        if os.getenv("ENV") == "production":
+            self.__is_static_tickers = False
+        else:
+            self.__is_static_tickers = self.args.static_tickers
+
     def create_parser(self):
         parser = super().create_parser()
         parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers', default=False, action='store_true')
@@ -43,7 +48,7 @@ class Collect(CommonRunnable):
         return parser
 
     def run(self):
-        if self.args.static_tickers:
+        if self.__is_static_tickers:
             for ticker in self.extract_tickers(csv=self.args.csv):
                 self.ticker_collect(str.encode(ticker))
             return
