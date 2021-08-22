@@ -121,10 +121,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
 
     def __get_responses(self):
         responses = {}
-        #TODO: change it to normal
-        self.record_id = 295387
 
-        for i in range(2):
+        for i in range(15):
             try:
                 responses[self.record_id + i] = self.fetch_data(i)
             except Exception as e:
