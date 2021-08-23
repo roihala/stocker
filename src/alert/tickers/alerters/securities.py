@@ -2,12 +2,10 @@ from src.alert.tickers.ticker_alerter import TickerAlerter
 
 
 class Securities(TickerAlerter):
-    # A list of keys that allowed to be alerted
-    WHITE_LIST = ['tierDisplayName']
-
     @staticmethod
     def get_keys_translation():
         return {"tierDisplayName": "Tier",
+                "tierCode": "Tier",
                 "authorizedShares": "Authorized Shares",
                 "outstandingShares": "Outstanding Shares",
                 "transferAgents": "Transfer Agents",
@@ -16,7 +14,7 @@ class Securities(TickerAlerter):
 
     @property
     def relevant_keys(self):
-        return ['tierDisplayName', 'transferAgents']
+        return ['transferAgents', 'tierCode']
 
     @property
     def extended_keys(self):
@@ -31,8 +29,8 @@ class Securities(TickerAlerter):
         }
 
     @staticmethod
-    def get_tier_translation():
-        return {
+    def get_tier_translation(key=None):
+        tier_translation = {
             'QB': 'OTCQB',
             'PC': 'Pink Current Information',
             'PL': 'Pink Limited Information',
@@ -40,6 +38,11 @@ class Securities(TickerAlerter):
             'EM': 'Expert Market',
             'GM': 'Grey Market'
         }
+
+        if key:
+            return tier_translation.get(key)
+        else:
+            return tier_translation
 
     def is_relevant_diff(self, diff):
         if diff.get('changed_key') in self.extended_keys and type(diff.get('new')) is int:
@@ -58,6 +61,9 @@ class Securities(TickerAlerter):
 
             if diff.get('changed_key') in self.extended_keys:
                 new += " ({:.0%})".format(ratio)
+
+        elif diff['changed_key'] == 'tierCode':
+            old, new = self.get_tier_translation(old), self.get_tier_translation(new)
 
         diff['old'], diff['new'] = old, new
 
