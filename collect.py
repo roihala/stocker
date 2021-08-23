@@ -41,8 +41,6 @@ class Collect(CommonRunnable):
         else:
             self.__is_static_tickers = self.args.static_tickers
 
-        self.logger.info("Running with otciq now")
-
     def create_parser(self):
         parser = super().create_parser()
         parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers', default=False, action='store_true')
