@@ -15,6 +15,7 @@ from telegram.ext import ConversationHandler
 from telegram import InlineKeyboardMarkup
 
 from client import Client
+
 from src.read import readers
 from alert import Alert
 from src.read.reader_base import ReaderBase
@@ -25,6 +26,8 @@ from src.telegram_bot.resources.actions import Actions
 from src.telegram_bot.resources.indexers import Indexers
 from src.telegram_bot.resources.markup import Keyboards, Buttons
 from src.telegram_bot.resources.messages import Messages
+
+from src.collect.tickers import collectors
 
 
 class FatherBot(BaseBot):
@@ -66,6 +69,7 @@ class FatherBot(BaseBot):
             return Indexers.CONVERSATION_CALLBACK
 
         elif update.callback_query.data == Actions.BACK_TO_MENU:
+
             self.start(query.message, query.from_user, edit_message=True)
             return Indexers.CONVERSATION_CALLBACK
 
@@ -260,7 +264,6 @@ class FatherBot(BaseBot):
                     ticker=ticker
                 ))
 
-            # Escaping irrelevant markdown characters
             message.reply_text(Client.info(self.mongo_db, ticker),
                                parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -346,6 +349,35 @@ class FatherBot(BaseBot):
 
         pending_message.delete()
         return ConversationHandler.END
+
+    def print_otciq(self, message, from_user, ticker):
+        try:
+            self.logger.info(
+                "{user_name} of {chat_id} have used /otciq on ticker: {ticker}".format(
+                    user_name=from_user.name,
+                    chat_id=from_user.id,
+                    ticker=ticker
+                ))
+
+            text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db)
+
+            message.reply_text(text=text,
+                               parse_mode=telegram.ParseMode.MARKDOWN)
+
+            # Joe Cazz
+            try:
+                if from_user.id == 797932115:
+                    self.bot_instance.send_message(406000980,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+                    self.bot_instance.send_message(1151317792,
+                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+            except Exception as e:
+                self.logger.warning("Couldn't send message to ofek")
+                self.logger.exception(e)
+
+        except Exception as e:
+            self.logger.exception(e, exc_info=True)
+            message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
 
     def _is_registered(self, user_name, chat_id):
         user = self.mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id})
