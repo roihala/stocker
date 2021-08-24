@@ -8,6 +8,7 @@ import dash_html_components as html
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 
+from src import alerters_factory
 from src.alert.tickers import alerters
 from src.read import readers
 

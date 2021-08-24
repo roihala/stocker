@@ -5,6 +5,7 @@ import secrets
 
 import arrow
 from pydantic import BaseModel
+from starlette.middleware.wsgi import WSGIMiddleware
 from telegram.utils import helpers
 
 import smtplib, ssl
@@ -16,6 +17,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from common_runnable import CommonRunnable
+from src.rest.dilution import init_dash
 from src.rest.wix_payload import WixPayLoad
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
@@ -36,8 +38,7 @@ class Rest(CommonRunnable):
             self.titan_pass = self.args.titan_pass
 
     def run(self):
-        # update_dash(dash_app)
-        # app.mount("/dilution", WSGIMiddleware(dash_app.server))
+        app.mount("/dilution", WSGIMiddleware(dash_app.server))
         uvicorn.run(app)
 
     def create_parser(self):
@@ -49,9 +50,7 @@ class Rest(CommonRunnable):
 
 rest = Rest()
 app = FastAPI()
-
-
-# dash_app = init_dash(rest._mongo_db)
+dash_app = init_dash(rest._mongo_db)
 
 
 @app.post('/rest/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
