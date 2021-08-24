@@ -8,3 +8,4 @@ class Indexers(object):
     PRINT_DILUTION = 6
     START_SURVEY = 7
     GET_WATCHLIST = 8
+    PRINT_OTCIQ = 9

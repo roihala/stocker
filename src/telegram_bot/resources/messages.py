@@ -38,6 +38,7 @@ The following commands will make me sing:
 /alerts - Resend previously detected alerts for a given ticker.
 /dilution - A graph of changes in AS/OS/unrestricted over time.
 /info - View the LATEST information for a given ticker.
+/otciq - View Otciq access status for a given ticker.
 """
 
     UNREGISTERED = 'You need to be registered in order to use this. Join our free trial for more info!'

@@ -15,6 +15,7 @@ from telegram.ext import ConversationHandler
 from telegram import InlineKeyboardMarkup
 
 from client import Client
+
 from src.read import readers
 from alert import Alert
 from src.read.reader_base import ReaderBase
@@ -25,6 +26,8 @@ from src.telegram_bot.resources.actions import Actions
 from src.telegram_bot.resources.indexers import Indexers
 from src.telegram_bot.resources.markup import Keyboards, Buttons
 from src.telegram_bot.resources.messages import Messages
+
+from src.collect.tickers import collectors
 
 
 class FatherBot(BaseBot):
@@ -66,6 +69,7 @@ class FatherBot(BaseBot):
             return Indexers.CONVERSATION_CALLBACK
 
         elif update.callback_query.data == Actions.BACK_TO_MENU:
+
             self.start(query.message, query.from_user, edit_message=True)
             return Indexers.CONVERSATION_CALLBACK
 
@@ -90,6 +94,8 @@ class FatherBot(BaseBot):
         query.message.reply_text('Please insert valid OTC ticker')
         if update.callback_query.data == Actions.INFO:
             return Indexers.PRINT_INFO
+        elif update.callback_query.data == Actions.OTCIQ:
+            return Indexers.PRINT_OTCIQ
         elif update.callback_query.data == Actions.ALERTS:
             return Indexers.PRINT_ALERTS
         elif update.callback_query.data == Actions.DILUTION:
@@ -200,7 +206,9 @@ class FatherBot(BaseBot):
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
 
-            alert_body = '\n\n'.join([alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if alerter.get_text(append_dates=True)])
+            alert_body = '\n\n'.join(
+                [alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if
+                 alerter.get_text(append_dates=True)])
 
             text = Alert.build_text(alert_body, ticker, self.mongo_db)
 
@@ -260,7 +268,6 @@ class FatherBot(BaseBot):
                     ticker=ticker
                 ))
 
-            # Escaping irrelevant markdown characters
             message.reply_text(Client.info(self.mongo_db, ticker),
                                parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -347,6 +354,61 @@ class FatherBot(BaseBot):
         pending_message.delete()
         return ConversationHandler.END
 
+    def otciq_command(self, update, context):
+        user = update.message.from_user
+        tickers = FatherBot.__extract_tickers(context)
+
+        if not tickers:
+            update.message.reply_text("Couldn't detect ticker, Please try again by the format: /otciq TICKR")
+
+        elif not self._is_registered(user.name, user.id):
+            update.message.reply_text(Messages.UNREGISTERED)
+
+        else:
+            self.print_otciq(update.message,
+                             update.message.from_user,
+                             tickers)
+
+    def otciq_callback(self, update, context):
+        ticker = update.message.text.upper()
+
+        self.print_otciq(update.message,
+                         update.message.from_user,
+                         [ticker])
+
+        return Indexers.CONVERSATION_CALLBACK
+
+    def print_otciq(self, message, from_user, tickers):
+
+        for ticker in tickers:
+            try:
+                self.logger.info(
+                    "{user_name} of {chat_id} have used /otciq on ticker: {ticker}".format(
+                        user_name=from_user.name,
+                        chat_id=from_user.id,
+                        ticker=ticker
+                    ))
+
+                text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db)
+
+                message.reply_text(text=text,
+                                   parse_mode=telegram.ParseMode.MARKDOWN)
+
+                # Joe Cazz
+                try:
+                    if from_user.id == 797932115:
+                        self.bot_instance.send_message(406000980,
+                                                       text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+                        self.bot_instance.send_message(1151317792,
+                                                       text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+                except Exception as e:
+                    self.logger.warning("Couldn't send message to ofek")
+                    self.logger.exception(e)
+
+            except Exception as e:
+                self.logger.exception(e, exc_info=True)
+                message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
+
     def _is_registered(self, user_name, chat_id):
         user = self.mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id})
 
@@ -387,10 +449,19 @@ class FatherBot(BaseBot):
         return f"{text}\n{ReaderBase.format_stocker_date(date)}"
 
     @staticmethod
-    def __extract_ticker(context):
-        if len(context.args) == 1:
+    def __extract_ticker(context, args=None):
+        if len(args) == 1:
             ticker = context.args[0]
             if 4 <= len(ticker) <= 5 and all([char.isalpha() for char in ticker]):
                 return ticker.upper()
 
         return None
+
+    @staticmethod
+    def __extract_tickers(context):
+        return [FatherBot.__validate_ticker(arg) for arg in context.args]
+
+    @staticmethod
+    def __validate_ticker(arg):
+        if 4 <= len(arg) <= 5 and all([char.isalpha() for char in arg]):
+            return arg.upper()

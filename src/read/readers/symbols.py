@@ -23,14 +23,17 @@ class Symbols(ReaderBase):
 
         return '\n'.join(sorted([self.generate_line(symbol) for symbol in true_symbols], reverse=True))
 
-    def generate_line(self, symbol):
+    def generate_line(self, key):
         try:
-            hierarchy = alerters_factory.AlertersFactory.get_alerter(self.name).get_hierarchy().get(symbol)
+            alerter = alerters_factory.AlertersFactory.get_alerter(self.name)
+            hierarchy = alerter.get_hierarchy().get(key)
+            key = alerter.get_keys_translation().get(key)
+
             if hierarchy.index(False) < hierarchy.index(True):
                 red_or_green = AlerterBase.GREEN_CIRCLE_EMOJI_UNICODE
             else:
                 red_or_green = AlerterBase.RED_CIRCLE_EMOJI_UNICODE
 
-            return f'{red_or_green} {symbol} {"[" + arrow.get(self.get_latest().get("verifiedDate")).format("MM/YY") + "]" if symbol == "verifiedProfile" else ""}'
+            return f'{red_or_green} {key} {"[" + arrow.get(self.get_latest().get("verifiedDate")).format("MM/YY") + "]" if key == "verifiedProfile" else ""}'
         except ValueError:
-            return symbol
+            return key
