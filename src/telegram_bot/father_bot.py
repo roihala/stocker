@@ -94,6 +94,8 @@ class FatherBot(BaseBot):
         query.message.reply_text('Please insert valid OTC ticker')
         if update.callback_query.data == Actions.INFO:
             return Indexers.PRINT_INFO
+        elif update.callback_query.data == Actions.OTCIQ:
+            return Indexers.PRINT_OTCIQ
         elif update.callback_query.data == Actions.ALERTS:
             return Indexers.PRINT_ALERTS
         elif update.callback_query.data == Actions.DILUTION:
@@ -204,7 +206,9 @@ class FatherBot(BaseBot):
             alerter_args = {'mongo_db': self.mongo_db, 'telegram_bot': self.bot_instance,
                             'ticker': ticker, 'debug': self.debug}
 
-            alert_body = '\n\n'.join([alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if alerter.get_text(append_dates=True)])
+            alert_body = '\n\n'.join(
+                [alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if
+                 alerter.get_text(append_dates=True)])
 
             text = Alert.build_text(alert_body, ticker, self.mongo_db)
 
@@ -349,6 +353,30 @@ class FatherBot(BaseBot):
 
         pending_message.delete()
         return ConversationHandler.END
+
+    def otciq_command(self, update, context):
+        user = update.message.from_user
+        ticker = FatherBot.__extract_ticker(context)
+
+        if not ticker:
+            update.message.reply_text("Couldn't detect ticker, Please try again by the format: /otciq TICKR")
+
+        elif not self._is_registered(user.name, user.id):
+            update.message.reply_text(Messages.UNREGISTERED)
+
+        else:
+            self.print_otciq(update.message,
+                             update.message.from_user,
+                             ticker)
+
+    def otciq_callback(self, update, context):
+        ticker = update.message.text.upper()
+
+        self.print_otciq(update.message,
+                         update.message.from_user,
+                         ticker)
+
+        return Indexers.CONVERSATION_CALLBACK
 
     def print_otciq(self, message, from_user, ticker):
         try:

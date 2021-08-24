@@ -7,6 +7,7 @@ class Actions(object):
     TOOLS = 'tools'
     BACK_TO_MENU = 'back_to_menu'
     INFO = 'info'
+    OTCIQ = 'otciq'
     ALERTS = 'alerts'
     DILUTION = 'dilution'
     ACTIVATE = 'activate'
