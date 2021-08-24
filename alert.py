@@ -21,7 +21,7 @@ from src.alerters_factory import AlertersFactory
 
 from src.read import readers
 from src.read.reader_base import ReaderBase
-from src.alert.tickers.alerters import Securities, Otciq
+from src.alert.tickers.alerters import Securities
 
 from google.cloud.pubsub import SubscriberClient
 from google.cloud import pubsub_v1
@@ -91,32 +91,7 @@ class Alert(CommonRunnable):
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
 
-                # Otciq patch
-                try:
-
-                    otciq_alerter = [alerter for alerter in alerters if isinstance(alerter, Otciq)]
-
-                    if otciq_alerter:
-                        text = self.build_text(otciq_alerter[0].get_text(), ticker, self._mongo_db, date=arrow.utcnow(),
-                                               price=price)
-
-                        [self._telegram_bot.send_message(chat_id=_,
-                                                         text=text,
-                                                         parse_mode=telegram.ParseMode.MARKDOWN) for _ in
-                         [1151317792, 406000980, 564105605]]
-
-                except Exception as e:
-                    self.logger.warning(f"Couldn't alert otciq for {ticker}")
-                    self.logger.error(e)
-
-                alerters = [alerter for alerter in alerters if not isinstance(alerter, Otciq)]
-
-                if not alerters:
-                    batch.ack()
-                    return
-
-                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if
-                                          alerter.get_text() and not isinstance(alerter, Otciq)])
+                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
 
                 # Alerting with current date to avoid difference between collect to alert
                 text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
