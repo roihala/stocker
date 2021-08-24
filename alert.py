@@ -96,7 +96,11 @@ class Alert(CommonRunnable):
                 # Alerting with current date to avoid difference between collect to alert
                 text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
-                users = [self._mongo_db.telegram_users.find_one({'chat_id': 1151317792})] + self.__get_users() + \
+                vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
+
+                users = [_ for _ in self.__get_users() if _.get('chat_id') not in vips + [1865808006]]
+
+                users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
                         [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
                 loop = asyncio.new_event_loop()
@@ -154,8 +158,7 @@ class Alert(CommonRunnable):
 
     def __get_users(self):
         registered_users = [user for user in self._mongo_db.telegram_users.find() if
-                            user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE] and
-                            user.get('chat_id') not in [1865808006, 1151317792]]
+                            user.get('activation') in [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]]
         random.shuffle(registered_users)
         return registered_users
 
