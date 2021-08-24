@@ -356,9 +356,9 @@ class FatherBot(BaseBot):
 
     def otciq_command(self, update, context):
         user = update.message.from_user
-        ticker = FatherBot.__extract_ticker(context)
+        tickers = FatherBot.__extract_tickers(context)
 
-        if not ticker:
+        if not tickers:
             update.message.reply_text("Couldn't detect ticker, Please try again by the format: /otciq TICKR")
 
         elif not self._is_registered(user.name, user.id):
@@ -367,45 +367,47 @@ class FatherBot(BaseBot):
         else:
             self.print_otciq(update.message,
                              update.message.from_user,
-                             ticker)
+                             tickers)
 
     def otciq_callback(self, update, context):
         ticker = update.message.text.upper()
 
         self.print_otciq(update.message,
                          update.message.from_user,
-                         ticker)
+                         [ticker])
 
         return Indexers.CONVERSATION_CALLBACK
 
-    def print_otciq(self, message, from_user, ticker):
-        try:
-            self.logger.info(
-                "{user_name} of {chat_id} have used /otciq on ticker: {ticker}".format(
-                    user_name=from_user.name,
-                    chat_id=from_user.id,
-                    ticker=ticker
-                ))
+    def print_otciq(self, message, from_user, tickers):
 
-            text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db)
-
-            message.reply_text(text=text,
-                               parse_mode=telegram.ParseMode.MARKDOWN)
-
-            # Joe Cazz
+        for ticker in tickers:
             try:
-                if from_user.id == 797932115:
-                    self.bot_instance.send_message(406000980,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
-                    self.bot_instance.send_message(1151317792,
-                                                   text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
-            except Exception as e:
-                self.logger.warning("Couldn't send message to ofek")
-                self.logger.exception(e)
+                self.logger.info(
+                    "{user_name} of {chat_id} have used /otciq on ticker: {ticker}".format(
+                        user_name=from_user.name,
+                        chat_id=from_user.id,
+                        ticker=ticker
+                    ))
 
-        except Exception as e:
-            self.logger.exception(e, exc_info=True)
-            message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
+                text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db)
+
+                message.reply_text(text=text,
+                                   parse_mode=telegram.ParseMode.MARKDOWN)
+
+                # Joe Cazz
+                try:
+                    if from_user.id == 797932115:
+                        self.bot_instance.send_message(406000980,
+                                                       text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+                        self.bot_instance.send_message(1151317792,
+                                                       text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/otciq on {ticker}')
+                except Exception as e:
+                    self.logger.warning("Couldn't send message to ofek")
+                    self.logger.exception(e)
+
+            except Exception as e:
+                self.logger.exception(e, exc_info=True)
+                message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
 
     def _is_registered(self, user_name, chat_id):
         user = self.mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id})
@@ -447,10 +449,19 @@ class FatherBot(BaseBot):
         return f"{text}\n{ReaderBase.format_stocker_date(date)}"
 
     @staticmethod
-    def __extract_ticker(context):
-        if len(context.args) == 1:
+    def __extract_ticker(context, args=None):
+        if len(args) == 1:
             ticker = context.args[0]
             if 4 <= len(ticker) <= 5 and all([char.isalpha() for char in ticker]):
                 return ticker.upper()
 
         return None
+
+    @staticmethod
+    def __extract_tickers(context):
+        return [FatherBot.__validate_ticker(arg) for arg in context.args]
+
+    @staticmethod
+    def __validate_ticker(arg):
+        if 4 <= len(arg) <= 5 and all([char.isalpha() for char in arg]):
+            return arg.upper()
