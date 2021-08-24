@@ -60,6 +60,9 @@ class Stocker(CommonRunnable):
                 Indexers.PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.info_callback),
                                       MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
                                                      father_bot.invalid_ticker_format)],
+                Indexers.PRINT_OTCIQ: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.otciq_callback),
+                                       MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
+                                                      father_bot.invalid_ticker_format)],
                 Indexers.DO_FREE_TRIAL: [MessageHandler(Filters.regex('.*'), registration_bot.free_trial_callback)],
                 Indexers.PRINT_DILUTION: [
                     MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.dilution_callback),
@@ -71,7 +74,6 @@ class Stocker(CommonRunnable):
                                                         registration_bot.watchlist_callback),
                                          MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
                                                         registration_bot.invalid_watchlist)],
-
 
             },
 
@@ -97,6 +99,7 @@ class Stocker(CommonRunnable):
         dp.add_handler(CommandHandler('dilution', father_bot.dilution_command))
         dp.add_handler(CommandHandler('alerts', father_bot.alerts_command))
         dp.add_handler(CommandHandler('info', father_bot.info_command))
+        dp.add_handler(CommandHandler('otciq', father_bot.otciq_command))
         dp.add_handler(CommandHandler('deregister', registration_bot.deregister_command))
         dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
         dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
