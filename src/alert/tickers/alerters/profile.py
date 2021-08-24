@@ -163,8 +163,8 @@ class Profile(TickerAlerter):
             logger.warning(f"Couldn't get extra data for field {diff.get('changed_key')}, not found.")
             logger.exception(e)
 
-    def edit_batch(self, diffs):
-        diffs = super().edit_batch(diffs)
+    def _edit_batch(self, diffs):
+        diffs = super()._edit_batch(diffs)
         return self.squash_addresses(diffs)
 
     def squash_addresses(self, diffs):

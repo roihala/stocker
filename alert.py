@@ -21,7 +21,7 @@ from src.alerters_factory import AlertersFactory
 
 from src.read import readers
 from src.read.reader_base import ReaderBase
-from src.alert.tickers.alerters import Securities
+from src.alert.tickers.alerters import Securities, Otciq
 
 from google.cloud.pubsub import SubscriberClient
 from google.cloud import pubsub_v1
@@ -77,9 +77,9 @@ class Alert(CommonRunnable):
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
                             'ticker': ticker, 'last_price': price, 'debug': self._debug}
 
-            alerters = self.get_alerters(diffs, alerter_args)
+            alerters = [alerter for alerter in self.get_alerters(diffs, alerter_args) if alerter.generate_messages()]
 
-            if any([alerter for alerter in alerters if alerter.generate_messages()]):
+            if any(alerters):
                 processed_diffs = [diff for alerter in alerters for diff in alerter.processed_diffs]
                 self._mongo_db.diffs.insert_many(processed_diffs)
 
@@ -91,7 +91,32 @@ class Alert(CommonRunnable):
                     self.logger.exception(e)
                     self.logger.error("Failed to publish relevant diffs")
 
-                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
+                # Otciq patch
+                try:
+
+                    otciq_alerter = [alerter for alerter in alerters if isinstance(alerter, Otciq)]
+
+                    if otciq_alerter:
+                        text = self.build_text(otciq_alerter[0].get_text(), ticker, self._mongo_db, date=arrow.utcnow(),
+                                               price=price)
+
+                        [self._telegram_bot.send_message(chat_id=_,
+                                                         text=text,
+                                                         parse_mode=telegram.ParseMode.MARKDOWN) for _ in
+                         [1151317792, 406000980, 564105605]]
+
+                except Exception as e:
+                    self.logger.warning(f"Couldn't alert otciq for {ticker}")
+                    self.logger.error(e)
+
+                alerters = [alerter for alerter in alerters if not isinstance(alerter, Otciq)]
+
+                if not alerters:
+                    batch.ack()
+                    return
+
+                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if
+                                          alerter.get_text() and not isinstance(alerter, Otciq)])
 
                 # Alerting with current date to avoid difference between collect to alert
                 text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
@@ -102,7 +127,7 @@ class Alert(CommonRunnable):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
-                executor.start(self._aiogram_bot_dp, self.__send_no_delay(alerters, users, text))
+                executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
 
             batch.ack()
         except Exception as e:
@@ -159,11 +184,9 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
-    async def __send_no_delay(self, alerters: List[AlerterBase], users, text):
+    async def __send_no_delay(self, text, users):
         try:
-            # TODO: user specific logic here
-
-            for user in users:
+            for user in [_ for _ in users if _]:
                 await self.__send_msg(user, text)
                 await asyncio.sleep(.0333333)
         except Exception as e:
@@ -198,9 +221,9 @@ class Alert(CommonRunnable):
     @classmethod
     def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None):
         return '{title}\n' \
-               '{alert_msg}\n' \
+               '{alert_body}\n' \
                '{date}'.format(title=cls.generate_title(ticker, mongo_db, price),
-                               alert_msg=alert_body,
+                               alert_body=alert_body,
                                date=ReaderBase.format_stocker_date(date) if date else '')
 
     @classmethod

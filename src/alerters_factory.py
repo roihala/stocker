@@ -8,6 +8,7 @@ class AlertersFactory(BaseFactory):
         'profile': ticker_alerters.Profile,
         'securities': ticker_alerters.Securities,
         'symbols': ticker_alerters.Symbols,
+        'otciq': ticker_alerters.Otciq,
 
         'filings': records_alerters.Filings,
         'filings_pdf': records_alerters.FilingsPdf

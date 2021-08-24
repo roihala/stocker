@@ -23,6 +23,5 @@ class CommonRunnable(Runnable, ABC):
 
         parser.add_argument('--uri', dest='uri', help='MongoDB URI of the format mongodb://...', required=True)
         parser.add_argument('--token', dest='token', help='Telegram bot token', required=True)
-        parser.add_argument('--csv', dest='csv', help='path to csv tickers file')
 
         return parser

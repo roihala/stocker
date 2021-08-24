@@ -185,8 +185,6 @@ class RegistrationBot(BaseBot):
             return self.survey(query.message, query.from_user, update.callback_query.data)
 
     def survey(self, message, from_user, action, remove_keyboard=False):
-        print('survey', action, self.survey_step)
-
         if remove_keyboard:
             _ = message.reply_text(text='.', parse_mode=telegram.ParseMode.MARKDOWN,
                                    reply_markup=telegram.ReplyKeyboardRemove())
