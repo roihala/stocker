@@ -449,8 +449,8 @@ class FatherBot(BaseBot):
         return f"{text}\n{ReaderBase.format_stocker_date(date)}"
 
     @staticmethod
-    def __extract_ticker(context, args=None):
-        if len(args) == 1:
+    def __extract_ticker(context):
+        if len(context.args) == 1:
             ticker = context.args[0]
             if 4 <= len(ticker) <= 5 and all([char.isalpha() for char in ticker]):
                 return ticker.upper()
