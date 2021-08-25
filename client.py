@@ -93,7 +93,7 @@ class Client(CommonRunnable):
 *Security details*
 {securities}
 """.format(
-            title=Alert.generate_title(ticker, mongo_db),
+            title=Alert.generate_title(ticker, mongo_db, is_alert=False),
             subtitle=profile.get_latest().get('name'),
             symbols=Symbols(mongo_db, ticker).generate_info(),
             profile=profile.generate_info(['website', 'businessDesc'], escape_markdown) + f'\n_{latest_profile.get("businessDesc")}_',
