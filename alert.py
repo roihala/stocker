@@ -205,15 +205,15 @@ class Alert(CommonRunnable):
                                date=ReaderBase.format_stocker_date(date) if date else '')
 
     @classmethod
-    def generate_title(cls, ticker, mongo_db, price=None):
+    def generate_title(cls, ticker, mongo_db, price=None, is_alert=True):
         try:
             tier = readers.Securities(mongo_db, ticker).get_latest().get('tierDisplayName')
         except AttributeError:
             logging.warning(f"Couldn't get tier of {ticker}")
             tier = ''
 
-        # Add title
-        if pandas.DataFrame(mongo_db.diffs.find({'ticker': ticker})).empty:
+        # Add title only for alerts
+        if is_alert and pandas.DataFrame(mongo_db.diffs.find({'ticker': ticker})).empty:
             additions = f'{cls.BANG_EMOJI_UNICODE} First ever alert for this ticker!'
         else:
             additions = ''
