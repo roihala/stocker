@@ -23,6 +23,9 @@ Check our website for pricing plans and more info."""
     def remind_users(self):
         for user in self._mongo_db.telegram_users.find({'activation': 'trial'}):
             try:
+                if 'activate_until' in user and arrow.utcnow() > arrow.get(user['activate_until']):
+                    self._mongo_db.telegram_users.update_one(user, {'$set': {'activation': 'cancel'}})
+
                 if 'trial_date' not in user:
                     self.logger.info(f"Updating {user.get('user_name')} trial date")
                     self._mongo_db.telegram_users.update_one(user, {'$set': {'trial_date': arrow.utcnow().format()}})
