@@ -210,7 +210,7 @@ class FatherBot(BaseBot):
                 [alerter.get_text(append_dates=True) for alerter in Alert.get_alerters(diffs, alerter_args) if
                  alerter.get_text(append_dates=True)])
 
-            text = Alert.build_text(alert_body, ticker, self.mongo_db)
+            text = Alert.build_text(alert_body, ticker, self.mongo_db, is_alert=False)
 
             if len(text) > self.MAX_MESSAGE_LENGTH:
                 pending_message.delete()
@@ -389,7 +389,8 @@ class FatherBot(BaseBot):
                         ticker=ticker
                     ))
 
-                text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db)
+                text = Alert.build_text(readers.Otciq(self.mongo_db, ticker).generate_info(), ticker, self.mongo_db,
+                                        is_alert=False)
 
                 message.reply_text(text=text,
                                    parse_mode=telegram.ParseMode.MARKDOWN)

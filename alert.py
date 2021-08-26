@@ -197,10 +197,10 @@ class Alert(CommonRunnable):
         return False
 
     @classmethod
-    def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None):
+    def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None, is_alert=True):
         return '{title}\n' \
                '{alert_body}\n' \
-               '{date}'.format(title=cls.generate_title(ticker, mongo_db, price),
+               '{date}'.format(title=cls.generate_title(ticker, mongo_db, price, is_alert),
                                alert_body=alert_body,
                                date=ReaderBase.format_stocker_date(date) if date else '')
 
