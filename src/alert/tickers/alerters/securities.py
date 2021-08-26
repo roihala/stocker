@@ -55,10 +55,10 @@ class Securities(TickerAlerter):
 
         diff = super().edit_diff(diff)
 
-        if isinstance(new, int) or isinstance(old, int):
-            if isinstance(new, str):
-                new = 0
-            if isinstance(old, str):
+        if isinstance(new, int):
+            try:
+                int(old)
+            except ValueError:
                 old = 0
 
         if isinstance(new, int):
