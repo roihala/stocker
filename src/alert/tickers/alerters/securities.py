@@ -46,7 +46,11 @@ class Securities(TickerAlerter):
 
     def is_relevant_diff(self, diff):
         if diff.get('changed_key') in self.extended_keys and type(diff.get('new')) is int:
-            if not diff.get('old') or self.calc_ratio(diff) < -0.2:
+            ratio = self.calc_ratio(diff)
+            if diff.get('changed_key') == 'restrictedShares':
+                if ratio > 0.2:
+                    return True
+            elif not diff.get('old') or ratio < -0.2:
                 return True
         return super().is_relevant_diff(diff)
 
