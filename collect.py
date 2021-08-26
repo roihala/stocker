@@ -50,7 +50,7 @@ class Collect(CommonRunnable):
     def run(self):
         if self.__is_static_tickers:
             for ticker in self.extract_tickers(csv=self.args.csv):
-                self.ticker_collect(str.encode(ticker))
+                self.ticker_collect(str.encode(ticker), CollectorsFactory.COLLECTIONS.keys())
             return
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
@@ -64,9 +64,9 @@ class Collect(CommonRunnable):
         self.run()
 
     def queue_listen(self, msg: bytes, ack_id):
-        self.executor.submit(self.ticker_collect, msg, ack_id)
+        self.executor.submit(self.ticker_collect, msg, CollectorsFactory.COLLECTIONS.keys(), ack_id)
 
-    def ticker_collect(self, msg: bytes, ack_id=None):
+    def ticker_collect(self, msg: bytes, collections, ack_id=None):
         if not ack_id and not self.args.static_tickers:
             raise ValueError("ticker_collect: ack_id is optional only for static_tickers debug mode")
 
@@ -79,7 +79,7 @@ class Collect(CommonRunnable):
         all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.get_collectors(), [])
         all_diffs = []
 
-        for collection_name in CollectorsFactory.COLLECTIONS.keys():
+        for collection_name in collections:
             try:
                 if collection_name in all_sons:
                     continue
