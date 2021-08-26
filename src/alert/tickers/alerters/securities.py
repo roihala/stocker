@@ -46,7 +46,7 @@ class Securities(TickerAlerter):
 
     def is_relevant_diff(self, diff):
         if diff.get('changed_key') in self.extended_keys and type(diff.get('new')) is int:
-            if self.calc_ratio(diff) < -0.2:
+            if not diff.get('old') or self.calc_ratio(diff) < -0.2:
                 return True
         return super().is_relevant_diff(diff)
 
@@ -55,12 +55,18 @@ class Securities(TickerAlerter):
 
         diff = super().edit_diff(diff)
 
-        if type(new) == type(old) and type(new) is int:
+        if isinstance(new, int) or isinstance(old, int):
+            if isinstance(new, str):
+                new = 0
+            if isinstance(old, str):
+                old = 0
+
+        if isinstance(new, int):
             ratio = self.calc_ratio(diff)
             old, new = f'{old:,}', f'{new:,}'
 
             if diff.get('changed_key') in self.extended_keys:
-                new += " ({:.0%})".format(ratio)
+                new = new + " ({:.0%})".format(ratio) if ratio else new
 
         elif diff['changed_key'] == 'tierCode':
             old, new = self.get_tier_translation(old), self.get_tier_translation(new)
@@ -71,4 +77,7 @@ class Securities(TickerAlerter):
 
     @staticmethod
     def calc_ratio(diff):
-        return (diff.get('new') - diff.get('old')) / diff.get('old')
+        try:
+            return (int(diff.get('new')) - int(diff.get('old'))) / int(diff.get('old'))
+        except ValueError:
+            return 0

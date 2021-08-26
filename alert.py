@@ -57,7 +57,7 @@ class Alert(CommonRunnable):
             streaming_pull_future.result()
 
     def alert_batch(self, batch: PubSubMessage):
-        diffs = json.loads(batch.data)
+        diffs = [{k: '' if v == 'None' else v for k, v in diff.items()} for diff in json.loads(batch.data)]
         self.logger.info('detected batch: {diffs}'.format(diffs=diffs))
 
         [diff.update({'_id': ObjectId()}) for diff in diffs if '_id' not in diff]
