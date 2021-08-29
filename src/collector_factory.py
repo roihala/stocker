@@ -7,7 +7,6 @@ class CollectorsFactory(BaseFactory):
         'profile': ticker_collectors.Profile,
         'securities': ticker_collectors.Securities,
         'symbols': ticker_collectors.Symbols,
-        'otciq': ticker_collectors.Otciq
     }
 
     @classmethod
