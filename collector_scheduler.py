@@ -1,4 +1,5 @@
 # !/usr/bin/env python3
+import json
 import logging
 import os
 
@@ -20,18 +21,26 @@ class CollectScheduler(CommonRunnable):
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = self.PUBSUB_TICKERS_TOPIC_NAME + '-dev' if self._debug else self.PUBSUB_TICKERS_TOPIC_NAME
 
+    def transform_result(self, ticker_info):
+        result = {'ticker': ticker_info['ticker'], 'collections': []}
+        for key in ticker_info:
+            if ticker_info[key] == self.interval:
+                result['collections'].append(key)
+        return result
+
     def get_tickers(self):
         if self.interval == 'all':
             return self._tickers_list
         else:
-            result = self._mongo_db.tickers.find({"profile": self.interval}, {'ticker'})
-        return [ticker['ticker'] for ticker in result]
+            result = self._mongo_db.tickers.find({"$or": [{"profile": self.interval},
+                                                          {"symbols": self.interval}]})
+        return [self.transform_result(ticker) for ticker in result]
 
     def publish(self):
         self.logger.info("Publishing tickers")
         tickers = self.get_tickers()
         for ticker in tickers:
-            self.publisher.publish(self.topic_name, ticker.encode('utf-8'))
+            self.publisher.publish(self.topic_name, json.dumps(ticker).encode('utf-8'))
         self.logger.info("Finished publishing tickers")
 
     def run(self):
