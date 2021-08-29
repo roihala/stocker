@@ -48,12 +48,14 @@ class CollectRecords(CommonRunnable):
 
         trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
 
-        # for i in range(15):
-        #     scheduler.add_job(self.collect_pdf,
-        #                       args=[self.record_id + i],
-        #                       trigger=trigger,
-        #                       max_instances=1,
-        #                       misfire_grace_time=120)
+        for i in range(15):
+            scheduler.add_job(self.collect_pdf,
+                              args=[self.record_id + i],
+                              trigger=trigger,
+                              max_instances=1,
+                              misfire_grace_time=120)
+            # if return value self.collect_pdf():
+            #   Kill all jobs below return value and init new ones
 
         scheduler.add_job(self.collect_backend,
                           args=[],
@@ -76,9 +78,8 @@ class CollectRecords(CommonRunnable):
 
         if diffs:
             new_record_id = max(self.record_id, *[diff.get('record_id') for diff in diffs])
-
-            self.record_id = max(self.record_id, *[diff.get('record_id') for diff in diffs])
             self._publish_diffs(diffs)
+            return new_record_id
 
     def collect_backend(self):
         date = arrow.utcnow()
