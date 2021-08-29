@@ -14,42 +14,47 @@ from src.read import readers
 
 
 def init_dash(mongo_db):
-    dash_app = dash.Dash(__name__, requests_pathname_prefix="/dilution/")
+    dash_app = dash.Dash(
+        __name__,
+        requests_pathname_prefix="/dilution/",
+        external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     ticker = 'SOAN'
-    securities_df = readers.Securities(mongo_db=mongo_db, ticker=ticker) \
-        .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
-
-    keys_translation = {key: translation for key, translation in alerters.Securities.get_keys_translation().items() if
-                        key in securities_df.columns}
-    securities_df = securities_df.rename(columns=keys_translation)
-
-    fig = px.line(securities_df, x="date",
-                  y=list(keys_translation.values()),
-                  title=ticker)
-    fig.update_traces(mode="markers+lines", hovertemplate=None)
-    fig.update_layout(clickmode='event+select', hovermode='x')
 
     styles = {
         'pre': {
             'border': 'thin lightgrey solid',
-            'overflowX': 'scroll'
+            'overflowX': 'scroll',
+            'width': '500'
         }
     }
 
     dash_app.layout = html.Div([
-        dcc.Graph(figure=fig),
+        draw_graph(mongo_db, ticker)
+    ])
 
-        html.Div([
-            dcc.Markdown("""
-                            **Hover Data**
-
-                            Mouse over values in the graph.
-                        """),
-            html.Pre(id='hover-data', style=styles['pre'])
-        ], className='three columns')
-    ]
-    )
+    # dash_app.layout = html.Div([
+    #     html.Div([
+    #         dcc.Dropdown(
+    #             id='my-dropdown',
+    #             className='',
+    #             options=[
+    #                 {'label': 'Coke', 'value': 'COKE'},
+    #                 {'label': 'Tesla', 'value': 'TSLA'},
+    #                 {'label': 'Apple', 'value': 'AAPL'}
+    #             ],
+    #             value='COKE'
+    #         ),
+    #         dcc.Graph(figure=fig, className=''),
+    #         dcc.Markdown("""
+    #                         **Hover Data**
+    #
+    #                         Mouse over values in the graph.
+    #                     """),
+    #         html.Pre(id='hover-data', style=styles['pre'])
+    #     ], className='')
+    # ], className=''
+    # )
 
     @dash_app.callback(dash.dependencies.Output('page-content', 'children'),
                        [dash.dependencies.Input('url', 'pathname')])
@@ -64,3 +69,32 @@ def init_dash(mongo_db):
         ])
 
     return dash_app
+
+
+def draw_graph(mongo_db, ticker: str):
+    securities_df = readers.Securities(mongo_db=mongo_db, ticker=ticker) \
+        .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
+
+    keys_translation = {key: translation for key, translation in alerters.Securities.get_keys_translation().items() if
+                        key in securities_df.columns}
+    securities_df = securities_df.rename(columns=keys_translation)
+    fig = px.line(securities_df, x="date",
+                  y=list(keys_translation.values()),
+                  title=ticker,
+                  template='plotly_dark')
+    fig.update_traces(mode="markers+lines", hovertemplate=None)
+    fig.update_layout(clickmode='event+select', hovermode='x')
+
+    return html.Div([
+            dbc.Card(
+                dbc.CardBody([
+                    dcc.Graph(
+                        figure=fig,
+                        className='rounded'
+                        # config={
+                        #     'displayModeBar': False
+                        # }
+                    ),
+                ]), className='d-flex justify-content-center w-75'
+            )
+        ])
