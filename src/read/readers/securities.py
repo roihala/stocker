@@ -1,3 +1,4 @@
+from src.alert.tickers import alerters
 from src.read.reader_base import ReaderBase
 
 
@@ -12,4 +13,4 @@ class Securities(ReaderBase):
                 'notes': [list]}
 
     def generate_info(self):
-        return '\n'.join(['{key}: {value:,}'.format(key=key, value=self.get_latest().get(key)) for key in self.INTERESTING_KEYS if self.get_latest().get(key)])
+        return '\n'.join(['{key}: {value:,}'.format(key=alerters.Securities.get_keys_translation()[key], value=self.get_latest().get(key)) for key in self.INTERESTING_KEYS if self.get_latest().get(key)])
