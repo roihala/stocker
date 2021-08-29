@@ -11,6 +11,7 @@ from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
 from src.read import readers
 from src.alert.tickers import alerters
+from src.read.reader_base import ReaderBase
 
 logger = logging.getLogger('Alert')
 
@@ -29,8 +30,12 @@ class FilingsAlerter(AlerterBase, ABC):
         tier = readers.Securities(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierCode')
         hierarchy = alerters.Securities.get_hierarchy()['tierCode']
 
-        if hierarchy.index(tier) < hierarchy.index('PC') or \
-                ((not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 90) and self._last_price < 0.05):
+        # Filtering existing filings (shared across filings and filings_pdf)
+        diffs = [diff for diff in diffs if not self._mongo_db.diffs.find_one({'record_id': diff.get('record_id')})]
+
+        if diffs and (hierarchy.index(tier) < hierarchy.index('PC') or
+                      ((not prev_date or (
+                              arrow.utcnow() - arrow.get(prev_date)).days > 90) and self._last_price < 0.05)):
             messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
             # Adding empty ids in order to save those diffs
             messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
@@ -38,10 +43,12 @@ class FilingsAlerter(AlerterBase, ABC):
         return messages
 
     def generate_msg(self, diffs, prev_date):
-        msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                               title=diff.get('title')) for diff in diffs])
+        msg = '\n'.join(['{green_circle_emoji} {cloud_path}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                                    cloud_path=ReaderBase.escape_markdown(
+                                                                        diff.get('cloud_path'))) for diff in diffs])
+        prev_date_msg = f"_Previous filing date: {ReaderBase.format_stocker_date(prev_date, format='YYYY-MM-DD', style='')}_\n"
 
-        return f'*{self.name.capitalize()}* added:\n{msg}'
+        return f"*Filings* added:\n{msg}\n{prev_date_msg if prev_date else ''}"
 
     def generate_payload(self, diffs, prev_date):
         return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}

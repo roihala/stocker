@@ -4,7 +4,7 @@ from src.collect.records import collectors as records_collectors
 
 class RecordsFactory(BaseFactory):
     COLLECTIONS = {
-        'filings': records_collectors.Filings,
+        'filings_backend': records_collectors.FilingsBackend,
         'filings_pdf': records_collectors.FilingsPdf
     }
 

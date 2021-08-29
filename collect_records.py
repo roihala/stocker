@@ -4,6 +4,7 @@ import os
 import time
 import arrow
 import pandas as pd
+import pymongo
 
 from bson import json_util
 
@@ -17,8 +18,8 @@ from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from src.collect.records.collectors import FilingsBackend, FilingsPdf
 from src.read import readers
-from src.records_factory import RecordsFactory
 
 global records_cache
 records_cache = {}
@@ -26,26 +27,35 @@ records_cache = {}
 NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.csv'))
 
 
-class RecordsCollect(CommonRunnable):
+class CollectRecords(CommonRunnable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
         self.tickers_mapping = self.__get_tickers_mapping()
+        self.record_id = int(self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
 
     def run(self):
         if self._debug:
             while True:
-                self.collect_records()
-                time.sleep(1)
+                self.collect_backend()
+                for i in range(15):
+                    self.collect_pdf(self.record_id + i)
 
         scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10)
+            'default': ThreadPoolExecutor(15)
         })
 
-        trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
 
-        scheduler.add_job(self.collect_records,
+        # for i in range(15):
+        #     scheduler.add_job(self.collect_pdf,
+        #                       args=[self.record_id + i],
+        #                       trigger=trigger,
+        #                       max_instances=1,
+        #                       misfire_grace_time=120)
+
+        scheduler.add_job(self.collect_backend,
                           args=[],
                           trigger=trigger,
                           max_instances=1,
@@ -55,18 +65,31 @@ class RecordsCollect(CommonRunnable):
 
         scheduler.start()
 
-    def collect_records(self):
+    def collect_pdf(self, record_id):
         date = arrow.utcnow()
 
-        for collection_name in RecordsFactory.COLLECTIONS.keys():
-            if collection_name in ['secfilings', 'filings']:
-                continue
-            collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
-            collector = RecordsFactory.factory(collection_name, **collector_args)
-            diffs = collector.collect()
+        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
+                          'record_id': record_id}
+        collector = FilingsPdf(**collector_args)
 
-            if diffs:
-                self._publish_diffs(diffs)
+        diffs = collector.collect()
+
+        if diffs:
+            new_record_id = max(self.record_id, *[diff.get('record_id') for diff in diffs])
+
+            self.record_id = max(self.record_id, *[diff.get('record_id') for diff in diffs])
+            self._publish_diffs(diffs)
+
+    def collect_backend(self):
+        date = arrow.utcnow()
+
+        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
+        collector = FilingsBackend(**collector_args)
+
+        diffs = collector.collect()
+
+        if diffs:
+            self._publish_diffs(diffs)
 
     def _publish_diffs(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -101,7 +124,7 @@ class RecordsCollect(CommonRunnable):
 
 def main():
     try:
-        RecordsCollect().run()
+        CollectRecords().run()
     except Exception as e:
         logging.exception(e)
 

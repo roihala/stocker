@@ -9,13 +9,12 @@ import requests
 from retry import retry
 
 from runnable import Runnable
-from src.collect.collector_base import CollectorBase
-
+from src.collect.records.filings_collector import FilingsCollector
 
 logger = logging.getLogger('RecordsCollect')
 
 
-class RecordsCollector(CollectorBase, ABC):
+class RecordsCollector(FilingsCollector, ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -25,7 +24,7 @@ class RecordsCollector(CollectorBase, ABC):
 
     @property
     @abstractmethod
-    def url(self):
+    def records_url(self):
         pass
 
     def collect(self):
@@ -34,42 +33,43 @@ class RecordsCollector(CollectorBase, ABC):
         new_records = self.extract_new_records(records)
 
         if new_records:
-            [record.update({'date': self._date.format()}) for record in new_records]
+            [record.update({'date': self._date.format(), 'ticker': record.get('symbol')}) for record in new_records]
             self.collection.insert_many(new_records)
             self.cache[self.name] += new_records
             self.__flush()
 
-        return [self.__generate_diff(record) for record in new_records]
+            # Uploading all pdfs to cloud and adding them as diffs
+            pdf_paths = [self.get_pdf(record.get('id')) for record in new_records[0:10]]
+            cloud_paths = [self.upload_filing(record.get('ticker'), pdf_path) for record, pdf_path in zip(new_records, pdf_paths)]
+            diffs = [self.__generate_diff(record, cloud_path) for record, cloud_path in zip(records, cloud_paths)]
+            return diffs
+        else:
+            return []
 
     @retry((JSONDecodeError, requests.exceptions.ConnectionError), tries=3, delay=1)
     def fetch_data(self) -> List[Dict]:
-        response = requests.get(self.url)
+        response = requests.get(self.records_url)
 
         # Trying with proxy
         if response.status_code == 429:
-            response = requests.get(self.url, proxies=Runnable.proxy)
+            response = requests.get(self.records_url, proxies=Runnable.proxy)
 
         if response.status_code != 200:
             logger.warning("Couldn't collect record at {url}, bad status code: {code}".format(
-                url=self.url,
+                url=self.records_url,
                 code=response.status_code))
-            raise ValueError(self.url)
+            raise ValueError(self.records_url)
 
         return response.json().get('records')
 
     def extract_new_records(self, records: List[Dict]) -> List[Dict]:
-        return [record for record in records if record.get('id') not in [record.get('id') for record in self.cache[self.name]]]
+        return [record for record in records if record.get('id') not in [_.get('id') for _ in self.cache[self.name]]]
 
     def __flush(self):
         # Caching last 7 days of records
         self.cache[self.name] = [diff for diff in self.cache[self.name] if (arrow.utcnow() - arrow.get(diff.get('releaseDate'))).days < 7]
 
-    def __generate_diff(self, record: dict):
-        return {
-            "title": record.get('title'),
-            "record_id": record.get('id'),
-            "diff_type": "add",
-            "date": self._date.format(),
-            "source": self.name,
+    def __generate_diff(self, record: dict, cloud_path: str):
+        return super().decorate_diff({
             "ticker": record.get('symbol')
-        }
+        }, cloud_path=cloud_path, record_id=record.get('id'))

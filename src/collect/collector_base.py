@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 
 import arrow
@@ -28,3 +29,13 @@ class CollectorBase(ABC):
     @abstractmethod
     def collect(self):
         pass
+
+    def decorate_diff(self, diff, *args, **kwargs) -> dict:
+        diff = deepcopy(diff)
+
+        diff.update({
+            "date": self._date.format(),
+            "source": self.name
+        })
+
+        return diff

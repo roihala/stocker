@@ -10,7 +10,7 @@ class AlertersFactory(BaseFactory):
         'symbols': ticker_alerters.Symbols,
         'otciq': ticker_alerters.Otciq,
 
-        'filings': records_alerters.Filings,
+        'filings_backend': records_alerters.FilingsBackend,
         'filings_pdf': records_alerters.FilingsPdf
     }
 
