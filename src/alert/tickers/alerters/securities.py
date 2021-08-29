@@ -62,7 +62,7 @@ class Securities(TickerAlerter):
         if isinstance(new, int):
             try:
                 int(old)
-            except ValueError:
+            except (ValueError, TypeError):
                 old = 0
 
         if isinstance(new, int):
