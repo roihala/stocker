@@ -43,7 +43,8 @@ class Collect(CommonRunnable):
 
     def create_parser(self):
         parser = super().create_parser()
-        parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers', default=False, action='store_true')
+        parser.add_argument('--static_tickers', dest='static_tickers', help='run on static list of tickers',
+                            default=False, action='store_true')
 
         return parser
 
@@ -64,33 +65,24 @@ class Collect(CommonRunnable):
         self.run()
 
     def queue_listen(self, msg: bytes, ack_id):
-        self.executor.submit(self.ticker_collect, msg, CollectorsFactory.COLLECTIONS.keys(), ack_id)
+        self.executor.submit(self.ticker_collect, msg, ack_id)
 
-    def ticker_collect(self, msg: bytes, collections, ack_id=None):
+    def ticker_collect(self, msg: bytes, ack_id=None):
         if not ack_id and not self.args.static_tickers:
             raise ValueError("ticker_collect: ack_id is optional only for static_tickers debug mode")
 
         # ticker = msg.data.decode('utf-8')
-        ticker = msg.decode('utf-8')
+        collect_info = json.loads(msg.decode('utf-8'))
+        ticker = collect_info['ticker']
+        collections = collect_info.get('collections', CollectorsFactory.COLLECTIONS.keys())
 
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.get_collectors(), [])
         all_diffs = []
 
         for collection_name in collections:
             try:
-                if collection_name in all_sons:
-                    continue
-
-                # otciq patch
-                if collection_name == 'otciq' and not arrow.utcnow().floor('minute').minute in [0, 5]:
-                    continue
-
-                if collection_name == 'symbols' and arrow.utcnow().floor('minute').minute in [0, 5]:
-                    continue
-
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
                 collector = CollectorsFactory.factory(collection_name, **collector_args)
@@ -111,7 +103,7 @@ class Collect(CommonRunnable):
             self.publisher.publish(self.topic_name, data)
 
         # static_tickers debug mode ends here
-        if self.args.static_tickers:
+        if self.__is_static_tickers:
             return
 
         self._subscriber.acknowledge(
