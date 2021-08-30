@@ -17,6 +17,7 @@ from aiogram.utils import exceptions, executor
 
 from common_runnable import CommonRunnable
 from src.alert.alerter_base import AlerterBase
+from src.alert.records.filings_alerter import FilingsAlerter
 from src.alerters_factory import AlertersFactory
 
 from src.read import readers
@@ -95,6 +96,13 @@ class Alert(CommonRunnable):
 
                 # Alerting with current date to avoid difference between collect to alert
                 text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
+
+                if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
+                    self._telegram_bot.send_message(chat_id=1151317792,
+                                                    text=text,
+                                                    parse_mode=telegram.ParseMode.MARKDOWN)
+                    batch.ack()
+                    return
 
                 vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
 
