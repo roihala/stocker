@@ -1,16 +1,9 @@
 import logging
-import os
-import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Dict, List, Tuple
-
-import arrow
-import pymongo
 import requests
 from retry import retry
 
-from google.cloud import storage
 
 from runnable import Runnable
 from src.collect.records.filings_collector import FilingsCollector
@@ -19,6 +12,8 @@ logger = logging.getLogger('RecordsCollect')
 
 
 class DynamicRecordsCollector(FilingsCollector, ABC):
+    BATCH_SIZE = 15
+
     def __init__(self, record_id, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.record_id = record_id

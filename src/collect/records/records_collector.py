@@ -33,7 +33,8 @@ class RecordsCollector(FilingsCollector, ABC):
         new_records = self.extract_new_records(records)
 
         if new_records:
-            [record.update({'date': self._date.format(), 'ticker': record.get('symbol')}) for record in new_records]
+            [record.update({'date': self._date.format(), 'ticker': record.get('symbol'), 'record_id': record.get('id')})
+             for record in new_records]
             self.collection.insert_many(new_records)
             self.cache[self.name] += new_records
             self.__flush()

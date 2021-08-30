@@ -31,7 +31,7 @@ class TickerAlerter(AlerterBase):
     def get_keys_translation() -> dict:
         return {}
 
-    def generate_msg(self, diff):
+    def generate_msg(self, diff, *args, **kwargs):
         key = diff['changed_key']
         diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
         try:
@@ -83,9 +83,6 @@ class TickerAlerter(AlerterBase):
                                                               key=diff.get('changed_key'))
 
         return msg
-
-    def edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
-        return sorted(diffs, key=itemgetter('changed_key'))
 
     def is_relevant_diff(self, diff) -> bool:
         """

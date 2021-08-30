@@ -5,6 +5,7 @@ import time
 import arrow
 import pandas as pd
 import pymongo
+from apscheduler.jobstores.memory import MemoryJobStore
 
 from bson import json_util
 
@@ -33,39 +34,46 @@ class CollectRecords(CommonRunnable):
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
         self.tickers_mapping = self.__get_tickers_mapping()
-        self.record_id = int(self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+        self.scheduler = BlockingScheduler(executors={
+            'default': ThreadPoolExecutor(15)
+        }, jobstores={
+            'default': MemoryJobStore(),
+            'dynamic': MemoryJobStore()
+        })
 
     def run(self):
         if self._debug:
-            while True:
-                self.collect_backend()
-                for i in range(15):
-                    self.collect_pdf(self.record_id + i)
+            record_id = int(
+                self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get(
+                    'record_id')) + 1
 
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(15)
-        })
+            self.collect_backend()
+            for i in range(FilingsPdf.BATCH_SIZE):
+                self.collect_pdf(record_id + i)
 
         trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
 
-        for i in range(15):
-            scheduler.add_job(self.collect_pdf,
-                              args=[self.record_id + i],
-                              trigger=trigger,
-                              max_instances=1,
-                              misfire_grace_time=120)
-            # if return value self.collect_pdf():
-            #   Kill all jobs below return value and init new ones
+        record_id = int(
+            self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
 
-        scheduler.add_job(self.collect_backend,
-                          args=[],
-                          trigger=trigger,
-                          max_instances=1,
-                          misfire_grace_time=120)
+        for index in range(FilingsPdf.BATCH_SIZE):
+            self.scheduler.add_job(self.collect_pdf,
+                                   args=[record_id + index],
+                                   trigger=trigger,
+                                   max_instances=1,
+                                   misfire_grace_time=120,
+                                   jobstore='dynamic')
+
+        trigger = OrTrigger([IntervalTrigger(seconds=10), DateTrigger()])
+        self.scheduler.add_job(self.collect_backend,
+                               args=[],
+                               trigger=trigger,
+                               max_instances=1,
+                               misfire_grace_time=120)
 
         self.disable_apscheduler_logs()
 
-        scheduler.start()
+        self.scheduler.start()
 
     def collect_pdf(self, record_id):
         date = arrow.utcnow()
@@ -77,9 +85,11 @@ class CollectRecords(CommonRunnable):
         diffs = collector.collect()
 
         if diffs:
-            new_record_id = max(self.record_id, *[diff.get('record_id') for diff in diffs])
             self._publish_diffs(diffs)
-            return new_record_id
+
+            # Re-running jobs according to the new record_id
+            [job.modify(**{'args': [job.args[0] + FilingsPdf.BATCH_SIZE]})
+             for job in self.scheduler.get_jobs('dynamic') if job.args[0] <= record_id]
 
     def collect_backend(self):
         date = arrow.utcnow()
