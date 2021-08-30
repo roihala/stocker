@@ -1,11 +1,9 @@
 import json
 import logging
 import os
-import time
 import arrow
 import pandas as pd
 import pymongo
-from apscheduler.jobstores.memory import MemoryJobStore
 
 from bson import json_util
 
@@ -18,6 +16,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.jobstores.memory import MemoryJobStore
 
 from src.collect.records.collectors import FilingsBackend, FilingsPdf
 from src.read import readers
