@@ -34,6 +34,7 @@ RE_MAIL = re.compile(r"([\w\.-]+@[\w\.-]+(?:\.[\w]+)+)")
 RE_WEB_URL = re.compile(r"((?:(?:[a-zA-z\-]+[0-9]*)\.[\w\-]+){2,})")
 RE_PHONE_NUMBER = re.compile(r"(\(?\d{3}\D{0,3}\d{3}\D{0,3}\d{4})")
 RE_ZIP_CODE = re.compile(r"(^\d{5}(?:[-\s]\d{4})?$)")
+RE_CUSIP = re.compile(r"([0-9]{3}[a-zA-Z0-9]{6})")
 
 RE_BRACKETS = re.compile(r"\[[^)]*\]")
 RE_PARENTHESES = re.compile(r"\([^)]*\)")
@@ -49,6 +50,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             self.collection.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
 
         self._mongo__profile = self._mongo_db.get_collection("profile")
+        self._mongo__securities = self._mongo_db.get_collection("securities")
+
         self._profile_mapping = Client.get_latest_data(self._mongo__profile)
         self._symbols_and_names = [(ticker, self.__clear_text(self._profile_mapping[ticker]["name"]))
                                    for ticker in self._profile_mapping]
@@ -140,20 +143,25 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         by_web_urls = self.__guess_by_website_urls(pages)
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
+        by_cusip = self.__guess_by_cusip(pages)
 
-        logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
-        logger.info("SYMBOLS RESULT: " + str(by_symbols))
-        logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
-        logger.info("WEB: " + str(by_web_urls))
-        logger.info("PHONES: " + str(by_phone_numbers))
-        logger.info("ZIP_CODES: " + str(by_zip_codes))
+        # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
+        # logger.info("SYMBOLS RESULT: " + str(by_symbols))
+        # logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
+        # logger.info("WEB: " + str(by_web_urls))
+        # logger.info("PHONES: " + str(by_phone_numbers))
+        # logger.info("ZIP_CODES: " + str(by_zip_codes))
+        # logger.info("CUSIPs: " + str(by_cusip))
 
         all_symbols = set(
             by_comp_names +
             by_symbols +
             by_mail_addresses +
             by_web_urls +
-            by_phone_numbers) - SYMBOLS_BLACKLIST_SET
+            by_phone_numbers +
+            by_zip_codes +
+            by_cusip
+        ) - SYMBOLS_BLACKLIST_SET
 
         for symbol in all_symbols:
             symbols_scores[symbol] = 0
@@ -170,6 +178,8 @@ class DynamicRecordsCollector(CollectorBase, ABC):
                 symbols_scores[symbol] += 1 if len(by_phone_numbers) > 1 else 2
             if symbol in by_zip_codes:
                 symbols_scores[symbol] += 1 if len(by_zip_codes) > 1 else 2
+            if symbol in by_cusip:
+                symbols_scores[symbol] += 1 if len(by_cusip) > 1 else 2
 
         # Return the symbol with the highest score.
         if symbols_scores:
@@ -200,7 +210,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
             if not companies:
                 continue
 
-            logger.info("COMPANY_NAMES: " + str(companies))
+            # logger.info("COMPANY_NAMES: " + str(companies))
 
             # split to words & remove commas & dots
             companies_opt = [comp.split() for comp in companies]
@@ -232,7 +242,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             mail_addresses.extend(RE_MAIL.findall(page))
 
-        logger.info("MAILS: " + str(mail_addresses))
+        # logger.info("MAILS: " + str(mail_addresses))
         for address in mail_addresses:
             domain = address.split('@')[1]
 
@@ -249,7 +259,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             web_urls.extend(RE_WEB_URL.findall(page))
 
-        logger.info("WEBSITES: " + str(web_urls))
+        # logger.info("WEBSITES: " + str(web_urls))
         for url in web_urls:
             # search mongo for web URLs --> contains
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"website": {"$regex": ".*" +
@@ -264,7 +274,7 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             phone_numbers.extend(RE_PHONE_NUMBER.findall(page))
 
-        logger.info("PHONE NUMBERS: " + str(phone_numbers))
+        # logger.info("PHONE NUMBERS: " + str(phone_numbers))
         for phone_num in phone_numbers:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"phone": phone_num})])
@@ -278,11 +288,25 @@ class DynamicRecordsCollector(CollectorBase, ABC):
         for page in pages:
             zip_codes.extend(RE_ZIP_CODE.findall(page))
 
-        logger.info("ZIP CODES: " + str(zip_codes))
+        # logger.info("ZIP CODES: " + str(zip_codes))
         for _zip in zip_codes:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
-                                                                                                          _zip + ".*"}})])
+                                                                                                            _zip + ".*"}})])
+
+        return list(set(symbols)) if symbols else []
+
+    def __guess_by_cusip(self, pages) -> List[str]:
+        cusips = []
+        symbols = []
+
+        for page in pages:
+            cusips.extend(RE_CUSIP.findall(page))
+
+        # logger.info("CUSIPs: " + str(cusips))
+        for cp in cusips:
+            # search securities for matching cusips
+            symbols.extend([sec["symbol"] for sec in self._mongo__securities.find({"cusip": cp})])
 
         return list(set(symbols)) if symbols else []
 
