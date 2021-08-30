@@ -31,7 +31,7 @@ class TickerAlerter(AlerterBase):
     def get_keys_translation() -> dict:
         return {}
 
-    def generate_msg(self, diff, *args, **kwargs):
+    def generate_msg(self, diff):
         key = diff['changed_key']
         diff['changed_key'] = self.get_keys_translation()[key] if key in self.get_keys_translation() else key.capitalize()
         try:

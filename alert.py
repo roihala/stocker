@@ -16,9 +16,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import exceptions, executor
 
 from common_runnable import CommonRunnable
-from src.alert.alerter_base import AlerterBase
-from src.alert.records.filings_alerter import FilingsAlerter
 from src.alerters_factory import AlertersFactory
+from src.alert.records.filings_alerter import FilingsAlerter
 
 from src.read import readers
 from src.read.reader_base import ReaderBase

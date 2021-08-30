@@ -58,7 +58,7 @@ class AlerterBase(ABC):
         return deepcopy(self.__messages)
 
     @abstractmethod
-    def generate_msg(self, diff, *args, **kwargs):
+    def generate_msg(self, diff):
         """
         This is where you generate text for a given diff, after it was edited by self.edit_diff
         """

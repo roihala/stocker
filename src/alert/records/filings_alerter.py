@@ -49,7 +49,7 @@ class FilingsAlerter(AlerterBase, ABC):
         return any([True for collection in RecordsFactory.COLLECTIONS.keys() + ['diffs'] if
                     self._mongo_db.get_collection(collection).find_one({'record_id': record_id})])
 
-    def generate_msg(self, diff, *args, **kwargs):
+    def generate_msg(self, diff):
         return '{green_circle_emoji} {cloud_path}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
                                                           cloud_path=ReaderBase.escape_markdown(diff.get('cloud_path')))
 
