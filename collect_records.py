@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-import time
 import arrow
 import pandas as pd
+import pymongo
 
 from bson import json_util
 
@@ -16,9 +16,10 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.jobstores.memory import MemoryJobStore
 
+from src.collect.records.collectors import FilingsBackend, FilingsPdf
 from src.read import readers
-from src.records_factory import RecordsFactory
 
 global records_cache
 records_cache = {}
@@ -26,47 +27,79 @@ records_cache = {}
 NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.csv'))
 
 
-class RecordsCollect(CommonRunnable):
+class CollectRecords(CommonRunnable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
         self.tickers_mapping = self.__get_tickers_mapping()
+        self.scheduler = BlockingScheduler(executors={
+            'default': ThreadPoolExecutor(15)
+        }, jobstores={
+            'default': MemoryJobStore(),
+            'dynamic': MemoryJobStore()
+        })
 
     def run(self):
         if self._debug:
-            while True:
-                self.collect_records()
-                time.sleep(1)
+            record_id = int(
+                self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get(
+                    'record_id')) + 1
 
-        scheduler = BlockingScheduler(executors={
-            'default': ThreadPoolExecutor(10)
-        })
+            self.collect_backend()
+            for i in range(FilingsPdf.BATCH_SIZE):
+                self.collect_pdf(record_id + i)
 
-        trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
 
-        scheduler.add_job(self.collect_records,
-                          args=[],
-                          trigger=trigger,
-                          max_instances=1,
-                          misfire_grace_time=120)
+        record_id = int(
+            self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+
+        for index in range(FilingsPdf.BATCH_SIZE):
+            self.scheduler.add_job(self.collect_pdf,
+                                   args=[record_id + index],
+                                   trigger=trigger,
+                                   max_instances=1,
+                                   misfire_grace_time=120,
+                                   jobstore='dynamic')
+
+        trigger = OrTrigger([IntervalTrigger(seconds=10), DateTrigger()])
+        self.scheduler.add_job(self.collect_backend,
+                               args=[],
+                               trigger=trigger,
+                               max_instances=1,
+                               misfire_grace_time=120)
 
         self.disable_apscheduler_logs()
 
-        scheduler.start()
+        self.scheduler.start()
 
-    def collect_records(self):
+    def collect_pdf(self, record_id):
         date = arrow.utcnow()
 
-        for collection_name in RecordsFactory.COLLECTIONS.keys():
-            if collection_name in ['secfilings', 'filings']:
-                continue
-            collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
-            collector = RecordsFactory.factory(collection_name, **collector_args)
-            diffs = collector.collect()
+        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
+                          'record_id': record_id}
+        collector = FilingsPdf(**collector_args)
 
-            if diffs:
-                self._publish_diffs(diffs)
+        diffs = collector.collect()
+
+        if diffs:
+            self._publish_diffs(diffs)
+
+            # Re-running jobs according to the new record_id
+            [job.modify(**{'args': [job.args[0] + FilingsPdf.BATCH_SIZE]})
+             for job in self.scheduler.get_jobs('dynamic') if job.args[0] <= record_id]
+
+    def collect_backend(self):
+        date = arrow.utcnow()
+
+        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug}
+        collector = FilingsBackend(**collector_args)
+
+        diffs = collector.collect()
+
+        if diffs:
+            self._publish_diffs(diffs)
 
     def _publish_diffs(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
@@ -101,7 +134,7 @@ class RecordsCollect(CommonRunnable):
 
 def main():
     try:
-        RecordsCollect().run()
+        CollectRecords().run()
     except Exception as e:
         logging.exception(e)
 

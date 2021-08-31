@@ -1,7 +1,7 @@
 import logging
 from abc import abstractmethod, ABC
 from json import JSONDecodeError
-from typing import List
+from typing import List, Iterable
 
 import arrow
 import requests
@@ -11,40 +11,55 @@ from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
 from src.read import readers
 from src.alert.tickers import alerters
+from src.read.reader_base import ReaderBase
+from src.records_factory import RecordsFactory
 
 logger = logging.getLogger('Alert')
 
 
 class FilingsAlerter(AlerterBase, ABC):
+    def __init__(self, mongo_db, *args, **kwargs):
+        super().__init__(mongo_db, *args, **kwargs)
+
+        # prev_date Could be None on failure
+        self._prev_date = self._get_previous_date(self._diffs)
+
     @property
     @abstractmethod
     def site(self) -> Site:
         pass
 
-    def generate_messages(self, diffs: List[dict]):
-        # TODO: delete
-        messages = {}
-        prev_date = self._get_previous_date(diffs)
+    def edit_batch(self, diffs: List[dict]):
+        diffs = super().edit_batch(diffs)
+        ticker = diffs[0]['ticker']
 
-        tier = readers.Securities(self._mongo_db, diffs[0]['ticker']).get_latest().get('tierCode')
+        tier = readers.Securities(self._mongo_db, ticker).get_latest().get('tierCode')
         hierarchy = alerters.Securities.get_hierarchy()['tierCode']
 
+        # If lower than pink current or (last filing was more than 3 months)
         if hierarchy.index(tier) < hierarchy.index('PC') or \
-                ((not prev_date or (arrow.utcnow() - arrow.get(prev_date)).days > 90) and self._last_price < 0.05):
-            messages.update({diffs[0]['_id']: self.generate_payload(diffs, prev_date)})
-            # Adding empty ids in order to save those diffs
-            messages.update({diff['_id']: {'message': ''} for diff in diffs[1:]})
+                (not self._prev_date or (arrow.utcnow() - arrow.get(self._prev_date)).days > 90):
+            # Filtering existing filings (shared across filings and filings_pdf)
+            return [diff for diff in diffs if not self.__is_existing_record_id(diff.get('record_id'))]
+        else:
+            return []
 
-        return messages
+    def __is_existing_record_id(self, record_id):
+        return any([True for collection in RecordsFactory.COLLECTIONS.keys() + ['diffs'] if
+                    self._mongo_db.get_collection(collection).find_one({'record_id': record_id})])
 
-    def generate_msg(self, diffs, prev_date):
-        msg = '\n'.join(['{green_circle_emoji} {title}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
-                                                               title=diff.get('title')) for diff in diffs])
+    def generate_msg(self, diff):
+        return '{green_circle_emoji} {cloud_path}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,
+                                                          cloud_path=ReaderBase.escape_markdown(diff.get('cloud_path')))
 
-        return f'*{self.name.capitalize()}* added:\n{msg}'
+    def get_text(self, append_dates=False, separator='\n'):
+        try:
+            formatted_prev_date = ReaderBase.format_stocker_date(self._prev_date, format='YYYY-MM-DD', style='')
+            prev_date_msg = f"\n_Previous filing date: {formatted_prev_date}_\n"
+        except Exception:
+            prev_date_msg = ''
 
-    def generate_payload(self, diffs, prev_date):
-        return {'message': self.generate_msg(diffs, prev_date), 'date': diffs[0].get('date')}
+        return f"*Filings* added:\n" + super().get_text(append_dates, separator) + prev_date_msg
 
     def _get_previous_date(self, diffs):
         try:

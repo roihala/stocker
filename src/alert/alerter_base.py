@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import List
+from operator import itemgetter
+from typing import List, Iterable
 
 import inflection
 
@@ -12,15 +13,14 @@ class AlerterBase(ABC):
     RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
     YELLOW_CIRCLE_EMOJI_UNICODE = u'\U0001F7E1'
 
-    def __init__(self, mongo_db, telegram_bot, ticker, diffs: List[dict], last_price=None, debug=None):
+    def __init__(self, mongo_db, telegram_bot, ticker, diffs: List[dict], debug=None):
         self.name = inflection.underscore(self.__class__.__name__)
         self._mongo_db = mongo_db
         self._telegram_bot = telegram_bot
         self._debug = debug
         self._ticker = ticker
-        self._last_price = last_price if last_price else 0
+        self._diffs = deepcopy(diffs)
         self.__messages = None
-        self.__diffs = deepcopy(diffs)
 
     @property
     def messages(self):
@@ -30,7 +30,7 @@ class AlerterBase(ABC):
 
     @property
     def processed_diffs(self):
-        return [diff for diff in self.__diffs if diff.get('_id') in self.messages.keys()]
+        return [diff for diff in self._diffs if diff.get('_id') in self.messages.keys()]
 
     def generate_messages(self) -> dict:
         """
@@ -43,7 +43,7 @@ class AlerterBase(ABC):
         """
         self.__messages = {}
 
-        for diff in self.edit_batch(self.__diffs):
+        for diff in self.edit_batch(self._diffs):
             if not self.is_relevant_diff(diff):
                 continue
 
@@ -63,15 +63,15 @@ class AlerterBase(ABC):
         """
         pass
 
-    def get_text(self, append_dates=False):
-        return '\n\n'.join([self.__append_date(object_id, message) if append_dates else message
-                            for object_id, message in self.messages.items()])
+    def get_text(self, append_dates=False, separator='\n\n'):
+        return separator.join([self.__append_date(object_id, message) if append_dates else message
+                               for object_id, message in self.messages.items()])
 
     def is_relevant_diff(self, diff):
         return True
 
-    def edit_batch(self, diffs):
-        return diffs
+    def edit_batch(self, diffs: List[dict]) -> List[dict]:
+        return sorted(diffs, key=itemgetter('changed_key'))
 
     def edit_diff(self, diff):
         return diff
@@ -79,4 +79,3 @@ class AlerterBase(ABC):
     def __append_date(self, object_id, message):
         date = next(diff for diff in self.processed_diffs if diff.get('_id') == object_id).get('date')
         return f'{message}\n{ReaderBase.format_stocker_date(date)}'
-        # return message + '\n' + ReaderBase.format_stocker_date(next(diff for diff in self.processed_diffs if diff.get('_id') == object_id)

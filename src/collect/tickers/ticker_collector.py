@@ -81,7 +81,7 @@ class TickerCollector(CollectorBase, ABC):
             # Saving the fetched data
             self.__save_document(current)
 
-            diffs = [self.__decorate_diff(diff) for diff in
+            diffs = [self.decorate_diff(diff) for diff in
                      Differ().get_diffs(latest, current, self._reader.get_nested_keys())]
 
             logger.info('diffs: {diffs}'.format(diffs=diffs))
@@ -89,7 +89,9 @@ class TickerCollector(CollectorBase, ABC):
         self._set_cache_value(current)
         return self.__collect_sons(diffs)
 
-    def __decorate_diff(self, diff):
+    def decorate_diff(self, diff, *args, **kwargs):
+        diff = super().decorate_diff(diff)
+
         if isinstance(diff.get('changed_key'), list):
             key = diff.get('changed_key')[0]
             # joining by '.' if a subkey is a list of keys (differ's nested changes approach)
@@ -104,9 +106,7 @@ class TickerCollector(CollectorBase, ABC):
 
         diff.update({
             "ticker": self.ticker,
-            "date": self._date.format(),
-            "changed_key": key,
-            "source": self.name
+            "changed_key": key
         })
 
         return diff

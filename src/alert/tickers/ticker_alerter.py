@@ -84,9 +84,6 @@ class TickerAlerter(AlerterBase):
 
         return msg
 
-    def edit_batch(self, diffs: Iterable[dict]) -> Iterable[dict]:
-        return sorted(diffs, key=itemgetter('changed_key'))
-
     def is_relevant_diff(self, diff) -> bool:
         """
         This function is for editing or deleting an existing diff.
