@@ -62,6 +62,8 @@ class Securities(TickerAlerter):
         diff = super().edit_diff(diff)
 
         if isinstance(new, int):
+            old = 0 if not old else old
+
             ratio = self.calc_ratio(diff)
             old, new = f'{old:,}', f'{new:,}'
 
