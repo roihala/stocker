@@ -1,0 +1,25 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: priority-scheduler
+  namespace: default
+spec:
+  schedule: "00 00 * * *"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 180
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure # <2>
+          containers:
+            - name: priority-scheduler
+              image: eu.gcr.io/stocker-300519/priority-scheduler:latest
+              env:
+                - name: ENV
+                  value: "production"
+                - name: MONGO_URI
+                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                - name: TELEGRAM_TOKEN
+                  value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"

@@ -95,9 +95,9 @@ rest_delete_pod:
 	kubectl delete pods -l run=rest-app || true
 
 
-scheduler: scheduler_build_push scheduler_delete_pod
+scheduler: scheduler_build scheduler_delete_pod
 
-scheduler_build_push:
+scheduler_build:
 	docker build -t collector-scheduler -f dockerfiles/scheduler.dockerfile .
 	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/collector-scheduler:latest
 	docker push eu.gcr.io/stocker-300519/collector-scheduler:latest
@@ -111,6 +111,13 @@ scheduler_deploy: get_gcp_cluster
 scheduler_delete_pod:
 	kubectl delete pods -l run=collector-scheduler-app || true
 
+priority_build:
+	docker build -t priority-scheduler -f dockerfiles/priority.dockerfile .
+	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/priority-scheduler:latest
+	docker push eu.gcr.io/stocker-300519/priority-scheduler:latest
+
+priority_update_deployment: get_gcp_cluster
+	kubectl apply -f kubefiles\priority_scheduler.yaml
 
 stop_cron_jobs: get_gcp_cluster
 	kubectl patch cronjobs scale-down-job -p "{\"spec\" : {\"suspend\" : true }}"
