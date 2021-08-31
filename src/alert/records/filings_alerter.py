@@ -38,8 +38,7 @@ class FilingsAlerter(AlerterBase, ABC):
 
         # If lower than pink current or (last filing was more than 3 months)
         if hierarchy.index(tier) < hierarchy.index('PC') or \
-                ((not self._prev_date or (
-                        arrow.utcnow() - arrow.get(self._prev_date)).days > 90) and self._last_price < 0.05):
+                (not self._prev_date or (arrow.utcnow() - arrow.get(self._prev_date)).days > 90):
             # Filtering existing filings (shared across filings and filings_pdf)
             return [diff for diff in diffs if not self.__is_existing_record_id(diff.get('record_id'))]
         else:

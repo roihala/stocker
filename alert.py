@@ -63,57 +63,67 @@ class Alert(CommonRunnable):
         [diff.update({'_id': ObjectId()}) for diff in diffs if '_id' not in diff]
 
         try:
-            ticker, price = self.__extract_ticker(diffs)
+            ticker = self.__extract_ticker(diffs)
 
             if not ticker:
                 self.logger.warning(f"Couldn't detect ticker in {diffs}")
                 batch.nack()
                 return
 
-            if not self.is_relevant(ticker, price):
+            if not self.is_relevant(ticker):
                 batch.ack()
                 return
 
             alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
-                            'ticker': ticker, 'last_price': price, 'debug': self._debug}
+                            'ticker': ticker, 'debug': self._debug}
 
             alerters = [alerter for alerter in self.get_alerters(diffs, alerter_args) if alerter.generate_messages()]
 
-            if any(alerters):
-                processed_diffs = [diff for alerter in alerters for diff in alerter.processed_diffs]
-                self._mongo_db.diffs.insert_many(processed_diffs)
+            if not any(alerters):
+                batch.ack()
+                return
 
-                try:
-                    data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
-                    if not self._debug:
-                        self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
-                except Exception as e:
-                    self.logger.exception(e)
-                    self.logger.error("Failed to publish relevant diffs")
+            # Filtering by price as late as possible
+            price = ReaderBase.get_last_price(ticker)
 
-                alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
+            if price > 0.05:
+                batch.ack()
+                return
 
-                # Alerting with current date to avoid difference between collect to alert
-                text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
+            processed_diffs = [diff for alerter in alerters for diff in alerter.processed_diffs]
+            self._mongo_db.diffs.insert_many(processed_diffs)
 
-                if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-                    self._telegram_bot.send_message(chat_id=1151317792,
-                                                    text=text,
-                                                    parse_mode=telegram.ParseMode.MARKDOWN)
-                    batch.ack()
-                    return
+            try:
+                data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
+                if not self._debug:
+                    self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
+            except Exception as e:
+                self.logger.exception(e)
+                self.logger.error("Failed to publish relevant diffs")
 
-                vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
+            alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
 
-                users = [_ for _ in self.__get_users() if _.get('chat_id') not in vips + [1865808006]]
+            # Alerting with current date to avoid difference between collect to alert
+            text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
-                users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
-                        [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
+            if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
+                self._telegram_bot.send_message(chat_id=1151317792,
+                                                text=text,
+                                                parse_mode=telegram.ParseMode.MARKDOWN)
+                batch.ack()
+                return
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
 
-                executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
+            users = [_ for _ in self.__get_users() if _.get('chat_id') not in vips + [1865808006]]
+
+            users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
+                    [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
 
             batch.ack()
         except Exception as e:
@@ -143,23 +153,28 @@ class Alert(CommonRunnable):
             raise ValueError("Batch consists more than one ticker: {tickers}".format(tickers=tickers))
 
         ticker = tickers.pop()
-        return ticker, ReaderBase.get_last_price(ticker)
+        return ticker
 
-    def is_relevant(self, ticker, price):
+    def is_relevant(self, ticker):
+        is_relevant_tier, is_ce = None, None
+
         try:
             sec = readers.Securities(self._mongo_db, ticker).get_latest()
             tier_code = sec.get('tierCode')
 
+            is_ce = bool(sec.get('isCaveatEmptor'))
+
             tier_hierarchy = Securities.get_hierarchy()['tierCode']
-            relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
+            is_relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
 
         except (ValueError, AttributeError):
-            relevant_tier = True
+            is_relevant_tier = True if is_relevant_tier is None else is_relevant_tier
+            # ce (Caveat Emptor) is bad thing!
+            is_ce = False if is_ce is None else is_ce
 
         # Will we alert this ticker?
-        if price < 0.05 \
-                and not (len(ticker) == 5 and ticker[-1] == 'F') \
-                and relevant_tier:
+        if not (len(ticker) == 5 and ticker[-1] == 'F') \
+                and is_relevant_tier and not is_ce:
             return True
         return False
 

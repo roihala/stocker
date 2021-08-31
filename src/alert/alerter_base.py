@@ -13,13 +13,12 @@ class AlerterBase(ABC):
     RED_CIRCLE_EMOJI_UNICODE = u'\U0001F534'
     YELLOW_CIRCLE_EMOJI_UNICODE = u'\U0001F7E1'
 
-    def __init__(self, mongo_db, telegram_bot, ticker, diffs: List[dict], last_price=None, debug=None):
+    def __init__(self, mongo_db, telegram_bot, ticker, diffs: List[dict], debug=None):
         self.name = inflection.underscore(self.__class__.__name__)
         self._mongo_db = mongo_db
         self._telegram_bot = telegram_bot
         self._debug = debug
         self._ticker = ticker
-        self._last_price = last_price if last_price else 0
         self._diffs = deepcopy(diffs)
         self.__messages = None
 
