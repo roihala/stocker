@@ -45,7 +45,7 @@ class FilingsAlerter(AlerterBase, ABC):
             return []
 
     def __is_existing_record_id(self, record_id):
-        return any([True for collection in RecordsFactory.COLLECTIONS.keys() + ['diffs'] if
+        return any([True for collection in list(RecordsFactory.COLLECTIONS.keys()) + ['diffs'] if
                     self._mongo_db.get_collection(collection).find_one({'record_id': record_id})])
 
     def generate_msg(self, diff):
