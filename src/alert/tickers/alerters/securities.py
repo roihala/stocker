@@ -48,8 +48,10 @@ class Securities(TickerAlerter):
         if diff.get('changed_key') in self.extended_keys and type(diff.get('new')) is int:
             ratio = self.calc_ratio(diff)
             if diff.get('changed_key') == 'restrictedShares':
+                # Unrestricted is positive
                 if ratio > 0.2:
                     return True
+            # Rest are negative
             elif not diff.get('old') or ratio < -0.2:
                 return True
         return super().is_relevant_diff(diff)
@@ -58,12 +60,6 @@ class Securities(TickerAlerter):
         old, new = diff['old'], diff['new']
 
         diff = super().edit_diff(diff)
-
-        if isinstance(new, int):
-            try:
-                int(old)
-            except (ValueError, TypeError):
-                old = 0
 
         if isinstance(new, int):
             ratio = self.calc_ratio(diff)
@@ -83,5 +79,5 @@ class Securities(TickerAlerter):
     def calc_ratio(diff):
         try:
             return (int(diff.get('new')) - int(diff.get('old'))) / int(diff.get('old'))
-        except ValueError:
+        except (ValueError, TypeError):
             return 0
