@@ -7,6 +7,7 @@ import arrow
 import requests
 from retry import retry
 
+from runnable import Runnable
 from src.alert.alerter_base import AlerterBase
 from src.find.site import Site
 from src.read import readers
@@ -69,11 +70,17 @@ class FilingsAlerter(AlerterBase, ABC):
             logger.warning(f"Couldn't get previous date for diffs {diffs}")
             logger.exception(e)
 
-    @retry(JSONDecodeError, tries=5, delay=1)
+    @retry(tries=3, delay=1)
     def get_previous_record(self, diffs):
         # Records should be sorted in data source (self.site)
-        records = requests.get(self.site.get_ticker_url(self._ticker)).json().get('records')
+        url = self.site.get_ticker_url(self._ticker)
+        response = requests.get(url)
 
+        # Trying with proxy
+        if response.status_code == 429:
+            response = requests.get(url, proxies=Runnable.proxy)
+
+        records = response.json().get('records')
         try:
             if not diffs:
                 return records[0] if records else None
