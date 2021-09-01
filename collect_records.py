@@ -61,7 +61,7 @@ class CollectRecords(CommonRunnable):
                                    args=[record_id, index],
                                    trigger=trigger,
                                    max_instances=1,
-                                   misfire_grace_time=120,
+                                   misfire_grace_time=240,
                                    jobstore='dynamic')
 
         trigger = OrTrigger([IntervalTrigger(seconds=10), DateTrigger()])

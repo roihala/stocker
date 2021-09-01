@@ -36,7 +36,9 @@ class FilingsPdf(DynamicRecordsCollector):
         super().__init__(*args, **kwargs)
         from client import Client
         self._mongo__profile = self._mongo_db.get_collection("profile")
+        logger.info("FilingsPdf init")
         self._profile_mapping = Client.get_latest_data(self._mongo__profile)
+        logger.info("FilingsPdf finished profile mapping")
         self._symbols_and_names = [(ticker, self.__clear_text(self._profile_mapping[ticker]["name"]))
                                    for ticker in self._profile_mapping]
 
