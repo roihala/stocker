@@ -9,6 +9,7 @@ import pymongo
 
 from bson import json_util
 
+from client import Client
 from collect import Collect
 from common_runnable import CommonRunnable
 from google.cloud import pubsub_v1
@@ -34,13 +35,17 @@ class CollectRecords(CommonRunnable):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
-        self.tickers_mapping = self.__get_tickers_mapping()
+
         self.scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(15)
         }, jobstores={
             'default': MemoryJobStore(),
             'dynamic': MemoryJobStore()
         })
+
+        self.profile_mapping = Client.get_latest_data(self._mongo_db.get_collection("profile"))
+        self.symbols_and_names = [(ticker, FilingsPdf.clear_text(self.profile_mapping[ticker]["name"]))
+                                  for ticker in self.profile_mapping]
 
     def run(self):
         if self._debug:
@@ -79,7 +84,8 @@ class CollectRecords(CommonRunnable):
         date = arrow.utcnow()
 
         collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
-                          'record_id': record_id + index}
+                          'record_id': record_id + index, 'symbols_and_names': self.symbols_and_names,
+                          'profile_mapping': self.profile_mapping}
         collector = FilingsPdf(**collector_args)
 
         diffs = collector.collect()
@@ -128,20 +134,6 @@ class CollectRecords(CommonRunnable):
             self.logger.info(f'diffs: {ticker_diffs}')
             data = json.dumps(ticker_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
-
-    def __get_tickers_mapping(self):
-        if self._debug:
-            return pd.read_csv(NAMES_CSV, header=None, index_col=0, squeeze=True).to_dict()
-
-        tickers = pd.DataFrame({'Ticker': self._tickers_list})
-        tickers['CompanyName'] = tickers['Ticker'].apply(lambda row: self.__get_company_name(row))
-        return tickers.set_index('Ticker').to_dict()['CompanyName']
-
-    def __get_company_name(self, ticker):
-        try:
-            return readers.Profile(self._mongo_db, ticker).get_latest()['name']
-        except Exception:
-            return None
 
     def __get_mongo_top_id(self):
         return int(self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1

@@ -34,13 +34,9 @@ class FilingsPdf(DynamicRecordsCollector):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from client import Client
         self._mongo__profile = self._mongo_db.get_collection("profile")
-        logger.info("FilingsPdf init")
-        self._profile_mapping = Client.get_latest_data(self._mongo__profile)
-        logger.info("FilingsPdf finished profile mapping")
-        self._symbols_and_names = [(ticker, self.__clear_text(self._profile_mapping[ticker]["name"]))
-                                   for ticker in self._profile_mapping]
+        self.profile_mapping = kwargs['profile_mapping']
+        self.symbols_and_names = kwargs['symbols_and_names']
 
     @property
     def filing_base_url(self):
@@ -98,8 +94,8 @@ class FilingsPdf(DynamicRecordsCollector):
             return ""
 
         # the exact same company name
-        for symbol, name in self._symbols_and_names:
-            if self.__clear_text(comp_name) == name:
+        for symbol, name in self.symbols_and_names:
+            if self.clear_text(comp_name) == name:
                 return symbol
 
         return ""
@@ -110,7 +106,7 @@ class FilingsPdf(DynamicRecordsCollector):
         for page in pages:
 
             # ['otc markets group inc', 'guidelines v group , inc']
-            companies = self.__extract_company_names_from_pdf(self.__clear_text(page))
+            companies = self.__extract_company_names_from_pdf(self.clear_text(page))
 
             if not companies:
                 continue
@@ -231,7 +227,7 @@ class FilingsPdf(DynamicRecordsCollector):
         return list(set(matches)) if matches else []
 
     @staticmethod
-    def __clear_text(_str: str) -> str:
+    def clear_text(_str: str) -> str:
         restricted = [',', '.', '-']
         _str = _str.lower()
 
