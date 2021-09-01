@@ -25,7 +25,7 @@ class Securities(TickerAlerter):
         return {
             'tierDisplayName': ['Expert Market', 'Grey Market', 'Pink No Information', 'Pink Limited Information', 'Pink Current Information', 'OTCQB',
                                 'OTCQX International'],
-            'tierCode': ['GM', 'EM', 'PN', 'PL', 'PC', 'QB']
+            'tierCode': ['GM', 'EM', 'PN', 'PL', 'PC', 'QB', 'QX']
         }
 
     @staticmethod

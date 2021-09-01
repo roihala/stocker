@@ -160,10 +160,10 @@ class Alert(CommonRunnable):
 
         try:
             sec = readers.Securities(self._mongo_db, ticker).get_latest()
-            tier_code = sec.get('tierCode')
 
             is_ce = bool(sec.get('isCaveatEmptor'))
 
+            tier_code = sec.get('tierCode')
             tier_hierarchy = Securities.get_hierarchy()['tierCode']
             is_relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
 

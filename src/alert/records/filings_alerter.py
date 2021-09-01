@@ -26,16 +26,21 @@ class FilingsAlerter(AlerterBase, ABC):
         self._prev_date = self._get_previous_date(self._diffs)
 
     @property
-    @abstractmethod
     def site(self) -> Site:
-        pass
+        return Site('filings',
+                    'https://backend.otcmarkets.com/otcapi/company/{ticker}/financial-report?symbol={'
+                    'ticker}&page=1&pageSize=50&statusId=A&sortOn=releaseDate&sortDir=DESC',
+                    True)
 
     def edit_batch(self, diffs: List[dict]):
         diffs = super().edit_batch(diffs)
         ticker = diffs[0]['ticker']
 
-        tier = readers.Securities(self._mongo_db, ticker).get_latest().get('tierCode')
         hierarchy = alerters.Securities.get_hierarchy()['tierCode']
+        try:
+            tier = readers.Securities(self._mongo_db, ticker).get_latest().get('tierCode')
+        except AttributeError:
+            tier = hierarchy[0]
 
         # If lower than pink current or (last filing was more than 3 months)
         if hierarchy.index(tier) < hierarchy.index('PC') or \
