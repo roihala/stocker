@@ -55,7 +55,7 @@ class CollectRecords(CommonRunnable):
         record_id = self.__get_mongo_top_id()
 
         for index in range(FilingsPdf.BATCH_SIZE):
-            trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
+            trigger = OrTrigger([IntervalTrigger(seconds=60), DateTrigger()])
             self.scheduler.add_job(self.collect_pdf,
                                    id=str(index),
                                    args=[record_id, index],
