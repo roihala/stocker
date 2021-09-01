@@ -50,7 +50,7 @@ class CollectRecords(CommonRunnable):
 
             self.collect_backend()
             for i in range(FilingsPdf.BATCH_SIZE):
-                self.collect_pdf(record_id + i)
+                self.collect_pdf(record_id, i)
 
         record_id = self.__get_mongo_top_id()
 
