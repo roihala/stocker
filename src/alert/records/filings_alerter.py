@@ -87,7 +87,7 @@ class FilingsAlerter(AlerterBase, ABC):
 
         records = response.json().get('records')
         try:
-            if not diffs:
+            if not diffs or not records:
                 return records[0] if records else None
 
             first_id = min([diff.get('record_id') for diff in diffs])
