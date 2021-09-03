@@ -11,7 +11,7 @@ from google.cloud import storage
 
 from src.collect.collector_base import CollectorBase
 
-logger = logging.getLogger('RecordsCollect')
+logger = logging.getLogger('CollectRecords')
 
 try:
     import fitz

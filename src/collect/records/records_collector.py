@@ -11,7 +11,7 @@ from retry import retry
 from runnable import Runnable
 from src.collect.records.filings_collector import FilingsCollector
 
-logger = logging.getLogger('RecordsCollect')
+logger = logging.getLogger('CollectRecords')
 
 
 class RecordsCollector(FilingsCollector, ABC):

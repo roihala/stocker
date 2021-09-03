@@ -5,7 +5,7 @@ from typing import List
 
 from src.collect.records.dynamic_records_collector import DynamicRecordsCollector
 
-logger = logging.getLogger('RecordsCollect')
+logger = logging.getLogger('CollectRecords')
 
 try:
     import fitz
