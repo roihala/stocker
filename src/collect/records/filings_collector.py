@@ -52,8 +52,10 @@ class FilingsCollector(CollectorBase, ABC):
 
         # Creating if not exist
         os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        logger.info(f'Trying to write pdf on {record_id}')
         with open(pdf_path, 'wb') as f:
             f.write(response.content)
+        logger.info(f'Finished writing pdf on {record_id}')
 
         return pdf_path
 
