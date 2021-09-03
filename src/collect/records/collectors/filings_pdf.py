@@ -32,11 +32,11 @@ RE_PARENTHESES = re.compile(r"\([^)]*\)")
 class FilingsPdf(DynamicRecordsCollector):
     CLOUD_STORAGE_BASE_PATH = 'https://storage.googleapis.com/{bucket}/{blob}'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, profile_mapping, symbols_and_names, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._mongo__profile = self._mongo_db.get_collection("profile")
-        self.profile_mapping = kwargs['profile_mapping']
-        self.symbols_and_names = kwargs['symbols_and_names']
+        self.profile_mapping = profile_mapping
+        self.symbols_and_names = symbols_and_names
 
     @property
     def filing_base_url(self):
