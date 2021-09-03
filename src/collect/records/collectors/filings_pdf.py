@@ -52,12 +52,12 @@ class FilingsPdf(DynamicRecordsCollector):
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
 
-        logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
-        logger.info("SYMBOLS RESULT: " + str(by_symbols))
-        logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
-        logger.info("WEB: " + str(by_web_urls))
-        logger.info("PHONES: " + str(by_phone_numbers))
-        logger.info("ZIP_CODES: " + str(by_zip_codes))
+        # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
+        # logger.info("SYMBOLS RESULT: " + str(by_symbols))
+        # logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
+        # logger.info("WEB: " + str(by_web_urls))
+        # logger.info("PHONES: " + str(by_phone_numbers))
+        # logger.info("ZIP_CODES: " + str(by_zip_codes))
 
         all_symbols = set(
             by_comp_names +
