@@ -81,6 +81,7 @@ class CollectRecords(CommonRunnable):
         self.scheduler.start()
 
     def collect_pdf(self, record_id, index):
+        self.logger.info(f'Collecting {record_id + index} by {record_id} + {index}')
         date = arrow.utcnow()
 
         collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
@@ -96,7 +97,8 @@ class CollectRecords(CommonRunnable):
             record_id = max(record_id + index, self.__get_mongo_top_id())
 
             # Re-running jobs according to the new record_id
-            [job.modify(**{'args': [record_id, int(job.id)]}) for job in self.scheduler.get_jobs('dynamic')]
+            [job.modify(**{'args': [record_id, int(job.id)]}) for job in self.scheduler.get_jobs('dynamic')
+             if int(job.id) < FilingsPdf.BATCH_SIZE]
 
     def collect_backend(self):
         date = arrow.utcnow()

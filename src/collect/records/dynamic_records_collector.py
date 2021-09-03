@@ -1,6 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
+
+import arrow
 import requests
 from retry import retry
 
@@ -26,7 +28,12 @@ class DynamicRecordsCollector(FilingsCollector, ABC):
         diff = None
 
         response = self.fetch_data()
+        if not response.ok:
+            return []
+
+        prev = arrow.utcnow()
         pdf_path = self.get_pdf(self.record_id, response)
+        logger.info(f"get_pdf on {self.record_id} took {arrow.utcnow() - prev}")
 
         try:
             if pdf_path:
