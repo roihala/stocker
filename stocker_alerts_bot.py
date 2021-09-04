@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import concurrent.futures
 import json
 import logging
 import os
@@ -30,15 +31,21 @@ class DefaultCustomFormatter(logging.Formatter):
 class Stocker(CommonRunnable):
     def __init__(self, args=None):
         super().__init__(args)
+        self.executor = None
         pass
 
     def run(self):
-        if os.getenv('TELEGRAM_TOKEN') is not None:
-            updater = Updater(os.getenv('TELEGRAM_TOKEN'))
-        else:
-            updater = Updater(self.args.token)
+        updaters = []
+        dispatchers = []
+        telegram_bots = self.__get_bots_tokens()
 
-        dp = updater.dispatcher
+        # Initialize thread pool
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(telegram_bots))
+
+        for bot in telegram_bots:
+            updater = Updater(bot["token"])
+            updaters.append(updater)
+            dispatchers.append(updater.dispatcher)
 
         bot_args = {
             'mongo_db': self._mongo_db,
@@ -90,27 +97,37 @@ class Stocker(CommonRunnable):
             },
             fallbacks=[],
         )
-        # Re adding start command to allow deep linking
-        dp.add_handler(tools_conv)
 
-        dp.add_handler(CommandHandler('start', father_bot.start_command))
-        dp.add_handler(broadcast_conv)
+        for dp in dispatchers:
+            # Re adding start command to allow deep linking
+            dp.add_handler(tools_conv)
 
-        dp.add_handler(CommandHandler('dilution', father_bot.dilution_command))
-        dp.add_handler(CommandHandler('alerts', father_bot.alerts_command))
-        dp.add_handler(CommandHandler('info', father_bot.info_command))
-        dp.add_handler(CommandHandler('otciq', father_bot.otciq_command))
-        dp.add_handler(CommandHandler('deregister', registration_bot.deregister_command))
-        dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
-        dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
+            dp.add_handler(CommandHandler('start', father_bot.start_command))
+            dp.add_handler(broadcast_conv)
 
-        # Start the Bot
-        updater.start_polling()
+            dp.add_handler(CommandHandler('dilution', father_bot.dilution_command))
+            dp.add_handler(CommandHandler('alerts', father_bot.alerts_command))
+            dp.add_handler(CommandHandler('info', father_bot.info_command))
+            dp.add_handler(CommandHandler('otciq', father_bot.otciq_command))
+            dp.add_handler(CommandHandler('deregister', registration_bot.deregister_command))
+            dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
+            dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
 
-        # Run the bot until you press Ctrl-C or the process receives SIGINT,
-        # SIGTERM or SIGABRT. This should be used most of the time, since
-        # start_polling() is non-blocking and will stop the bot gracefully.
-        updater.idle()
+        # Start pooling first bot
+        updaters[0].start_polling()
+
+        for updater in updaters[1:]:
+            # Start the Bot
+            updater.start_polling()
+
+            # Run the bot until you press Ctrl-C or the process receives SIGINT,
+            # SIGTERM or SIGABRT. This should be used most of the time, since
+            # start_polling() is non-blocking and will stop the bot gracefully.
+            # idle each updater in Thread pool
+            self.executor.submit(updater.idle)
+
+        # IDLE first bot
+        updaters[0].idle()
 
     def _init_logging(self):
         cloud_logger = logging.getLogger(inflection.underscore(self.__class__.__name__))
@@ -121,6 +138,10 @@ class Stocker(CommonRunnable):
 
         cloud_logger.addHandler(cloud_stream)
         return cloud_logger
+
+    def __get_bots_tokens(self):
+        bots = self._mongo_db.get_collection("bots")
+        return [bot for bot in bots.find()]
 
 
 def main():
