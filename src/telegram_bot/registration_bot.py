@@ -32,6 +32,7 @@ class RegistrationBot(BaseBot):
 
     def create_user(self, user_name, chat_id, message, activation, delay=True, appendix: dict = None,
                     update_query=None, create=True):
+
         user_document = {
             'user_name': user_name,
             'chat_id': chat_id,
@@ -40,6 +41,15 @@ class RegistrationBot(BaseBot):
             'activation': activation,
             'configuration': self.__default_configuration()
         }
+
+        if activation == ActivationCodes.TRIAL:
+            user_document['bot'] = self.bot_instance.username
+
+        # Add user to bot
+        self.mongo_db.bots.update_one(
+            {'name': self.bot_instance.username},
+            {'$push': {'users': chat_id}}
+        )
 
         if appendix:
             user_document.update({'appendix': appendix})
@@ -62,8 +72,6 @@ class RegistrationBot(BaseBot):
             self.mongo_db.telegram_users.update_one(update_query, {'$set': user_document})
         else:
             self.mongo_db.telegram_users.insert_one(user_document)
-
-
 
         self.is_new_user_survey = True
         self.start_survey(message)

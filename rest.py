@@ -61,35 +61,40 @@ async def subscription_activate(*, payload: WixPayLoad):
         # Creating a unique token for the given email
         token = secrets.token_urlsafe()
 
+        # Find available bot
+        available_bot = __find_available_bot()
+
         email = payload.data.email
-        create_user(email, token, payload.data.order_id, payload.data.plan_name)
+        create_user(email, available_bot, token, payload.data.order_id, payload.data.plan_name)
 
         name = payload.data.first_name + ' ' + payload.data.last_name
 
-        __send_email(name, payload.data.plan_name, email, token)
+        __send_email(name, available_bot, payload.data.plan_name, email, token)
+
     except Exception as e:
         rest.logger.warning(f"Subscription activate failed for {payload.data.order_id}")
         rest.logger.error(e)
 
 
-def create_user(email, token, order_id, plan):
+def create_user(email, available_bot, token, order_id, plan):
     ph = argon2.PasswordHasher()
     rest._mongo_db.telegram_users.insert_one(
         {'email': email,
          'order_id': order_id,
          'token': ph.hash(token),
          'date': arrow.utcnow().format(),
+         'bot': available_bot,
          'activation': ActivationCodes.PENDING,
          'plan': plan})
 
 
-def __send_email(name, plan_title, receiver_email, token):
+def __send_email(name, available_bot, plan_title, receiver_email, token):
     rest.logger.info(f"Sending email to: {receiver_email}")
 
     password = rest.titan_pass
     sender_email = rest.titan_mail
     smtp_domain = "smtp.titan.email"
-    activation_link = helpers.create_deep_linked_url(rest._telegram_bot.username, token)
+    activation_link = helpers.create_deep_linked_url(available_bot, token)
 
     # password = r'9qz*xFSTh&3588*'
     # sender_email = 'support@stocker.watch'
@@ -128,6 +133,24 @@ Please feel free to contact us at any matter, either by this mail or via telegra
     with smtplib.SMTP_SSL(smtp_domain, 465, context=context) as server:
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, message.as_string())
+
+
+def __find_available_bot():
+    available = "stocker_alerts_bot"
+
+    for bot in rest._mongo_db.bots.find():
+        counter = 0
+
+        for chat_id in bot["users"]:
+            user = rest._mongo_db.telegram_users.find_one({'chat_id': chat_id})
+            if user["activation"] == (ActivationCodes.ACTIVE, ActivationCodes.TRIAL):
+                counter += 1
+
+        if counter < 30:
+            available = bot["name"]
+            break
+
+    return available
 
 
 @app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')

@@ -31,6 +31,7 @@ from bson import json_util
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'images', 'ProfileS.png')
+STOCKER_ALERTS_BOT = "stocker_alerts_bot"
 
 
 class Alert(CommonRunnable):
@@ -45,6 +46,9 @@ class Alert(CommonRunnable):
     def __init__(self):
         super().__init__()
         self.publisher = pubsub_v1.PublisherClient()
+
+        self._telegram_bot = None
+        self._telegram_bots = self.init_telegram_bots(self.__get_bots())
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
@@ -74,7 +78,7 @@ class Alert(CommonRunnable):
                 batch.ack()
                 return
 
-            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bot,
+            alerter_args = {'mongo_db': self._mongo_db, 'telegram_bot': self._telegram_bots[STOCKER_ALERTS_BOT],
                             'ticker': ticker, 'debug': self._debug}
 
             alerters = [alerter for alerter in self.get_alerters(diffs, alerter_args) if alerter.generate_messages()]
@@ -107,9 +111,9 @@ class Alert(CommonRunnable):
             text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
             if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-                self._telegram_bot.send_message(chat_id=1151317792,
-                                                text=text,
-                                                parse_mode=telegram.ParseMode.MARKDOWN)
+                self._telegram_bots[STOCKER_ALERTS_BOT].send_message(chat_id=1151317792,
+                                                                    text=text,
+                                                                    parse_mode=telegram.ParseMode.MARKDOWN)
                 batch.ack()
                 return
 
@@ -184,6 +188,21 @@ class Alert(CommonRunnable):
         random.shuffle(registered_users)
         return registered_users
 
+    def __get_bots(self):
+        return pandas.DataFrame(self._mongo_db.bots.find())
+
+    @staticmethod
+    def init_telegram_bots(bots: pandas.DataFrame) -> dict:
+        telegram_bots = {}
+
+        for index, bot in bots.iterrows():
+            try:
+                telegram_bots[bot['name']] = telegram.Bot(bot['token'])
+            except telegram.error.Unauthorized:
+                raise ValueError("Couldn't connect to telegram, check your credentials")
+
+        return telegram_bots
+
     async def __send_no_delay(self, text, users):
         try:
             for user in [_ for _ in users if _]:
@@ -195,9 +214,10 @@ class Alert(CommonRunnable):
 
     async def __send_msg(self, user, text):
         try:
-            self._telegram_bot.send_message(chat_id=user.get("chat_id"),
-                                            text=text,
-                                            parse_mode=telegram.ParseMode.MARKDOWN)
+            self._telegram_bots[user.get("bot") if user.get("bot") else STOCKER_ALERTS_BOT].send_message(
+                chat_id=user.get("chat_id"),
+                text=text,
+                parse_mode=telegram.ParseMode.MARKDOWN)
 
         except telegram.error.TimedOut as e:
             self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}: "

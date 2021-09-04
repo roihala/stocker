@@ -40,7 +40,8 @@ class Stocker(CommonRunnable):
         telegram_bots = self.__get_bots_tokens()
 
         # Initialize thread pool
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(telegram_bots))
+        if len(telegram_bots) > 1:
+            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(telegram_bots) - 1)
 
         for bot in telegram_bots:
             updater = Updater(bot["token"])
@@ -140,8 +141,7 @@ class Stocker(CommonRunnable):
         return cloud_logger
 
     def __get_bots_tokens(self):
-        bots = self._mongo_db.get_collection("bots")
-        return [bot for bot in bots.find()]
+        return [bot for bot in self._mongo_db.bots.find()]
 
 
 def main():
