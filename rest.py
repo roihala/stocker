@@ -21,6 +21,9 @@ from src.rest.dilution import init_dash
 from src.rest.wix_payload import WixPayLoad
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 
+from src.read import readers
+from src.alert.tickers import alerters
+
 NAME_TAG = 'STOCKER_NAME_TAG'
 ACTIVATION_BUTTON_TAG = 'STOCKER_ACTIVATION_BUTTON_TAG'
 PLAN_TAG = 'STOCKER_PLAN_TAG'
@@ -70,6 +73,22 @@ async def subscription_activate(*, payload: WixPayLoad):
     except Exception as e:
         rest.logger.warning(f"Subscription activate failed for {payload.data.order_id}")
         rest.logger.error(e)
+
+
+@app.get("/dilution_json/{ticker}")
+async def get_dilution_data(ticker: str):
+    securities_df = readers.Securities(mongo_db=rest._mongo_db, ticker=ticker) \
+        .get_sorted_history(filter_rows=True, filter_cols=True).replace('', 0)
+
+    keys_translation = {key: translation for key, translation in alerters.Securities.get_keys_translation().items() if
+                        key in securities_df.columns}
+    securities_df = securities_df.rename(columns=keys_translation)
+    return (
+        {
+            "dataframe": securities_df.to_json(orient=None),
+            "keys_translation": list(keys_translation.values())
+        }
+    )
 
 
 def create_user(email, token, order_id, plan):
