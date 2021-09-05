@@ -83,3 +83,5 @@ class Securities(TickerAlerter):
             return (int(diff.get('new')) - int(diff.get('old'))) / int(diff.get('old'))
         except (ValueError, TypeError):
             return 0
+        except ZeroDivisionError:
+            return 100
