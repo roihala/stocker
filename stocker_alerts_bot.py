@@ -14,7 +14,6 @@ from src.telegram_bot.father_bot import FatherBot
 from src.telegram_bot.owner_bot import OwnerBot
 from src.telegram_bot.registration_bot import RegistrationBot
 from src.telegram_bot.resources.indexers import Indexers
-from src.telegram_bot.resources.actions import Actions
 
 LOGGER_PATH = os.path.join(os.path.dirname(__file__), 'stocker_alerts_bot.log')
 
@@ -37,7 +36,8 @@ class Stocker(CommonRunnable):
     def run(self):
         updaters = []
         dispatchers = []
-        telegram_bots = self.__get_bots_tokens()
+        telegram_bots = self._mongo_db.bots.find() if not self._debug else self._mongo_db.bots.find({'name': 'stocker_tests_bot'}).limit(1)
+        telegram_bots = [_ for _ in telegram_bots]
 
         # Initialize thread pool
         if len(telegram_bots) > 1:
@@ -139,9 +139,6 @@ class Stocker(CommonRunnable):
 
         cloud_logger.addHandler(cloud_stream)
         return cloud_logger
-
-    def __get_bots_tokens(self):
-        return [bot for bot in self._mongo_db.bots.find()]
 
 
 def main():
