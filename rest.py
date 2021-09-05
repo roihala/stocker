@@ -1,3 +1,5 @@
+import random
+
 import argon2
 import codecs
 import os
@@ -38,7 +40,7 @@ class Rest(CommonRunnable):
             self.titan_pass = self.args.titan_pass
 
     def run(self):
-        app.mount("/dilution", WSGIMiddleware(dash_app.server))
+        # app.mount("/dilution", WSGIMiddleware(dash_app.server))
         uvicorn.run(app)
 
     def create_parser(self):
@@ -50,7 +52,7 @@ class Rest(CommonRunnable):
 
 rest = Rest()
 app = FastAPI()
-dash_app = init_dash(rest._mongo_db)
+# dash_app = init_dash(rest._mongo_db)
 
 
 @app.post('/rest/a268c565c2242709165b17763ef6eace20a70345c26c2639ce78f28f18bb4d98')
@@ -136,21 +138,17 @@ Please feel free to contact us at any matter, either by this mail or via telegra
 
 
 def __find_available_bot():
-    available = "stocker_alerts_bot"
+    bot_users_counter = {bot.get('name'): 0 for bot in rest._mongo_db.bots.find()}
 
-    for bot in rest._mongo_db.bots.find():
-        counter = 0
+    for user in rest._mongo_db.bots.find({'bot': {'$exists': True}}):
+        if user['bot'] not in bot_users_counter:
+            rest.logger.warning(f"Invalid bot {user['bot']} found for user {user.get('user_name')}")
+            continue
 
-        for chat_id in bot["users"]:
-            user = rest._mongo_db.telegram_users.find_one({'chat_id': chat_id})
-            if user["activation"] == (ActivationCodes.ACTIVE, ActivationCodes.TRIAL):
-                counter += 1
+        bot_users_counter[user['bot']] += 1
 
-        if counter < 30:
-            available = bot["name"]
-            break
-
-    return available
+    available_bots = [bot for bot, count in bot_users_counter.items() if count <= 30]
+    return random.choice(available_bots) if available_bots else "stocker_alerts_bot"
 
 
 @app.post('/rest/51eeea83393dec0b58dadc2e4abc81a2d60ce1ecd88e57d72b6626858520e3d7')

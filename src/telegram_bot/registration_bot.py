@@ -45,14 +45,6 @@ class RegistrationBot(BaseBot):
         if activation == ActivationCodes.TRIAL:
             user_document['bot'] = self.bot_instance.username
 
-        print(f"trying to add user to bots, {self.bot_instance.username} {chat_id}")
-
-        # Add user to bot
-        self.mongo_db.bots.update_one(
-            {'name': self.bot_instance.username},
-            {'$push': {'users': chat_id}}
-        )
-
         if appendix:
             user_document.update({'appendix': appendix})
 
@@ -66,6 +58,9 @@ class RegistrationBot(BaseBot):
                     existing_entry.update(document)
                     self.mongo_db.telegram_users.delete_one(document)
                     existing_entry.pop('_id')
+                # Applicable only to users created by /vip_user command
+                elif 'bot' not in document:
+                    existing_entry.update({'bot': self.bot_instance.username})
 
             existing_entry.update(user_document)
             user_document = existing_entry
