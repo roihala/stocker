@@ -35,7 +35,6 @@ class Stocker(CommonRunnable):
 
     def run(self):
         updaters = []
-        dispatchers = []
         telegram_bots = self._mongo_db.bots.find() if not self._debug else self._mongo_db.bots.find({'name': 'stocker_tests_bot'}).limit(1)
         telegram_bots = [_ for _ in telegram_bots]
 
@@ -46,60 +45,59 @@ class Stocker(CommonRunnable):
         for bot in telegram_bots:
             updater = Updater(bot["token"])
             updaters.append(updater)
-            dispatchers.append(updater.dispatcher)
+            dp = updater.dispatcher
 
-        bot_args = {
-            'mongo_db': self._mongo_db,
-            'bot_instance': self._telegram_bot,
-            'logger': self.logger,
-            'debug': self._debug
-        }
+            bot_args = {
+                'mongo_db': self._mongo_db,
+                'bot_instance': self.init_telegram(bot['token']),
+                'logger': self.logger,
+                'debug': self._debug
+            }
 
-        registration_bot = RegistrationBot(**bot_args)
-        owner_bot = OwnerBot(**bot_args)
-        father_bot = FatherBot(registration_bot, **bot_args)
+            registration_bot = RegistrationBot(**bot_args)
+            owner_bot = OwnerBot(**bot_args)
+            father_bot = FatherBot(registration_bot, **bot_args)
 
-        tools_conv = ConversationHandler(
-            entry_points=[CommandHandler('Tools', father_bot.tools_command),
-                          CommandHandler('Start', father_bot.start_command)],
-            states={
-                # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
-                Indexers.CONVERSATION_CALLBACK: [CallbackQueryHandler(father_bot.conversation_callback)],
-                Indexers.PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.info_callback),
-                                      MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
-                                                     father_bot.invalid_ticker_format)],
-                Indexers.PRINT_OTCIQ: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.otciq_callback),
-                                       MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
-                                                      father_bot.invalid_ticker_format)],
-                Indexers.DO_FREE_TRIAL: [MessageHandler(Filters.regex('.*'), registration_bot.free_trial_callback)],
-                Indexers.PRINT_DILUTION: [
-                    MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.dilution_callback),
-                    MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.invalid_ticker_format)],
-                Indexers.PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.alerts_callback),
-                                        MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
-                                                       father_bot.invalid_ticker_format)],
-                Indexers.GET_WATCHLIST: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
-                                                        registration_bot.watchlist_callback),
-                                         MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
-                                                        registration_bot.invalid_watchlist)],
+            tools_conv = ConversationHandler(
+                entry_points=[CommandHandler('Tools', father_bot.tools_command),
+                              CommandHandler('Start', father_bot.start_command)],
+                states={
+                    # START_CALLBACK: [CallbackQueryHandler(Bot.start_callback)],
+                    Indexers.CONVERSATION_CALLBACK: [CallbackQueryHandler(father_bot.conversation_callback)],
+                    Indexers.PRINT_INFO: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.info_callback),
+                                          MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
+                                                         father_bot.invalid_ticker_format)],
+                    Indexers.PRINT_OTCIQ: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.otciq_callback),
+                                           MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
+                                                          father_bot.invalid_ticker_format)],
+                    Indexers.DO_FREE_TRIAL: [MessageHandler(Filters.regex('.*'), registration_bot.free_trial_callback)],
+                    Indexers.PRINT_DILUTION: [
+                        MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.dilution_callback),
+                        MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.invalid_ticker_format)],
+                    Indexers.PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.alerts_callback),
+                                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
+                                                           father_bot.invalid_ticker_format)],
+                    Indexers.GET_WATCHLIST: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
+                                                            registration_bot.watchlist_callback),
+                                             MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
+                                                            registration_bot.invalid_watchlist)],
 
-            },
+                },
 
-            fallbacks=[MessageHandler(Filters.regex('^/tools|/start$'), father_bot.conversation_fallback)]
-        )
+                fallbacks=[MessageHandler(Filters.regex('^/tools|/start$'), father_bot.conversation_fallback)]
+            )
 
-        broadcast_conv = ConversationHandler(
-            entry_points=[CommandHandler('broadcast', owner_bot.broadcast_command),
-                          CommandHandler('launch_tweet', owner_bot.launch_tweet)],
-            states={
-                # Allowing letters and whitespaces
-                Indexers.BROADCAST_MSG: [MessageHandler(Filters.text, owner_bot.broadcast_callback)],
-                Indexers.TWEET_MSG: [MessageHandler(Filters.text, owner_bot.tweet_callback)]
-            },
-            fallbacks=[],
-        )
+            broadcast_conv = ConversationHandler(
+                entry_points=[CommandHandler('broadcast', owner_bot.broadcast_command),
+                              CommandHandler('launch_tweet', owner_bot.launch_tweet)],
+                states={
+                    # Allowing letters and whitespaces
+                    Indexers.BROADCAST_MSG: [MessageHandler(Filters.text, owner_bot.broadcast_callback)],
+                    Indexers.TWEET_MSG: [MessageHandler(Filters.text, owner_bot.tweet_callback)]
+                },
+                fallbacks=[],
+            )
 
-        for dp in dispatchers:
             # Re adding start command to allow deep linking
             dp.add_handler(tools_conv)
 

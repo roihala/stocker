@@ -45,6 +45,8 @@ class RegistrationBot(BaseBot):
         if activation == ActivationCodes.TRIAL:
             user_document['bot'] = self.bot_instance.username
 
+        print(f"trying to add user to bots, {self.bot_instance.username} {chat_id}")
+
         # Add user to bot
         self.mongo_db.bots.update_one(
             {'name': self.bot_instance.username},
