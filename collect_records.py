@@ -47,6 +47,17 @@ class CollectRecords(CommonRunnable):
         self.symbols_and_names = [(ticker, FilingsPdf.clear_text(self.profile_mapping[ticker]["name"]))
                                   for ticker in self.profile_mapping]
 
+    def add_dynamics_jobs(self, record_id):
+        for index in range(FilingsPdf.BATCH_SIZE):
+            trigger = OrTrigger([IntervalTrigger(seconds=60), DateTrigger()])
+            self.scheduler.add_job(self.collect_pdf,
+                                   id=str(index),
+                                   args=[self, record_id, index],
+                                   trigger=trigger,
+                                   max_instances=1,
+                                   misfire_grace_time=480,
+                                   jobstore='dynamic')
+
     def run(self):
         if self._debug:
             record_id = int(
@@ -58,16 +69,7 @@ class CollectRecords(CommonRunnable):
                 self.collect_pdf(record_id, i)
 
         record_id = self.__get_mongo_top_id()
-
-        for index in range(FilingsPdf.BATCH_SIZE):
-            trigger = OrTrigger([IntervalTrigger(seconds=60), DateTrigger()])
-            self.scheduler.add_job(self.collect_pdf,
-                                   id=str(index),
-                                   args=[record_id, index],
-                                   trigger=trigger,
-                                   max_instances=1,
-                                   misfire_grace_time=480,
-                                   jobstore='dynamic')
+        self.add_dynamics_jobs(record_id)
 
         trigger = OrTrigger([IntervalTrigger(seconds=10), DateTrigger()])
         self.scheduler.add_job(self.collect_backend,
@@ -96,9 +98,11 @@ class CollectRecords(CommonRunnable):
 
             record_id = max(record_id + index, self.__get_mongo_top_id())
 
-            # Re-running jobs according to the new record_id
-            [job.modify(**{'args': [record_id, int(job.id)]}) for job in self.scheduler.get_jobs('dynamic')
-             if int(job.id) < FilingsPdf.BATCH_SIZE]
+            # Remove all previous jobs
+            for job in self.scheduler.get_jobs('dynamic'):
+                job.remove()
+
+            self.add_dynamics_jobs(record_id)
 
     def collect_backend(self):
         date = arrow.utcnow()
@@ -138,7 +142,8 @@ class CollectRecords(CommonRunnable):
             self.publisher.publish(self.topic_name, data)
 
     def __get_mongo_top_id(self):
-        return int(self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+        return int(
+            self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
 
 
 def main():
