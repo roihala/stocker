@@ -101,7 +101,7 @@ class SiteCollector(TickerCollector, ABC):
             session.auth = self.get_proxy_auth(self._debug)
 
             session.proxies = {"http": proxy, "https": proxy}
-            response = session.get(url, timeout=5)
+            response = session.get(url, timeout=5, headers=self.REQUIRED_HEADERS)
 
             if response.status_code == 404:
                 logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
