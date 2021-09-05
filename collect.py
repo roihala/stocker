@@ -68,7 +68,7 @@ class Collect(CommonRunnable):
         self.executor.submit(self.ticker_collect, msg, ack_id)
 
     def ticker_collect(self, msg: bytes, ack_id=None):
-        if not ack_id and not self.args.static_tickers:
+        if not ack_id and not self.__is_static_tickers:
             raise ValueError("ticker_collect: ack_id is optional only for static_tickers debug mode")
 
         # ticker = msg.data.decode('utf-8')
