@@ -75,20 +75,24 @@ class SiteCollector(TickerCollector, ABC):
             url = self.site.get_ticker_url(self.ticker)
 
             if self._debug:
-                response = requests.get(url)
+                headers = {"Origin": "https://www.otcmarkets.com"}
+                response = requests.get(url, headers=headers)
                 if response.status_code == 200:
                     return response.json()
                 else:
+                    logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
+                        ticker=self.ticker, url=url))
                     raise InvalidTickerExcpetion(self.ticker)
                 
             session = requests.Session()
             session.auth = self.get_proxy_auth(self._debug)
 
             session.proxies = {"http": proxy, "https": proxy}
-            response = session.get(url, timeout=5)
+            headers = {"Origin": "https://www.otcmarkets.com"}
+            response = session.get(url, timeout=5, headers=headers)
 
             if response.status_code == 404:
-                logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
+                logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
                     ticker=self.ticker, url=url))
                 raise InvalidTickerExcpetion(self.ticker)
 

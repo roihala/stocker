@@ -73,7 +73,6 @@ class TickerCollector(CollectorBase, ABC):
         try:
             current = self.fetch_data(raw_data)
         except InvalidTickerExcpetion as e:
-            logger.exception(e)
             return self.__collect_sons(diffs)
 
         latest = self._get_cache_latest()
