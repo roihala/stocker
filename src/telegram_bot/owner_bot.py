@@ -70,6 +70,30 @@ class OwnerBot(BaseBot):
         update.message.reply_text(
             text=telegram_helpers.create_deep_linked_url(self.bot_instance.username, token))
 
+    def add_bot(self, update, context):
+        if not self._is_high_permission_user(update.message.from_user.name, update.message.from_user.id):
+            update.message.reply_text('This operation is only supported for high permission users')
+            return
+        try:
+            if len(context.args) != 2:
+                raise ValueError
+
+            bot_name, token = context.args[0], context.args[1]
+            link = telegram_helpers.create_deep_linked_url(bot_name)
+
+            dcoument = {
+                'name': bot_name,
+                'token': token,
+                'link': link
+            }
+
+            self.mongo_db.bots.insert_one(dcoument)
+
+            update.message.reply_text(f"Created a new bot with these values:\n {dcoument}")
+
+        except Exception as e:
+            update.message.reply_text(f"Could't add bot with {context.args}")
+
     def launch_tweet(self, update, context):
         update.message.reply_text('Insert tweet link')
         return Indexers.TWEET_MSG

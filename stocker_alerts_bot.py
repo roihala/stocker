@@ -113,6 +113,7 @@ class Stocker(CommonRunnable):
             dp.add_handler(CommandHandler('deregister', registration_bot.deregister_command))
             dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
             dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
+            dp.add_handler(CommandHandler('add_bot', owner_bot.add_bot))
 
         # Start pooling first bot
         updaters[0].start_polling()
