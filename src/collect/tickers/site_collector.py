@@ -15,6 +15,7 @@ from retry import retry
 from urllib3.exceptions import MaxRetryError, SSLError, NewConnectionError
 from cachetools.func import ttl_cache
 from src.collect.tickers.ticker_collector import TickerCollector
+from src.common.otcm import REQUIRED_HEADERS
 from src.find.site import InvalidTickerExcpetion
 
 logger = logging.getLogger('Collect')
@@ -38,22 +39,6 @@ def get_ips(is_debug):
 
 
 class SiteCollector(TickerCollector, ABC):
-    REQUIRED_HEADERS = {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
-        'Host': 'backend.otcmarkets.com',
-        'Origin': 'https://www.otcmarkets.com',
-        'Referer': 'https://www.otcmarkets.com/',
-        'sec-ch-ua': '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-        'sec-ch-ua-mobile': '?0',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'
-    }
-
     @property
     @abstractmethod
     def site(self):
@@ -91,7 +76,7 @@ class SiteCollector(TickerCollector, ABC):
             url = self.site.get_ticker_url(self.ticker)
 
             if self._debug:
-                response = requests.get(url, headers=self.REQUIRED_HEADERS)
+                response = requests.get(url, headers=REQUIRED_HEADERS)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -101,7 +86,7 @@ class SiteCollector(TickerCollector, ABC):
             session.auth = self.get_proxy_auth(self._debug)
 
             session.proxies = {"http": proxy, "https": proxy}
-            response = session.get(url, timeout=5, headers=self.REQUIRED_HEADERS)
+            response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
 
             if response.status_code == 404:
                 logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(

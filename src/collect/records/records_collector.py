@@ -10,6 +10,8 @@ from retry import retry
 
 from runnable import Runnable
 from src.collect.records.filings_collector import FilingsCollector
+from src.collect.tickers.site_collector import SiteCollector
+from src.common.otcm import REQUIRED_HEADERS
 
 logger = logging.getLogger('CollectRecords')
 
@@ -49,11 +51,11 @@ class RecordsCollector(FilingsCollector, ABC):
 
     @retry((JSONDecodeError, requests.exceptions.ConnectionError), tries=3, delay=1)
     def fetch_data(self) -> List[Dict]:
-        response = requests.get(self.records_url)
+        response = requests.get(self.records_url, headers=REQUIRED_HEADERS)
 
         # Trying with proxy
         if response.status_code == 429:
-            response = requests.get(self.records_url, proxies=Runnable.proxy)
+            response = requests.get(self.records_url, proxies=Runnable.proxy, headers=REQUIRED_HEADERS)
 
         if response.status_code != 200:
             logger.warning("Couldn't collect record at {url}, bad status code: {code}".format(
