@@ -80,6 +80,8 @@ class SiteCollector(TickerCollector, ABC):
                 if response.status_code == 200:
                     return response.json()
                 else:
+                    logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
+                        ticker=self.ticker, url=url))
                     raise InvalidTickerExcpetion(self.ticker)
                 
             session = requests.Session()
@@ -89,7 +91,7 @@ class SiteCollector(TickerCollector, ABC):
             response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
 
             if response.status_code == 404:
-                logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
+                logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
                     ticker=self.ticker, url=url))
                 raise InvalidTickerExcpetion(self.ticker)
 

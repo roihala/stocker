@@ -51,7 +51,8 @@ class Collect(CommonRunnable):
     def run(self):
         if self.__is_static_tickers:
             for ticker in self.extract_tickers(csv=self.args.csv):
-                self.ticker_collect(str.encode(ticker))
+                ticker_info = {'ticker': ticker, 'collections': list(CollectorsFactory.COLLECTIONS.keys())}
+                self.ticker_collect(json.dumps(ticker_info).encode('utf-8'))
             return
         response = self._subscriber.pull(
             request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
@@ -81,7 +82,7 @@ class Collect(CommonRunnable):
 
         all_diffs = []
 
-        for collection_name in CollectorsFactory.COLLECTIONS.keys():
+        for collection_name in collections:
             try:
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
