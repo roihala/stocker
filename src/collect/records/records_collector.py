@@ -10,7 +10,6 @@ from retry import retry
 
 from runnable import Runnable
 from src.collect.records.filings_collector import FilingsCollector
-from src.collect.tickers.site_collector import SiteCollector
 from src.common.otcm import REQUIRED_HEADERS
 
 logger = logging.getLogger('CollectRecords')
