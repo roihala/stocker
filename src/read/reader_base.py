@@ -14,6 +14,7 @@ import requests
 from pymongo.database import Database
 
 from runnable import Runnable
+from src.common.otcm import REQUIRED_HEADERS
 from src.find.site import Site
 
 
@@ -188,7 +189,7 @@ class ReaderBase(ABC):
                    'https://backend.otcmarkets.com/otcapi/stock/trade/inside/{ticker}?symbol={ticker}',
                    is_otc=True).get_ticker_url(ticker)
 
-        response = requests.get(url)
+        response = requests.get(url, headers=REQUIRED_HEADERS)
 
         try:
             # Trying with proxy

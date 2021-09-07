@@ -15,6 +15,7 @@ from retry import retry
 from urllib3.exceptions import MaxRetryError, SSLError, NewConnectionError
 from cachetools.func import ttl_cache
 from src.collect.tickers.ticker_collector import TickerCollector
+from src.common.otcm import REQUIRED_HEADERS
 from src.find.site import InvalidTickerExcpetion
 
 logger = logging.getLogger('Collect')
@@ -75,7 +76,7 @@ class SiteCollector(TickerCollector, ABC):
             url = self.site.get_ticker_url(self.ticker)
 
             if self._debug:
-                response = requests.get(url)
+                response = requests.get(url, headers=REQUIRED_HEADERS)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -85,7 +86,7 @@ class SiteCollector(TickerCollector, ABC):
             session.auth = self.get_proxy_auth(self._debug)
 
             session.proxies = {"http": proxy, "https": proxy}
-            response = session.get(url, timeout=5)
+            response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
 
             if response.status_code == 404:
                 logger.warning("Non existing ticker: {ticker}: {url} -> 404 error code".format(
