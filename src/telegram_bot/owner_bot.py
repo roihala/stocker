@@ -109,20 +109,14 @@ class OwnerBot(BaseBot):
         for index, user in enumerate(users):
             try:
                 # Main by default
-                self.mongo_db.users.update_one(user, {'$set': {'bot': 'stocker_alerts_bot'}})
+                self.mongo_db.users.update_one({'chat_id': user['chat_id']}, {'$set': {'bot': 'stocker_alerts_bot'}})
                 bot = bots[(index + 1) % 10]
                 link = telegram_helpers.create_deep_linked_url(bot, FatherBot.SPLIT_BOT_TOKEN)
 
-                text = f"""Dear user!
-For maintenance and performance purposes, we need to redirect you to a different chatbot, 
-it won't affect anything besides giving you faster alerts and better response time. 
-
-Please click on this link and enjoy your new Stocker alerts chatbot!
-{link}"""
+                text = f"""Here's a fixed link: {link}"""
 
                 self.bot_instance.send_message(
-                    chat_id=user['chat_id'], text=text,
-                    parse_mode=telegram.ParseMode.MARKDOWN)
+                    chat_id=user['chat_id'], text=text)
             except Exception as e:
                 self.logger.warning(f"Couldn't split for {user}")
                 self.logger.exception(e)
