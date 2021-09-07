@@ -1,3 +1,5 @@
+import random
+
 import argon2
 import secrets
 
@@ -7,11 +9,10 @@ from telegram import InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 from telegram.utils import helpers as telegram_helpers
 
-
 from src.telegram_bot.base_bot import BaseBot
+from src.telegram_bot.father_bot import FatherBot
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 from src.telegram_bot.resources.indexers import Indexers
-from src.telegram_bot.resources.markup import Keyboards
 
 
 class OwnerBot(BaseBot):
@@ -69,6 +70,56 @@ class OwnerBot(BaseBot):
 
         update.message.reply_text(
             text=telegram_helpers.create_deep_linked_url(self.bot_instance.username, token))
+
+    def add_bot(self, update, context):
+        if not self._is_high_permission_user(update.message.from_user.name, update.message.from_user.id):
+            update.message.reply_text('This operation is only supported for high permission users')
+            return
+        try:
+            if len(context.args) != 2:
+                raise ValueError
+
+            bot_name, token = context.args[0], context.args[1]
+            link = telegram_helpers.create_deep_linked_url(bot_name)
+
+            dcoument = {
+                'name': bot_name,
+                'token': token,
+                'link': link
+            }
+
+            self.mongo_db.bots.insert_one(dcoument)
+
+            update.message.reply_text(f"Created a new bot with these values:\n {dcoument}")
+
+        except Exception as e:
+            update.message.reply_text(f"Could't add bot with {context.args}")
+
+    def split_bot(self, update, context):
+        if not self._is_high_permission_user(update.message.from_user.name, update.message.from_user.id):
+            update.message.reply_text('This operation is only supported for high permission users')
+            return
+
+        bots = [bot['name'] for bot in self.mongo_db.bots.find()]
+        users = [_ for _ in self.mongo_db.telegram_users.find(
+            {'activation': {"$in": [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]}})]
+
+        random.shuffle(users)
+
+        for index, user in enumerate(users):
+            try:
+                # Main by default
+                self.mongo_db.users.update_one({'chat_id': user['chat_id']}, {'$set': {'bot': 'stocker_alerts_bot'}})
+                bot = bots[(index + 1) % 10]
+                link = telegram_helpers.create_deep_linked_url(bot, FatherBot.SPLIT_BOT_TOKEN)
+
+                text = f"""Here's a fixed link: {link}"""
+
+                self.bot_instance.send_message(
+                    chat_id=user['chat_id'], text=text)
+            except Exception as e:
+                self.logger.warning(f"Couldn't split for {user}")
+                self.logger.exception(e)
 
     def launch_tweet(self, update, context):
         update.message.reply_text('Insert tweet link')

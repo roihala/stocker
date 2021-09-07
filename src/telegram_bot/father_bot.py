@@ -53,6 +53,8 @@ class FatherBot(BaseBot):
     }
     DEREGISTER_TOKEN = 'f16e4d4c8ee076e33d27a0c1a5b1adc7886b324c520f55206f913275bc0c075d'
 
+    SPLIT_BOT_TOKEN = 'babf734369844d1b42da3f23fe5f97bd28b1c606c4e67ac2a5a32e5890378ec4'
+
     TEMP_IMAGE_FILE_FORMAT = '{name}.png'
     MAX_MESSAGE_LENGTH = 4096
 
@@ -129,6 +131,10 @@ class FatherBot(BaseBot):
                                                  weeks=weeks, source=source)
             elif arg == self.DEREGISTER_TOKEN:
                 self.registration_bot.deregister(update.message.from_user, update.message)
+            elif arg == self.SPLIT_BOT_TOKEN:
+                self.mongo_db.telegram_users.update_one({'chat_id': update.message.from_user.id}, {'$set': {'bot': self.bot_instance.username}})
+                update.message.reply_text('Updated bot successfully!')
+                self.start(update.message, update.message.from_user)
             else:
                 self.registration_bot.activate_token(update, arg, context)
         else:
