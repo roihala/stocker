@@ -214,7 +214,7 @@ class Alert(CommonRunnable):
 
     async def __send_msg(self, user, text):
         try:
-            self._telegram_bots[user.get("bot") if user.get("bot") else STOCKER_ALERTS_BOT].send_message(
+            self._telegram_bots[user.get("bot", STOCKER_ALERTS_BOT) if not self._debug else 'stocker_tests_bot'].send_message(
                 chat_id=user.get("chat_id"),
                 text=text,
                 parse_mode=telegram.ParseMode.MARKDOWN)
