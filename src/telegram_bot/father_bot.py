@@ -473,7 +473,7 @@ class FatherBot(BaseBot):
 
         if urls_mapping:
             text = "🚨 Fetched filings\n" + '\n'.join(
-                [f"{ReaderBase.escape_markdown(origin)} ⏩⏩⏩ {ReaderBase.escape_markdown(translation)}"
+                [f"🔴 {ReaderBase.escape_markdown(origin)}\n🟢{ReaderBase.escape_markdown(translation)}\n"
                  for origin, translation in urls_mapping.items()])
 
             message.reply_text(text, parse_mode=telegram.ParseMode.MARKDOWN)
