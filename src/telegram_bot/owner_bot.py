@@ -1,3 +1,5 @@
+import random
+
 import argon2
 import secrets
 
@@ -7,11 +9,10 @@ from telegram import InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 from telegram.utils import helpers as telegram_helpers
 
-
 from src.telegram_bot.base_bot import BaseBot
+from src.telegram_bot.father_bot import FatherBot
 from src.telegram_bot.resources.activation_kaki import ActivationCodes
 from src.telegram_bot.resources.indexers import Indexers
-from src.telegram_bot.resources.markup import Keyboards
 
 
 class OwnerBot(BaseBot):
@@ -93,6 +94,38 @@ class OwnerBot(BaseBot):
 
         except Exception as e:
             update.message.reply_text(f"Could't add bot with {context.args}")
+
+    def split_bot(self, update, context):
+        if not self._is_high_permission_user(update.message.from_user.name, update.message.from_user.id):
+            update.message.reply_text('This operation is only supported for high permission users')
+            return
+
+        bots = [bot['name'] for bot in self.mongo_db.bots.find()]
+        users = [_ for _ in self.mongo_db.telegram_users.find(
+            {'activation': {"$in": [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]}})]
+
+        random.shuffle(users)
+
+        for index, user in enumerate(users):
+            try:
+                # Main by default
+                self.mongo_db.users.update_one(user, {'$set': {'bot': 'stocker_alerts_bot'}})
+                bot = bots[(index + 1) % 10]
+                link = telegram_helpers.create_deep_linked_url(bot, FatherBot.SPLIT_BOT_TOKEN)
+
+                text = f"""Dear user!
+For maintenance and performance purposes, we need to redirect you to a different chatbot, 
+it won't affect anything besides giving you faster alerts and better response time. 
+
+Please click on this link and enjoy your new Stocker alerts chatbot!
+{link}"""
+
+                self.bot_instance.send_message(
+                    chat_id=user['chat_id'], text=text,
+                    parse_mode=telegram.ParseMode.MARKDOWN)
+            except Exception as e:
+                self.logger.warning(f"Couldn't split for {user}")
+                self.logger.exception(e)
 
     def launch_tweet(self, update, context):
         update.message.reply_text('Insert tweet link')

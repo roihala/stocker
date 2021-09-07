@@ -31,11 +31,11 @@ class Stocker(CommonRunnable):
     def __init__(self, args=None):
         super().__init__(args)
         self.executor = None
-        pass
 
     def run(self):
         updaters = []
-        telegram_bots = self._mongo_db.bots.find() if not self._debug else self._mongo_db.bots.find({'name': 'stocker_tests_bot'}).limit(1)
+        telegram_bots = self._mongo_db.bots.find({'name': {'$ne': 'stocker_alerts_bot'}})
+        # telegram_bots = self._mongo_db.bots.find() if not self._debug else self._mongo_db.bots.find({'name': 'stocker_tests_bot'}).limit(1)telegram_bots = self._mongo_db.bots.find() if not self._debug else self._mongo_db.bots.find({'name': 'stocker_tests_bot'}).limit(1)
         telegram_bots = [_ for _ in telegram_bots]
 
         # Initialize thread pool
@@ -112,6 +112,7 @@ class Stocker(CommonRunnable):
             dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
             dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
             dp.add_handler(CommandHandler('add_bot', owner_bot.add_bot))
+            dp.add_handler(CommandHandler('split_bot', owner_bot.split_bot))
 
         # Start pooling first bot
         updaters[0].start_polling()
@@ -148,4 +149,5 @@ def main():
 
 
 if __name__ == '__main__':
+
     main()
