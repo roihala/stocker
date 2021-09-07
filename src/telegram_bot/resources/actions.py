@@ -8,6 +8,7 @@ class Actions(object):
     BACK_TO_MENU = 'back_to_menu'
     INFO = 'info'
     OTCIQ = 'otciq'
+    FETCH_FILINGS = 'fetch_filings'
     ALERTS = 'alerts'
     DILUTION = 'dilution'
     ACTIVATE = 'activate'

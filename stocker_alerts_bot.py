@@ -28,13 +28,17 @@ class DefaultCustomFormatter(logging.Formatter):
 
 
 class Stocker(CommonRunnable):
+    VALID_URL_REGEX = "((http|https)://)(www.)?" + "[a-zA-Z0-9@:%._\\+~#?&//=]" + \
+                      "{2,256}\\.[a-z]" + "{2,6}\\b([-a-zA-Z0-9@:%" + " ._\\+~#?&//=]*)"
+
     def __init__(self, args=None):
         super().__init__(args)
         self.executor = None
 
     def run(self):
         updaters = []
-        telegram_bots = self._mongo_db.bots.find() if not self._debug else [self._mongo_db.bots.find_one({'name': 'stocker_tests_bot'})]
+        telegram_bots = self._mongo_db.bots.find() if not self._debug else [
+            self._mongo_db.bots.find_one({'name': 'stocker_tests_bot'})]
         telegram_bots = [_ for _ in telegram_bots]
 
         # Initialize thread pool
@@ -69,13 +73,18 @@ class Stocker(CommonRunnable):
                     Indexers.PRINT_OTCIQ: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.otciq_callback),
                                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
                                                           father_bot.invalid_ticker_format)],
+                    Indexers.PRINT_FETCH_FILINGS: [
+                        MessageHandler(Filters.regex(self.VALID_URL_REGEX), father_bot.fetch_filings_callback),
+                        MessageHandler(~Filters.regex(self.VALID_URL_REGEX),
+                                       father_bot.invalid_url_format)],
                     Indexers.DO_FREE_TRIAL: [MessageHandler(Filters.regex('.*'), registration_bot.free_trial_callback)],
                     Indexers.PRINT_DILUTION: [
                         MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.dilution_callback),
                         MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.invalid_ticker_format)],
-                    Indexers.PRINT_ALERTS: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.alerts_callback),
-                                            MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
-                                                           father_bot.invalid_ticker_format)],
+                    Indexers.PRINT_ALERTS: [
+                        MessageHandler(Filters.regex('^[a-zA-Z]{3,5}$'), father_bot.alerts_callback),
+                        MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}$'),
+                                       father_bot.invalid_ticker_format)],
                     Indexers.GET_WATCHLIST: [MessageHandler(Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
                                                             registration_bot.watchlist_callback),
                                              MessageHandler(~Filters.regex('^[a-zA-Z]{3,5}(?:,[a-zA-Z]{3,5})*$'),
@@ -107,6 +116,7 @@ class Stocker(CommonRunnable):
             dp.add_handler(CommandHandler('alerts', father_bot.alerts_command))
             dp.add_handler(CommandHandler('info', father_bot.info_command))
             dp.add_handler(CommandHandler('otciq', father_bot.otciq_command))
+            dp.add_handler(CommandHandler('fetch_filings', father_bot.fetch_filings_command))
             dp.add_handler(CommandHandler('deregister', registration_bot.deregister_command))
             dp.add_handler(CommandHandler('broadcast', owner_bot.broadcast_command))
             dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
@@ -148,5 +158,4 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()

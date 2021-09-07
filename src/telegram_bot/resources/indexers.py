@@ -9,3 +9,4 @@ class Indexers(object):
     START_SURVEY = 7
     GET_WATCHLIST = 8
     PRINT_OTCIQ = 9
+    PRINT_FETCH_FILINGS = 10
