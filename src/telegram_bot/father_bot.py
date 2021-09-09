@@ -556,7 +556,7 @@ class FatherBot(BaseBot):
         return pdf_path
 
     def _is_registered(self, user_name, chat_id):
-        user = self.mongo_db.telegram_users.find_one({'user_name': user_name, 'chat_id': chat_id})
+        user = self.mongo_db.telegram_users.find_one({'chat_id': chat_id})
 
         if user and user.get('activation') in [ActivationCodes.ACTIVE, ActivationCodes.TRIAL]:
             return True
