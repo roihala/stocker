@@ -10,6 +10,7 @@ import pickle
 from src.collect.collector_base import CollectorBase
 from src.collect.tickers.differ import Differ
 from src import collector_factory
+from src.find.site import InvalidTickerExcpetion
 from src.readers_factory import ReadersFactory
 
 logger = logging.getLogger('Collect')
@@ -68,11 +69,14 @@ class TickerCollector(CollectorBase, ABC):
             self.cache.set(key, pickled)
 
     def collect(self, raw_data=None):
-        current = self.fetch_data(raw_data)
+        diffs = []
+        try:
+            current = self.fetch_data(raw_data)
+        except InvalidTickerExcpetion as e:
+            return self.__collect_sons(diffs)
+
         latest = self._get_cache_latest()
         latest = latest if latest else self._reader.get_latest(remove_index=True)
-
-        diffs = []
 
         if not latest:
             self.__save_document(current)
