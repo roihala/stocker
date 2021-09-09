@@ -3,6 +3,7 @@ import logging
 import os
 from copy import deepcopy
 
+import arrow
 import pandas
 import requests
 
@@ -11,7 +12,9 @@ from td.client import TDClient
 from client import Client
 from common_runnable import CommonRunnable
 from src.alert.tickers.alerters import Securities
+from src.collect.tickers.collectors import Profile
 from src.collector_factory import CollectorsFactory
+from src.find.site import InvalidTickerExcpetion
 
 ALL_TICKERS_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'all_tickers.csv'))
 
@@ -31,6 +34,7 @@ class Priority(CommonRunnable):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         # Create a new session, credentials path is required.
         self.td_session = TDClient(
             client_id="BZ6HMHYVTYFA30KX7KZPEIZHJMGJDMEY",
@@ -38,9 +42,10 @@ class Priority(CommonRunnable):
             credentials_path=os.path.join(os.path.dirname(__file__), 'credentials/td_state.json'))
 
         self.td_session.login()
-        self._prioritized_tickers = self.extract_tickers(ALL_TICKERS_CSV, as_df=True)
 
     def run(self):
+        current_date = arrow.utcnow().floor(frame='days')
+
         # Updating all_tickers.csv file
         self.__update_all_tickers()
 
@@ -48,8 +53,13 @@ class Priority(CommonRunnable):
         tickers = Client.get_latest_data(self._mongo_db.profile, as_df=True)\
             .reindex(['ticker'] + self.QUERY_COLUMNS, axis=1)
 
+        # Merging last_seen values
+        tickers_collection = pandas.DataFrame(self._mongo_db.tickers.find()).reindex(['ticker', 'last_seen'], axis=1)
+        tickers = pandas.merge(tickers, tickers_collection, on='ticker', how='outer')
+        tickers['last_seen'].fillna(current_date.shift(days=-1).format(), inplace=True)
+
         # Adding default interval values for every collection
-        for collection in CollectorsFactory.COLLECTIONS.keys():
+        for collection in CollectorsFactory.get_father_collections():
             tickers[collection] = PriorityCodes.HIGH
 
         tier_code_hierarchy = Securities.get_hierarchy()['tierCode']
@@ -64,10 +74,16 @@ class Priority(CommonRunnable):
                 row['symbols'] = PriorityCodes.IGNORE
                 row['securities'], row['profile'] = PriorityCodes.MEDIUM, PriorityCodes.MEDIUM
 
+        # Filtering out tickers that weren't seen for more than 3 days
+        tickers['last_seen'][tickers['ticker'].apply(self.__is_existing_ticker)] = current_date.format()
+        tickers = tickers[tickers['last_seen'].apply(lambda value: (current_date - arrow.get(value)).days < 3)]
+
+        # Filtering by price
         tickers = tickers.merge(self.__get_priced_tickers(tickers), how='left', on='ticker').fillna(0)
         tickers = tickers[(tickers['last_price'] < 0.5)]
         tickers = tickers[['ticker'] + list(CollectorsFactory.COLLECTIONS.keys())]
 
+        self._mongo_db.tickers.remove()
         self._mongo_db.tickers.insert_many(tickers.to_dict('records'))
 
     def get_tickers_bid_ask(self, tickers):
@@ -114,6 +130,15 @@ class Priority(CommonRunnable):
         except Exception as e:
             self.logger.warning("Couldn't update all_tickers.csv")
             self.logger.error(e)
+
+    def __is_existing_ticker(self, ticker):
+        try:
+            Profile(ticker, mongo_db=self._mongo_db, cache={}, debug=self._debug).fetch_data()
+        except InvalidTickerExcpetion as e:
+            if e.response.status_code == 404:
+                return False
+
+        return True
 
 
 def main():

@@ -21,3 +21,8 @@ class CollectorsFactory(BaseFactory):
     @classmethod
     def get_collector(cls, name):
         return cls.COLLECTIONS.get(name)
+
+    @classmethod
+    def get_father_collections(cls):
+        # Securities is son of profile
+        return [collection for collection in cls.COLLECTIONS if collection != 'securities']
