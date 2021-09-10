@@ -44,6 +44,7 @@ class Priority(CommonRunnable):
         self.td_session.login()
 
     def run(self):
+        self.logger.info(f"REDIS_IP: {os.getenv('REDIS_IP')}")
         current_date = arrow.utcnow().floor(frame='days')
 
         # Updating all_tickers.csv file
