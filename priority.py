@@ -83,7 +83,7 @@ class Priority(CommonRunnable):
         tickers = tickers[(tickers['last_price'] < 0.5)]
         tickers = tickers[['ticker'] + list(CollectorsFactory.COLLECTIONS.keys())]
 
-        self._mongo_db.tickers.remove()
+        self._mongo_db.tickers.delete_many({'ticker': {'$in': tickers['ticker'].tolist()}})
         self._mongo_db.tickers.insert_many(tickers.to_dict('records'))
 
     def get_tickers_bid_ask(self, tickers):
