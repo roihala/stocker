@@ -24,4 +24,4 @@ spec:
                 - name: TELEGRAM_TOKEN
                   value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
                 - name: REDIS_IP
-                    value: "10.80.176.3"
+                  value: "10.80.176.3"

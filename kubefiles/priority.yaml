@@ -22,5 +22,5 @@ spec:
                 - name: MONGO_URI
                   value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
                 - name: REDIS_IP
-                    value: "10.80.176.3"
+                  value: "10.80.176.3"
 
