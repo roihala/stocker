@@ -1,14 +1,18 @@
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from urllib.error import URLError
 
 import arrow
 import requests
+from requests import ReadTimeout
 from retry import retry
-
+from urllib3.exceptions import NewConnectionError, SSLError, MaxRetryError
 
 from runnable import Runnable
 from src.collect.records.filings_collector import FilingsCollector
+from src.common.otcm import REQUIRED_HEADERS
+from src.common.proxy import get_proxy_auth, PROXY, otcm_get
 
 logger = logging.getLogger('CollectRecords')
 
@@ -61,16 +65,10 @@ class DynamicRecordsCollector(FilingsCollector, ABC):
 
         return [diff] if diff else []
 
-    @retry(tries=3, delay=0.5)
     def fetch_data(self) -> requests.models.Response:
         url = self.filing_base_url.format(id=self.record_id)
-        response = requests.get(url)
 
-        # Trying with proxy
-        if response.status_code == 429:
-            response = requests.get(url, proxies=Runnable.proxy)
-
-        return response
+        return otcm_get(url, self._debug)
 
     def __generate_document(self, response, ticker):
         return \
