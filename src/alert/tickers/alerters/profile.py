@@ -41,14 +41,17 @@ class Profile(TickerAlerter):
             "legalCounsels": "Legal Counsels",
             "regulatoryAgencyName": "Regulatory Agency",
             "stateOfIncorporationName": "State of Incorporation",
-            "yearOfIncorporation": "Year of Incorporation"
+            "yearOfIncorporation": "Year of Incorporation",
+            "facilitiesDescription": "Facilities Description",
+            "productServicesDescription": "Product Services Description"
         }
 
     @property
     def relevant_keys(self):
         return ['address', 'address1', 'address2', 'address3', 'auditors', 'businessDesc', 'city', 'country', 'email',
                 'facebook', 'fax', 'linkedin', 'name', 'numberOfEmployees', 'officers', 'phone', 'premierDirectorList',
-                'primarySicCode', 'standardDirectorList', 'state', 'twitter', 'website', 'zip']
+                'primarySicCode', 'standardDirectorList', 'state', 'twitter', 'website', 'zip', 'facilitiesDescription',
+                'productServicesDescription']
 
     @property
     def extended_keys(self):
