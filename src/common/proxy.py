@@ -48,15 +48,15 @@ def get_proxy_auth(is_debug):
 
 @retry((requests.exceptions.ProxyError, ReadTimeout, MaxRetryError, SSLError, URLError,
         NewConnectionError), tries=3, delay=0.25)
-def otcm_get(url, is_debug) -> requests.models.Response:
+def proxy_get(url, is_debug, headers=None) -> requests.models.Response:
     if is_debug:
-        return requests.get(url, headers=REQUIRED_HEADERS)
+        return requests.get(url, headers=headers)
 
     session = requests.Session()
     session.auth = get_proxy_auth(is_debug)
 
     session.proxies = {"http": PROXY, "https": PROXY}
-    response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
+    response = session.get(url, timeout=5, headers=headers)
 
     if response.status_code == 429:
         raise requests.exceptions.ProxyError()

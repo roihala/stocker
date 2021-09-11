@@ -1,15 +1,11 @@
 import json
 import logging
 import os
-import time
 
 import arrow
-import pandas as pd
 import pymongo
 
 from bson import json_util
-
-from client import Client
 from collect import Collect
 from common_runnable import CommonRunnable
 from google.cloud import pubsub_v1
@@ -22,7 +18,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.jobstores.memory import MemoryJobStore
 
 from src.collect.records.collectors import FilingsBackend, FilingsPdf
-from src.read import readers
 
 global records_cache
 records_cache = {}
@@ -31,10 +26,13 @@ NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.c
 
 
 class CollectRecords(CommonRunnable):
+    TICKER_GUESSER_TOPIC_NAME = 'projects/stocker-300519/topics/records-finder'
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.publisher = pubsub_v1.PublisherClient()
-        self.topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
+        self.diffs_topic_name = Collect.PUBSUB_DIFFS_TOPIC_NAME + '-dev' if self._debug else Collect.PUBSUB_DIFFS_TOPIC_NAME
+        self.guesser_topic_name = self.TICKER_GUESSER_TOPIC_NAME + '-dev' if self._debug else self.TICKER_GUESSER_TOPIC_NAME
 
         self.scheduler = BlockingScheduler(executors={
             'default': ThreadPoolExecutor(15)
@@ -42,36 +40,24 @@ class CollectRecords(CommonRunnable):
             'default': MemoryJobStore(),
             'dynamic': MemoryJobStore()
         })
+        self.intervals = {}
 
-        self.profile_mapping = Client.get_latest_data(self._mongo_db.get_collection("profile"))
-        self.symbols_and_names = [(ticker, FilingsPdf.clear_text(self.profile_mapping[ticker]["name"]))
-                                  for ticker in self.profile_mapping]
-
-    def add_dynamics_jobs(self, record_id):
-        for index in range(FilingsPdf.BATCH_SIZE):
-            trigger = OrTrigger([IntervalTrigger(seconds=60), DateTrigger()])
-            self.scheduler.add_job(self.collect_pdf,
-                                   id=str(index),
-                                   args=[self, record_id, index],
+    def add_dynamics_jobs(self, record_id, count=FilingsPdf.BATCH_SIZE):
+        for index in range(count):
+            trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
+            self.scheduler.add_job(self.collect_dynamic_pdf,
+                                   id=str(record_id + index),
+                                   args=[record_id + index],
                                    trigger=trigger,
                                    max_instances=1,
                                    misfire_grace_time=480,
                                    jobstore='dynamic')
 
     def run(self):
-        if self._debug:
-            record_id = int(
-                self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get(
-                    'record_id')) + 1
-
-            self.collect_backend()
-            for i in range(FilingsPdf.BATCH_SIZE):
-                self.collect_pdf(record_id, i)
-
         record_id = self.__get_mongo_top_id()
         self.add_dynamics_jobs(record_id)
 
-        trigger = OrTrigger([IntervalTrigger(seconds=10), DateTrigger()])
+        trigger = OrTrigger([IntervalTrigger(seconds=5), DateTrigger()])
         self.scheduler.add_job(self.collect_backend,
                                args=[],
                                trigger=trigger,
@@ -82,27 +68,18 @@ class CollectRecords(CommonRunnable):
 
         self.scheduler.start()
 
-    def collect_pdf(self, record_id, index):
-        self.logger.info(f'Collecting {record_id + index} by {record_id} + {index}')
-        date = arrow.utcnow()
-
-        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache, 'date': date, 'debug': self._debug,
-                          'record_id': record_id + index, 'symbols_and_names': self.symbols_and_names,
-                          'profile_mapping': self.profile_mapping}
+    def collect_dynamic_pdf(self, record_id):
+        collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache,
+                          'debug': self._debug, 'record_id': record_id}
         collector = FilingsPdf(**collector_args)
-
         diffs = collector.collect()
 
         if diffs:
-            self._publish_diffs(diffs)
+            self.logger.info(f"Detected filing in {record_id}: {diffs}")
+            data = json.dumps(diffs, default=json_util.default).encode('utf-8')
+            self.publisher.publish(self.guesser_topic_name, data)
 
-            record_id = max(record_id + index, self.__get_mongo_top_id())
-
-            # Remove all previous jobs
-            for job in self.scheduler.get_jobs('dynamic'):
-                job.remove()
-
-            self.add_dynamics_jobs(record_id)
+            self.__update_jobstore(record_id)
 
     def collect_backend(self):
         date = arrow.utcnow()
@@ -113,11 +90,12 @@ class CollectRecords(CommonRunnable):
         diffs = collector.collect()
 
         if diffs:
+            self.logger.info(f"Detected filings: {diffs}")
             self._publish_diffs(diffs)
 
     def __create_dynamic_job(self, record_id, index):
         trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
-        self.scheduler.add_job(self.collect_pdf,
+        self.scheduler.add_job(self.collect_dynamic_pdf,
                                id=index,
                                args=[record_id],
                                trigger=trigger,
@@ -128,22 +106,33 @@ class CollectRecords(CommonRunnable):
     def _publish_diffs(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
 
-        if not tickers:
-            self.logger.info(f'diffs: {diffs}')
-            data = json.dumps(diffs, default=json_util.default).encode('utf-8')
-            self.publisher.publish(self.topic_name, data)
-            return
-
         # Separating publish by tickers
         for ticker in tickers:
             ticker_diffs = [diff for diff in diffs if diff.get('ticker') == ticker]
-            self.logger.info(f'diffs: {ticker_diffs}')
             data = json.dumps(ticker_diffs, default=json_util.default).encode('utf-8')
-            self.publisher.publish(self.topic_name, data)
+            self.publisher.publish(self.diffs_topic_name, data)
 
     def __get_mongo_top_id(self):
         return int(
             self._mongo_db.filings_pdf.find().sort('record_id', pymongo.DESCENDING).limit(1)[0].get('record_id')) + 1
+
+    def __update_jobstore(self, record_id):
+        highest_id = record_id
+
+        # Remove all previous jobs
+        for job in self.scheduler.get_jobs('dynamic'):
+            highest_id = max(highest_id, int(job.id))
+
+            if record_id < int(job.id):
+                continue
+
+            # Multiplying batch size by three for a common-sensed buffer
+            elif (record_id - int(job.id)) < FilingsPdf.BATCH_SIZE * 3:
+                job.pause()
+            else:
+                job.remove()
+
+        self.add_dynamics_jobs(highest_id + 1, FilingsPdf.BATCH_SIZE - (highest_id - record_id))
 
 
 def main():

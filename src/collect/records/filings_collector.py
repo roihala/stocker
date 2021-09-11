@@ -8,8 +8,10 @@ from abc import ABC, abstractmethod
 
 import requests
 from google.cloud import storage
+from retry import retry
 
 from src.collect.collector_base import CollectorBase
+from src.common.otcm import REQUIRED_HEADERS
 
 logger = logging.getLogger('CollectRecords')
 
@@ -38,13 +40,15 @@ class FilingsCollector(CollectorBase, ABC):
         # This url must contain {id} format string
         pass
 
-    def upload_filing(self, ticker, pdf_path):
-        blob = f"{hashlib.md5(str.encode(self.name)).hexdigest()}/{ticker}/{arrow.utcnow().timestamp}"
+    @retry(tries=3, delay=0.5)
+    def upload_filing(self, pdf_path):
+        blob = f"{hashlib.md5(str.encode(self.name)).hexdigest()}/{arrow.utcnow().timestamp}"
         self._storage_bucket.blob(blob).upload_from_filename(pdf_path)
         return self.CLOUD_STORAGE_BASE_PATH.format(bucket=self.bucket_name, blob=blob)
 
-    def get_pdf(self, record_id, response=None):
-        response = response if response else requests.get(self.filing_base_url.format(id=record_id))
+    @retry(tries=3, delay=0.5)
+    def download_filing(self, record_id, response=None):
+        response = response if response else requests.get(self.filing_base_url.format(id=record_id), headers=REQUIRED_HEADERS)
         if not response.ok:
             logger.warning(f"Couldn't get pdf from {response.request.url}, status code: {response.status_code}")
             return ''
@@ -52,10 +56,9 @@ class FilingsCollector(CollectorBase, ABC):
 
         # Creating if not exist
         os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
-        logger.info(f'Trying to write pdf on {record_id}')
+
         with open(pdf_path, 'wb') as f:
             f.write(response.content)
-        logger.info(f'Finished writing pdf on {record_id}')
 
         return pdf_path
 

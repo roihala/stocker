@@ -41,8 +41,8 @@ class RecordsCollector(FilingsCollector, ABC):
             self.__flush()
 
             # Uploading all pdfs to cloud and adding them as diffs
-            pdf_paths = [self.get_pdf(record.get('id')) for record in new_records[0:10]]
-            cloud_paths = [self.upload_filing(record.get('ticker'), pdf_path) for record, pdf_path in zip(new_records, pdf_paths)]
+            pdf_paths = [self.download_filing(record.get('id')) for record in new_records[0:10]]
+            cloud_paths = [self.upload_filing(pdf_path) for record, pdf_path in zip(new_records, pdf_paths)]
             diffs = [self.__generate_diff(record, cloud_path) for record, cloud_path in zip(records, cloud_paths)]
             return diffs
         else:
