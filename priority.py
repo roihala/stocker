@@ -6,6 +6,7 @@ from copy import deepcopy
 import arrow
 import pandas
 import requests
+from retry import retry
 
 from td.client import TDClient
 
@@ -44,7 +45,6 @@ class Priority(CommonRunnable):
         self.td_session.login()
 
     def run(self):
-        self.logger.info(f"REDIS_IP: {os.getenv('REDIS_IP')}")
         current_date = arrow.utcnow().floor(frame='days')
 
         # Updating all_tickers.csv file
@@ -82,7 +82,7 @@ class Priority(CommonRunnable):
         # Filtering by price
         tickers = tickers.merge(self.__get_priced_tickers(tickers), how='left', on='ticker').fillna(0)
         tickers = tickers[(tickers['last_price'] < 0.5)]
-        tickers = tickers[['ticker'] + list(CollectorsFactory.COLLECTIONS.keys())]
+        tickers = tickers[['ticker', 'last_seen'] + CollectorsFactory.get_father_collections()]
 
         self._mongo_db.tickers.delete_many({'ticker': {'$in': tickers['ticker'].tolist()}})
         self._mongo_db.tickers.insert_many(tickers.to_dict('records'))
@@ -110,6 +110,7 @@ class Priority(CommonRunnable):
 
         return priced_tickers
 
+    @retry(tries=5, delay=1)
     def __update_priced_tickers(self, tickers_series: pandas.Series, priced_tickers: pandas.DataFrame):
         relevant_tickers = pandas.Series(list(set(tickers_series).difference(set(priced_tickers['ticker']))))
 
