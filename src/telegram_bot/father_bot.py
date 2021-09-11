@@ -40,7 +40,6 @@ from src.collect.tickers import collectors
 
 class FatherBot(BaseBot):
     POOP_EMOJI_UNICODE = u'\U0001F4A9'
-    FETCH_FILINGS_BUCKET_NAME = 'stocker_filings_translator'
 
     def __init__(self, registration_bot: RegistrationBot, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -103,10 +102,6 @@ class FatherBot(BaseBot):
 
         elif update.callback_query.data in Actions.SurveyActions.get_survey_actions():
             return self.registration_bot.survey_callback(query, update)
-
-        elif update.callback_query.data == Actions.FETCH_FILINGS:
-            query.message.reply_text('Please enter valid filing link')
-            return Indexers.PRINT_FETCH_FILINGS
 
         query.message.reply_text('Please insert valid OTC ticker')
         if update.callback_query.data == Actions.INFO:
@@ -433,64 +428,6 @@ class FatherBot(BaseBot):
                 self.logger.exception(e, exc_info=True)
                 message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
 
-    def fetch_filings_command(self, update, context):
-        if len(context.args) >= 1:
-            self.fetch_filings(update.message,
-                               update.message.from_user,
-                               context.args)
-        else:
-            update.message.reply_text("Please insert list of valid links separated by whitespace, e.g:\n\n"
-                                      "/fetch_filing http://www.otcmarkets.com/financialReportViewer?symbol=MDMN&id=300919")
-
-    def fetch_filings_callback(self, update, context):
-        url = update.message.text
-        self.fetch_filings(update.message, update.message.from_user, [url])
-
-        return Indexers.CONVERSATION_CALLBACK
-
-    def fetch_filings(self, message, from_user, urls):
-        self.logger.info(
-            "{user_name} of {chat_id} have used /fetch_filing on urls: {urls}".format(
-                user_name=from_user.name,
-                chat_id=from_user.id,
-                urls=urls
-            ))
-
-        urls_mapping = {}
-        urls = [url for url in urls if self.__is_filing_url(url)]
-
-        if not urls:
-            message.reply_text("Please insert list of valid links separated by whitespace, e.g:\n\n"
-                               "/fetch_filing http://www.otcmarkets.com/financialReportViewer?symbol=MDMN&id=300919")
-
-        for url in urls:
-            record_id = self.__export_record_id(url)
-            if record_id:
-                public_url = self.__upload_or_detect(record_id)
-
-                if public_url:
-                    urls_mapping[url] = public_url
-
-        if urls_mapping:
-            text = "🚨 Fetched filings\n" + '\n'.join(
-                [f"🔴 {ReaderBase.escape_markdown(origin)}\n🟢{ReaderBase.escape_markdown(translation)}\n"
-                 for origin, translation in urls_mapping.items()])
-
-            message.reply_text(text, parse_mode=telegram.ParseMode.MARKDOWN)
-        else:
-            message.reply_text("Couldn't fetch filings")
-
-        # Joe Cazz
-        try:
-            if from_user.id == 797932115:
-                self.bot_instance.send_message(406000980,
-                                               text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/fetch_filings on {urls}')
-                self.bot_instance.send_message(1151317792,
-                                               text=f'{self.POOP_EMOJI_UNICODE} Ofek gay\n/fetch_filings on {urls}')
-        except Exception as e:
-            self.logger.warning("Couldn't send message to ofek")
-            self.logger.exception(e)
-
     def __is_filing_url(self, url):
         if validators.url(url) and any(
                 [prefix in url for prefix in ['https://backend.otcmarkets.com/otcapi/company/financial-report',
@@ -511,50 +448,6 @@ class FatherBot(BaseBot):
             self.logger.warning(f"Coulnd't export record_id from {url}")
             self.logger.exception(e)
 
-    def __is_filing_exist(self, record_id):
-        # TODO
-        return True
-
-    def __upload_or_detect(self, record_id):
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(self.FETCH_FILINGS_BUCKET_NAME)
-
-        base64_record_id = base64.b64encode(str(record_id).encode('ascii')).decode('ascii')
-
-        blobs = storage_client.list_blobs(self.FETCH_FILINGS_BUCKET_NAME)
-
-        # Detect existing
-        for blob in blobs:
-            if blob.name == base64_record_id:
-                return blob.public_url
-
-        filing_path = self.__download_filing(record_id)
-
-        blob = bucket.blob(base64_record_id)
-        blob.upload_from_filename(filing_path)
-
-        return filings_collector.FilingsCollector.CLOUD_STORAGE_BASE_PATH.format(
-            bucket=self.FETCH_FILINGS_BUCKET_NAME, blob=base64_record_id)
-
-    def __download_filing(self, record_id):
-        response = requests.get(
-            'https://backend.otcmarkets.com/otcapi/company/financial-report/{id}/content'.format(id=record_id),
-            headers=REQUIRED_HEADERS)
-
-        if not response.ok:
-            self.logger.warning(f"Couldn't get pdf from {response.request.url}, status code: {response.status_code}")
-            return ''
-
-        pdf_path = os.path.join(filings_collector.PDF_DIR, 'telegram', f"{record_id}.pdf")
-
-        # Creating if not exist
-        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
-
-        with open(pdf_path, 'wb') as f:
-            f.write(response.content)
-
-        return pdf_path
-
     def _is_registered(self, user_name, chat_id):
         user = self.mongo_db.telegram_users.find_one({'chat_id': chat_id})
 
@@ -566,11 +459,6 @@ class FatherBot(BaseBot):
     def invalid_ticker_format(update, context):
         update.message.reply_text('Invalid input, please insert 3-5 letters OTC registered ticker')
 
-        return Indexers.CONVERSATION_CALLBACK
-
-    @staticmethod
-    def invalid_url_format(update, context):
-        update.message.reply_text('Invalid input, please enter valid filing link')
         return Indexers.CONVERSATION_CALLBACK
 
     @staticmethod
