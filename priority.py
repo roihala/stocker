@@ -59,9 +59,7 @@ class Priority(CommonRunnable):
         tickers = pandas.merge(tickers, tickers_collection, on='ticker', how='outer')
         tickers['last_seen'].fillna(current_date.shift(days=-1).format(), inplace=True)
 
-        # Adding default interval values for every collection
-        for collection in CollectorsFactory.get_father_collections():
-            tickers[collection] = PriorityCodes.HIGH
+        all_tickers = tickers['ticker']
 
         tier_code_hierarchy = Securities.get_hierarchy()['tierCode']
         # Getting tierCode <= PC (Pink Current)
@@ -69,6 +67,10 @@ class Priority(CommonRunnable):
 
         # Removing F (bankrupt) tickers
         tickers = tickers[~((tickers['ticker'].str[-1] == 'F') & (tickers['ticker'].str.len() == 5))]
+
+        # Adding default interval values for every collection
+        for collection in CollectorsFactory.get_father_collections():
+            tickers[collection] = PriorityCodes.HIGH
 
         for _, row in tickers.iterrows():
             if row['tierCode'] in ['EM', 'GM'] or row['isCaveatEmptor'] is True:
@@ -86,6 +88,12 @@ class Priority(CommonRunnable):
 
         self._mongo_db.tickers.delete_many({'ticker': {'$in': tickers['ticker'].tolist()}})
         self._mongo_db.tickers.insert_many(tickers.to_dict('records'))
+
+        # Updating irrelevant tickers
+        irrevant_tickers = pandas.Series(list(set(all_tickers) - set(tickers['ticker']))).to_frame('ticker')
+        self._mongo_db.tickers.update_many({'ticker': {'$in': irrevant_tickers['ticker'].tolist()}},
+                                           {'$set': {collection: PriorityCodes.IGNORE for collection in
+                                                     CollectorsFactory.get_father_collections()}})
 
     def get_tickers_bid_ask(self, tickers):
         stock_data = self.td_session.get_quotes(instruments=tickers)
