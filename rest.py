@@ -85,8 +85,17 @@ async def get_dilution_data(ticker: str):
     securities_df = securities_df.rename(columns=keys_translation)
     return (
         {
-            "dataframe": securities_df.to_json(orient=None),
+            "dataframe": securities_df.to_dict(),
             "keys_translation": list(keys_translation.values())
+        }
+    )
+
+
+@app.get("/companies/")
+async def get_symbols():
+    return (
+        {
+            "symbols": rest._mongo_db.securities.distinct("symbol")
         }
     )
 
