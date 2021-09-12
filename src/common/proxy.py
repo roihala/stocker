@@ -22,6 +22,7 @@ PROXY = "http://zproxy.lum-superproxy.io:22225"
 @ttl_cache(maxsize=2, ttl=DAY_TTL)
 def get_ips(is_debug):
     if not is_debug:
+        print(f"get_ips connecting to {REDIS_IP}, env var: {os.getenv('REDIS_IP')}")
         redis_cache = Redis(REDIS_IP)
         result = redis_cache.get('PROXY_IPS')
         cached_ips = pickle.loads(result)
