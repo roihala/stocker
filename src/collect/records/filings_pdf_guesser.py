@@ -1,18 +1,10 @@
 import logging
 import os
 import re
-
-
-# TODO: logger name
 from typing import List
 
+# TODO: logger name
 logger = logging.getLogger('')
-
-
-try:
-    import fitz
-except Exception:
-    logger.warning("Couldn't import fitz")
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')
 COMP_ABBREVIATIONS = {"inc": "incorporated", "ltd": "limited", "corp": "corporation", "adr": None,
@@ -31,17 +23,16 @@ RE_BRACKETS = re.compile(r"\[[^)]*\]")
 RE_PARENTHESES = re.compile(r"\([^)]*\)")
 
 
-class DynamicPdfGuesser(object):
-    def __init__(self, mongo_db, profile_mapping, symbols_and_names):
+class FilingsPdfGuesser(object):
+    def __init__(self, mongo_db, profile_mapping):
         self.mongo_db = mongo_db
+        self.collection = self.mongo_db.get_collection('filings_pdf')
         self._mongo__profile = self.mongo_db.get_collection("profile")
         self.profile_mapping = profile_mapping
-        self.symbols_and_names = symbols_and_names
+        self.symbols_and_names = [(ticker, self.clear_text(self.profile_mapping[ticker]["name"]))
+                                  for ticker in self.profile_mapping]
 
     def guess_ticker(self, pages) -> str:
-        # TODO: where?
-        # logger.warning(f"Couldn't resolve ticker for {self.record_id} at {response.request.url}")
-        
         symbols_scores = {}
 
         by_comp_names = self.__guess_by_company_name(pages)

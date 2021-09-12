@@ -24,9 +24,10 @@ class DynamicRecordsCollector(FilingsCollector, ABC):
 
         # Uploading to cloud storage
         pdf_path = self.download_filing(self.record_id, response)
-        cloud_path = self.upload_filing(pdf_path)
 
-        document = self.__generate_document(response, cloud_path)
+        cloud_path = self.upload_filing(self.record_id, pdf_path)
+
+        document = self.__generate_document(cloud_path)
         self.collection.insert_one(deepcopy(document))
 
         diff = super().decorate_diff(document, cloud_path=cloud_path, record_id=self.record_id)
@@ -38,11 +39,11 @@ class DynamicRecordsCollector(FilingsCollector, ABC):
 
         return proxy_get(url, self._debug)
 
-    def __generate_document(self, response, cloud_path):
+    def __generate_document(self, cloud_path):
         return \
             {
                 "record_id": self.record_id,
                 "date": self._date.format(),
-                "url": response.request.url,
+                "url": self.filing_base_url.format(id=self.record_id),
                 "cloud_path": cloud_path
             }

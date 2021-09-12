@@ -9,4 +9,4 @@ RUN chmod 755 /code/
 ENV PYTHONPATH /code
 ENV GOOGLE_APPLICATION_CREDENTIALS /code/credentials/stocker.json
 
-CMD [ "python", "./code/records_guesser.py" ]
+CMD [ "python", "./code/guess_records.py" ]

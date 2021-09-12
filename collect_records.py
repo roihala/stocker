@@ -72,9 +72,13 @@ class CollectRecords(CommonRunnable):
         collector_args = {'mongo_db': self._mongo_db, 'cache': records_cache,
                           'debug': self._debug, 'record_id': record_id}
         collector = FilingsPdf(**collector_args)
+        # using diffs here to preserve uniformity, but it's actually going to be transferred to records guesser
         diffs = collector.collect()
 
         if diffs:
+            if not len(diffs) == 1:
+                raise ValueError("FilingsPdf should return exactly one record to guess, got ")
+
             self.logger.info(f"Detected filing in {record_id}: {diffs}")
             data = json.dumps(diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.guesser_topic_name, data)
