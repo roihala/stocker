@@ -35,8 +35,6 @@ from src.telegram_bot.resources.indexers import Indexers
 from src.telegram_bot.resources.markup import Keyboards, Buttons
 from src.telegram_bot.resources.messages import Messages
 
-from src.collect.tickers import collectors
-
 
 class FatherBot(BaseBot):
     POOP_EMOJI_UNICODE = u'\U0001F4A9'

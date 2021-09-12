@@ -13,7 +13,6 @@ class Buttons(object):
     DILUTION = telegram.InlineKeyboardButton("Dilution", callback_data=Actions.DILUTION)
     INFO = telegram.InlineKeyboardButton("Info", callback_data=Actions.INFO)
     OTCIQ = telegram.InlineKeyboardButton("Otciq", callback_data=Actions.OTCIQ)
-    FETCH_FILINGS = telegram.InlineKeyboardButton("🆕 Fetch filings", callback_data=Actions.FETCH_FILINGS)
     CONTACT = telegram.InlineKeyboardButton("Contact", url=MARKET_EYES_URL)
     TERMS = telegram.InlineKeyboardButton("Terms and conditions", url=AGREEMANT_URL)
     TOOLS = telegram.InlineKeyboardButton("Tools", callback_data=Actions.TOOLS)
@@ -50,8 +49,7 @@ class Keyboards(object):
         [Buttons.ALERTS,
          Buttons.DILUTION,
          Buttons.INFO],
-        [Buttons.OTCIQ, Buttons.FETCH_FILINGS],
-        [Buttons.BACK_TO_START]
+        [Buttons.OTCIQ, Buttons.BACK_TO_START]
     ])
     START = InlineKeyboardMarkup([[Buttons.FREE_TRIAL, Buttons.TOOLS]])
     SUBSCRIBE = InlineKeyboardMarkup([[Buttons.CONTACT, Buttons.SUBSCRIBE]])
