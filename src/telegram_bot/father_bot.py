@@ -395,7 +395,6 @@ class FatherBot(BaseBot):
         return Indexers.CONVERSATION_CALLBACK
 
     def print_otciq(self, message, from_user, tickers):
-
         for ticker in tickers:
             try:
                 self.logger.info(
@@ -425,26 +424,6 @@ class FatherBot(BaseBot):
             except Exception as e:
                 self.logger.exception(e, exc_info=True)
                 message.reply_text("Couldn't produce otciq for {ticker}".format(ticker=ticker))
-
-    def __is_filing_url(self, url):
-        if validators.url(url) and any(
-                [prefix in url for prefix in ['https://backend.otcmarkets.com/otcapi/company/financial-report',
-                                              'http://www.otcmarkets.com/financialReportViewer']]):
-            return True
-        return False
-
-    def __export_record_id(self, url):
-        try:
-            if 'https://backend.otcmarkets.com/otcapi/company/financial-report' in url:
-                parts = urlparse(url).path.split('/')
-                return int(parts[parts.index('content') - 1])
-            elif 'http://www.otcmarkets.com/financialReportViewer' in url:
-                parsed_url = urlparse(url)
-                return int(parse_qs(parsed_url.query)['id'][0])
-
-        except Exception as e:
-            self.logger.warning(f"Coulnd't export record_id from {url}")
-            self.logger.exception(e)
 
     def _is_registered(self, user_name, chat_id):
         user = self.mongo_db.telegram_users.find_one({'chat_id': chat_id})
