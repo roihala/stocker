@@ -35,7 +35,8 @@ class OwnerBot(BaseBot):
     def send_broadcast_msg(self, message, from_user, msg=None, keyboard=None):
         msg = msg if msg else message.text
         if self.__validate_permissions(message, from_user):
-            for to_user in self.mongo_db.telegram_users.find({'activation': {"$in": [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]}}):
+            for to_user in self.mongo_db.telegram_users.find(
+                    {'activation': {"$in": [ActivationCodes.TRIAL, ActivationCodes.ACTIVE]}}):
                 try:
                     if keyboard:
                         self.bot_instance.send_message(
@@ -135,6 +136,56 @@ class OwnerBot(BaseBot):
 
         self.send_broadcast_msg(update.message, update.message.from_user, msg=msg, keyboard=keyboard)
         return ConversationHandler.END
+
+    def is_exist(self, update, context):
+        if len(context.args) != 1:
+            update.message.reply_text('Please insert email address, e.g: /is_exist someone@gmail.com')
+        else:
+            users = [_ for _ in self.mongo_db.telegram_users.find({"email": {"$regex": f".*{context.args[0]}.*"}})]
+            if users:
+                update.message.reply_text(f'Detected users:\n```{users}```', parse_mode=telegram.ParseMode.MARKDOWN)
+            else:
+                update.message.reply_text(f"Couldn't find user by mail address: {context.args[0]}")
+
+    def refresh_link(self, update, context):
+        users = [_ for _ in self.mongo_db.telegram_users.find({"email": {"$regex": f".*{context.args[0]}.*"}})]
+        if len(users) == 1:
+            user = users[0]
+
+            ph = argon2.PasswordHasher()
+            token = secrets.token_urlsafe()
+
+            link = telegram_helpers.create_deep_linked_url(user.get('bot', 'stocker_alerts_bot'), token)
+            self.mongo_db.telegram_users.update_one({'chat_id': user.get('chat_id')},
+                                                    {'$unset': {'user_name': 1, 'chat_id': 1},
+                                                     '$set': {'token': ph.hash(token)}})
+
+            update.message.reply_text(f"Here's a new activation link: {link}")
+        else:
+            update.message.reply_text(f"Please be more specific, detected: ```{users}```",
+                                      parse_mode=telegram.ParseMode.MARKDOWN)
+
+    def reactivate(self, update, context):
+        if len(context.args) != 2:
+            update.message.reply_text('Please insert valid email and date, e.g: /reactivate yanivlang@gmail.com 2021-12-22')
+
+        try:
+            activate_until = arrow.get(context.args[1])
+        except (arrow.ParserError, ValueError):
+            update.message.reply_text(f"Couldn't parse date: {context.args[1]}")
+            return
+
+        users = [_ for _ in self.mongo_db.telegram_users.find({"email": {"$regex": f".*{context.args[0]}.*"}})]
+
+        if len(users) == 1:
+            user = users[0]
+            self.mongo_db.telegram_users.update_one({'email': user.get('email')},
+                                                    {'$set': {'activation': ActivationCodes.ACTIVE,
+                                                              'activate_until': activate_until.format()}})
+            update.message.reply_text(f"Reactivated {context.args[0]} until {activate_until.format()}")
+        else:
+            update.message.reply_text(f"Please be more specific, detected: ```{users}```",
+                                      parse_mode=telegram.ParseMode.MARKDOWN)
 
     def __validate_permissions(self, message, from_user):
         if self._is_high_permission_user(from_user.name, from_user.id):

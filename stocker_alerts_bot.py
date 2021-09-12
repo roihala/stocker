@@ -114,6 +114,9 @@ class Stocker(CommonRunnable):
             dp.add_handler(CommandHandler('vip_user', owner_bot.vip_user))
             dp.add_handler(CommandHandler('add_bot', owner_bot.add_bot))
             dp.add_handler(CommandHandler('split_bot', owner_bot.split_bot))
+            dp.add_handler(CommandHandler('is_exist', owner_bot.is_exist))
+            dp.add_handler(CommandHandler('refresh_link', owner_bot.refresh_link))
+            dp.add_handler(CommandHandler('reactivate', owner_bot.reactivate))
 
         # Start pooling first bot
         updaters[0].start_polling()
