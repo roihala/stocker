@@ -69,8 +69,6 @@ class Priority(CommonRunnable):
         # Removing F (bankrupt) tickers
         tickers = tickers[~((tickers['ticker'].str[-1] == 'F') & (tickers['ticker'].str.len() == 5))]
 
-        tickers = tickers.sample(200)
-
         # Filtering by price
         tickers = tickers.merge(self.__get_priced_tickers(tickers), how='left', on='ticker').fillna(0)
         tickers = tickers[(tickers['last_price'] < 0.5)]
