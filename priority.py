@@ -4,6 +4,7 @@ import os
 from copy import deepcopy
 
 import arrow
+import numpy
 import pandas
 import requests
 from retry import retry
@@ -51,7 +52,7 @@ class Priority(CommonRunnable):
         self.__update_all_tickers()
 
         # DataFrame with ticker, tierCode, isCaveatEmptor columns
-        tickers = Client.get_latest_data(self._mongo_db.profile, as_df=True)\
+        tickers = Client.get_latest_data(self._mongo_db.profile, as_df=True) \
             .reindex(['ticker'] + self.QUERY_COLUMNS, axis=1)
 
         # Merging last_seen values
@@ -68,22 +69,22 @@ class Priority(CommonRunnable):
         # Removing F (bankrupt) tickers
         tickers = tickers[~((tickers['ticker'].str[-1] == 'F') & (tickers['ticker'].str.len() == 5))]
 
-        # Adding default interval values for every collection
-        for collection in CollectorsFactory.get_father_collections():
-            tickers[collection] = PriorityCodes.HIGH
-
-        for _, row in tickers.iterrows():
-            if row['tierCode'] in ['EM', 'GM'] or row['isCaveatEmptor'] is True:
-                row['symbols'] = PriorityCodes.IGNORE
-                row['securities'], row['profile'] = PriorityCodes.MEDIUM, PriorityCodes.MEDIUM
-
-        # Filtering out tickers that weren't seen for more than 3 days
-        tickers['last_seen'][tickers['ticker'].apply(self.__is_existing_ticker)] = current_date.format()
-        tickers = tickers[tickers['last_seen'].apply(lambda value: (current_date - arrow.get(value)).days < 3)]
+        tickers = tickers.sample(200)
 
         # Filtering by price
         tickers = tickers.merge(self.__get_priced_tickers(tickers), how='left', on='ticker').fillna(0)
         tickers = tickers[(tickers['last_price'] < 0.5)]
+
+        # Filtering out tickers that weren't seen for more than 3 days
+        tickers['last_seen'][tickers['ticker'].apply(self.__is_existing_ticker)] = current_date.format()
+        tickers = tickers[tickers['last_seen'].apply(lambda value: (current_date - arrow.get(value)).days < 1)]
+
+        # Delaying bad tickers
+        tickers['profile'] = numpy.where(tickers['tierCode'].isin(['EM', 'GM']) | tickers['isCaveatEmptor'] == True,
+                                         PriorityCodes.MEDIUM, PriorityCodes.HIGH)
+        tickers['symbols'] = numpy.where(tickers['tierCode'].isin(['EM', 'GM']) | tickers['isCaveatEmptor'] == True,
+                                         PriorityCodes.IGNORE, PriorityCodes.HIGH)
+
         tickers = tickers[['ticker', 'last_seen'] + CollectorsFactory.get_father_collections()]
 
         self._mongo_db.tickers.delete_many({'ticker': {'$in': tickers['ticker'].tolist()}})
@@ -122,8 +123,9 @@ class Priority(CommonRunnable):
     def __update_priced_tickers(self, tickers_series: pandas.Series, priced_tickers: pandas.DataFrame):
         relevant_tickers = pandas.Series(list(set(tickers_series).difference(set(priced_tickers['ticker']))))
 
-        for i in range(int(len(relevant_tickers) / self.TD_TICKERS_CHUNK)):
-            df = pandas.DataFrame(self.get_tickers_bid_ask(relevant_tickers[i * self.TD_TICKERS_CHUNK: i * self.TD_TICKERS_CHUNK + self.TD_TICKERS_CHUNK])).transpose()
+        for i in range(max(1, int(len(relevant_tickers) / self.TD_TICKERS_CHUNK))):
+            df = pandas.DataFrame(self.get_tickers_bid_ask(relevant_tickers[
+                                                           i * self.TD_TICKERS_CHUNK: i * self.TD_TICKERS_CHUNK + self.TD_TICKERS_CHUNK])).transpose()
             df.index.name = 'ticker'
             df.reset_index(inplace=True)
             priced_tickers = pandas.concat([priced_tickers, df])
@@ -149,6 +151,10 @@ class Priority(CommonRunnable):
                 return False
 
         return True
+
+    @staticmethod
+    def __is_bad_ticker(row):
+        return bool(row['tierCode'] in ['EM', 'GM'] or row['isCaveatEmptor'] is True)
 
 
 def main():
