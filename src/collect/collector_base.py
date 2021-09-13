@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 class CollectorBase(ABC):
     PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    LATEST_TAG = 'latest_'
 
     def __init__(self, mongo_db: Database, cache, date=None, debug=False):
         """
@@ -19,6 +20,7 @@ class CollectorBase(ABC):
         """
         self.name = inflection.underscore(self.__class__.__name__)
         self.collection = mongo_db.get_collection(self.name)
+        self.latest_collection = mongo_db.get_collection(self.LATEST_TAG + self.name)
         self._raw_data = None
         self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
