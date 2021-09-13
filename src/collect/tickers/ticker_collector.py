@@ -125,8 +125,8 @@ class TickerCollector(CollectorBase, ABC):
         self.collection.insert_one(copy)
 
         # Updating latest_collection
-        self.latest_collection.remove({'ticker': self.ticker})
-        self.latest_collection.insert_one(copy)
+        self.collection_latest.delete_many({'ticker': self.ticker})
+        self.collection_latest.insert_one(copy)
 
     def __collect_sons(self, diffs):
         for son in self.get_sons():

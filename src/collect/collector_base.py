@@ -20,7 +20,7 @@ class CollectorBase(ABC):
         """
         self.name = inflection.underscore(self.__class__.__name__)
         self.collection = mongo_db.get_collection(self.name)
-        self.latest_collection = mongo_db.get_collection(self.LATEST_TAG + self.name)
+        self.collection_latest = mongo_db.get_collection(self.name + self.LATEST_TAG)
         self._raw_data = None
         self._mongo_db = mongo_db
         self._date = date if date else arrow.utcnow()
