@@ -1,5 +1,5 @@
 from src.collect.tickers.site_collector import SiteCollector
-from src.find.site import Site, InvalidTickerExcpetion
+from src.find.site import Site
 
 
 class Securities(SiteCollector):
@@ -14,4 +14,4 @@ class Securities(SiteCollector):
             data = super().fetch_data(data)
             return data['securities'][0]
         except KeyError:
-            raise InvalidTickerExcpetion("Can't get the securities sector from the profile")
+            raise ValueError("Can't get the securities sector from the profile")

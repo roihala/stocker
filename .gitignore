@@ -18,4 +18,3 @@ src/games
 pdfs/
 .gitignore
 tests.py
-credentials/td_state.json

@@ -50,9 +50,9 @@ class SiteCollector(TickerCollector, ABC):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
-                        ticker=self.ticker, url=url))
-                    raise InvalidTickerExcpetion(self.ticker)
+                    logger.error("Non existing ticker: {ticker}: {url} -> {response}".format(
+                        ticker=self.ticker, url=url, response=response))
+                    raise InvalidTickerExcpetion(self.ticker, response)
                 
             session = requests.Session()
             session.auth = get_proxy_auth(self._debug)
@@ -63,7 +63,8 @@ class SiteCollector(TickerCollector, ABC):
             if response.status_code == 404:
                 logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
                     ticker=self.ticker, url=url))
-                raise InvalidTickerExcpetion(self.ticker)
+
+                raise InvalidTickerExcpetion(self.ticker, response)
 
             if response.status_code == 429:
                 logger.warning("Can't collect {ticker}: {url} -> responsne code: {code}".format(
@@ -78,7 +79,7 @@ class SiteCollector(TickerCollector, ABC):
             if response.status_code != 200:
                 logger.warning("Can't collect {ticker}: {url} -> responsne code: {code}".format(
                     ticker=self.ticker, url=url, code=response.status_code))
-                raise InvalidTickerExcpetion(self.ticker, response.status_code)
+                raise InvalidTickerExcpetion(self.ticker, response)
 
             data = response.json()
 

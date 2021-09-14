@@ -21,5 +21,6 @@ spec:
                   value: "production"
                 - name: MONGO_URI
                   value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
-#                - name: DEBUG
-#                  value: "true"
+                - name: REDIS_IP
+                  value: "10.80.176.3"
+
