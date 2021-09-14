@@ -34,6 +34,7 @@ class RecordsCollector(FilingsCollector, ABC):
         new_records = self.extract_new_records(records)
 
         if new_records:
+            logger.info(f"Detected new records: {new_records}")
             [record.update({'date': self._date.format(), 'ticker': record.get('symbol'), 'record_id': record.get('id')})
              for record in new_records]
             self.collection.insert_many(new_records)
@@ -41,8 +42,8 @@ class RecordsCollector(FilingsCollector, ABC):
             self.__flush()
 
             # Uploading all pdfs to cloud and adding them as diffs
-            pdf_paths = [self.get_pdf(record.get('id')) for record in new_records[0:10]]
-            cloud_paths = [self.upload_filing(record.get('ticker'), pdf_path) for record, pdf_path in zip(new_records, pdf_paths)]
+            pdf_paths = [self.download_filing(record.get('id')) for record in new_records]
+            cloud_paths = [self.upload_filing(record.get('id'), pdf_path) for record, pdf_path in zip(new_records, pdf_paths)]
             diffs = [self.__generate_diff(record, cloud_path) for record, cloud_path in zip(records, cloud_paths)]
             return diffs
         else:

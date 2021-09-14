@@ -64,8 +64,8 @@ alerter_run_local:
 records: records_build_push records_delete_pod
 
 records_build_push:
-	docker build -t stocker -f dockerfiles/records.dockerfile .
-	docker tag stocker:latest eu.gcr.io/stocker-300519/records:latest
+	docker build -t records -f dockerfiles/records.dockerfile .
+	docker tag records:latest eu.gcr.io/stocker-300519/records:latest
 	docker push eu.gcr.io/stocker-300519/records:latest
 
 records_update_deployment: get_gcp_cluster
@@ -76,6 +76,23 @@ records_deploy: get_gcp_cluster
 
 records_delete_pod:
 	kubectl delete pods -l run=records-app || true
+
+
+records_guesser: records_guesser_build records_guesser_delete_pod
+
+records_guesser_build:
+	docker build -t records-guesser -f dockerfiles/records.dockerfile .
+	docker tag records-guesser:latest eu.gcr.io/stocker-300519/records-guesser:latest
+	docker push eu.gcr.io/stocker-300519/records-guesser:latest
+
+records_guesser_update_deployment: get_gcp_cluster
+	kubectl apply -f kubefiles/records_guesser_deployment.yaml
+
+records_guesser_deploy: get_gcp_cluster
+	kubectl patch deployment records-guesser-app -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}""
+
+records_guesser_delete_pod:
+	kubectl delete pods -l run=records-guesser-app || true
 
 
 rest: rest_build_push rest_delete_pod
