@@ -18,6 +18,8 @@ RE_MAIL = re.compile(r"([\w\.-]+@[\w\.-]+(?:\.[\w]+)+)")
 RE_WEB_URL = re.compile(r"((?:(?:[a-zA-z\-]+[0-9]*)\.[\w\-]+){2,})")
 RE_PHONE_NUMBER = re.compile(r"(\(?\d{3}\D{0,3}\d{3}\D{0,3}\d{4})")
 RE_ZIP_CODE = re.compile(r"(^\d{5}(?:[-\s]\d{4})?$)")
+RE_CUSIP = re.compile(r"([0-9]{3}[a-zA-Z0-9]{6})")
+
 
 RE_BRACKETS = re.compile(r"\[[^)]*\]")
 RE_PARENTHESES = re.compile(r"\([^)]*\)")
@@ -28,6 +30,8 @@ class FilingsPdfGuesser(object):
         self.mongo_db = mongo_db
         self.collection = self.mongo_db.get_collection('filings_pdf')
         self._mongo__profile = self.mongo_db.get_collection("profile")
+        self._mongo__securities = self.mongo_db.get_collection("securities")
+
         self.profile_mapping = profile_mapping
         self.symbols_and_names = [(ticker, self.clear_text(self.profile_mapping[ticker]["name"]))
                                   for ticker in self.profile_mapping]
@@ -41,6 +45,7 @@ class FilingsPdfGuesser(object):
         by_web_urls = self.__guess_by_website_urls(pages)
         by_phone_numbers = self.__guess_by_phone_numbers(pages)
         by_zip_codes = self.__guess_by_zip_codes(pages)
+        by_cusip = self.__guess_by_cusip(pages)
 
         # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
         # logger.info("SYMBOLS RESULT: " + str(by_symbols))
@@ -48,13 +53,17 @@ class FilingsPdfGuesser(object):
         # logger.info("WEB: " + str(by_web_urls))
         # logger.info("PHONES: " + str(by_phone_numbers))
         # logger.info("ZIP_CODES: " + str(by_zip_codes))
+        # logger.info("ZIP_CODES: " + str(by_cusip))
 
         all_symbols = set(
             by_comp_names +
             by_symbols +
             by_mail_addresses +
             by_web_urls +
-            by_phone_numbers) - SYMBOLS_BLACKLIST_SET
+            by_phone_numbers +
+            by_zip_codes +
+            by_cusip
+        ) - SYMBOLS_BLACKLIST_SET
 
         for symbol in all_symbols:
             symbols_scores[symbol] = 0
@@ -71,6 +80,8 @@ class FilingsPdfGuesser(object):
                 symbols_scores[symbol] += 1 if len(by_phone_numbers) > 1 else 2
             if symbol in by_zip_codes:
                 symbols_scores[symbol] += 1 if len(by_zip_codes) > 1 else 2
+            if symbol in by_cusip:
+                symbols_scores[symbol] += 1 if len(by_cusip) > 1 else 2
 
         # Return the symbol with the highest score.
         if symbols_scores:
@@ -184,6 +195,20 @@ class FilingsPdfGuesser(object):
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
                                                                                                           _zip + ".*"}})])
+
+        return list(set(symbols)) if symbols else []
+
+    def __guess_by_cusip(self, pages) -> List[str]:
+        cusips = []
+        symbols = []
+
+        for page in pages:
+            cusips.extend(RE_CUSIP.findall(page))
+
+        # logger.info("CUSIPs: " + str(cusips))
+        for cp in cusips:
+            # search securities for matching cusips
+            symbols.extend([sec["symbol"] for sec in self._mongo__securities.find({"cusip": cp})])
 
         return list(set(symbols)) if symbols else []
 

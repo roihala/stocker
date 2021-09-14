@@ -47,7 +47,8 @@ class GuessRecords(CommonRunnable):
 
         try:
             guesser = FilingsPdfGuesser(self._mongo_db, self.profile_mapping)
-            ticker = guesser.guess_ticker(self.get_pages_from_pdf(diff['cloud_path']))
+            # Cloud path is used on prod because it's faster
+            ticker = guesser.guess_ticker(self.get_pages_from_pdf(diff['url'] if self._debug else diff['cloud_path']))
 
             if ticker:
                 self.logger.info(f"Guessed {ticker} for {diff.get('record_id')}")
@@ -70,10 +71,10 @@ class GuessRecords(CommonRunnable):
 
     @staticmethod
     @retry(tries=5, delay=0.25)
-    def get_pages_from_pdf(cloud_path) -> List[str]:
+    def get_pages_from_pdf(filing_url) -> List[str]:
         pages = []
 
-        with fitz.open(stream=requests.get(cloud_path).content, filetype="pdf") as doc:
+        with fitz.open(stream=requests.get(filing_url).content, filetype="pdf") as doc:
             for page_number in range(0, doc.pageCount):
                 pages.append(" ".join(doc[page_number].getText().split()))
 
