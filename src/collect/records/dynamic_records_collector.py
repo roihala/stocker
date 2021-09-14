@@ -39,7 +39,7 @@ class DynamicRecordsCollector(FilingsCollector, ABC):
     @retry(tries=5, delay=0.25)
     def fetch_data(self) -> requests.models.Response:
         url = self.filing_base_url.format(id=self.record_id)
-        return proxy_get(url, self._debug)
+        return requests.get(url)
 
     def __generate_document(self, cloud_path):
         return \

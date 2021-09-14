@@ -97,16 +97,6 @@ class CollectRecords(CommonRunnable):
             self.logger.info(f"Detected filings: {diffs}")
             self._publish_diffs(diffs)
 
-    def __create_dynamic_job(self, record_id, index):
-        trigger = OrTrigger([IntervalTrigger(seconds=20), DateTrigger()])
-        self.scheduler.add_job(self.collect_dynamic_pdf,
-                               id=index,
-                               args=[record_id],
-                               trigger=trigger,
-                               max_instances=1,
-                               misfire_grace_time=120,
-                               jobstore='dynamic')
-
     def _publish_diffs(self, diffs):
         tickers = set([diff.get('ticker') for diff in diffs])
 
