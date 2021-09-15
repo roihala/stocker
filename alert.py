@@ -110,12 +110,14 @@ class Alert(CommonRunnable):
             # Alerting with current date to avoid difference between collect to alert
             text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
-            if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-                self._telegram_bots['stocker_alerts_bot'].send_message(chat_id=1151317792,
-                                                                       text=text,
-                                                                       parse_mode=telegram.ParseMode.MARKDOWN)
-                batch.ack()
-                return
+            alerters = [alerter for alerter in alerters if not isinstance(alerter, FilingsAlerter)]
+
+            # if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
+            #     self._telegram_bots['stocker_alerts_bot'].send_message(chat_id=1151317792,
+            #                                                            text=text,
+            #                                                            parse_mode=telegram.ParseMode.MARKDOWN)
+            #     batch.ack()
+            #     return
 
             vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
 
