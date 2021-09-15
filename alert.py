@@ -111,9 +111,9 @@ class Alert(CommonRunnable):
             text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
             if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-                self._telegram_bots[STOCKER_ALERTS_BOT].send_message(chat_id=1151317792,
-                                                                     text=text,
-                                                                     parse_mode=telegram.ParseMode.MARKDOWN)
+                self._telegram_bots['stocker_banana_bot'].send_message(chat_id=1151317792,
+                                                                       text=text,
+                                                                       parse_mode=telegram.ParseMode.MARKDOWN)
                 batch.ack()
                 return
 
