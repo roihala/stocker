@@ -14,6 +14,7 @@ import telegram
 from bson import ObjectId
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import exceptions, executor
+from retry import retry
 
 from common_runnable import CommonRunnable
 from src.alerters_factory import AlertersFactory
@@ -113,8 +114,6 @@ class Alert(CommonRunnable):
             # Alerting with current date to avoid difference between collect to alert
             text = self.build_text(alert_body, ticker, self._mongo_db, date=arrow.utcnow(), price=price)
 
-            alerters = [alerter for alerter in alerters if not isinstance(alerter, FilingsAlerter)]
-
             if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
                 try:
                     self.init_telegram('1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk'). \
@@ -135,15 +134,19 @@ class Alert(CommonRunnable):
             users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
                     [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
+            self.trigger_send(text, users)
 
             batch.ack()
         except Exception as e:
             self.logger.warning("Couldn't alert diffs: {diffs}".format(diffs=diffs))
             self.logger.exception(e)
             batch.nack()
+
+    @retry(tries=5, delay=1)
+    def trigger_send(self, text, users):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
 
     @staticmethod
     def get_alerters(diffs, alerter_args) -> list:
