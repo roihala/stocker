@@ -241,6 +241,9 @@ class Alert(CommonRunnable):
                                 f"Flood limit is exceeded. Sleep {e.timeout} seconds.")
             await asyncio.sleep(e.timeout)
             return await self.__send_msg(user, text)  # Recursive call
+        except telegram.error.Unauthorized:
+            self._mongo_db.telegram_users.update_one({'chat_id': user.get('chat_id')},
+                                                     {'activation': {'$set': ActivationCodes.BLOCKED}})
         except Exception as e:
             self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}")
             self.logger.exception(e)

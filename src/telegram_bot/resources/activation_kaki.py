@@ -11,3 +11,5 @@ class ActivationCodes(object):
     CANCEL = 'cancel'
     # User has deregistered through the bot
     DEREGISTER = 'deregister'
+    # User has blocked the bot
+    BLOCKED = 'blocked'
