@@ -112,12 +112,19 @@ class Alert(CommonRunnable):
 
             alerters = [alerter for alerter in alerters if not isinstance(alerter, FilingsAlerter)]
 
-            # if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-            #     self._telegram_bots['stocker_alerts_bot'].send_message(chat_id=1151317792,
-            #                                                            text=text,
-            #                                                            parse_mode=telegram.ParseMode.MARKDOWN)
-            #     batch.ack()
-            #     return
+            if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
+
+                try:
+                    self.init_telegram('1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk'). \
+                        send_message(chat_id=1151317792,
+                                     text=text,
+                                     parse_mode=telegram.ParseMode.MARKDOWN)
+                except Exception as e:
+                    self.logger.warning("Couldn't alert filings")
+                    self.logger.exception(e)
+                finally:
+                    batch.ack()
+                    return
 
             vips = [1151317792, 564105605, 331478596, 887214621, 975984160, 406000980, 262828800]
 
