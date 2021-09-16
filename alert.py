@@ -56,7 +56,7 @@ class Alert(CommonRunnable):
         self._aiogram_bot = None
         self._aiogram_bot_dp = None
 
-        self.init_aiogram()
+        await self.init_aiogram()
 
     def run(self):
         streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
