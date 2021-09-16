@@ -113,7 +113,6 @@ class Alert(CommonRunnable):
             alerters = [alerter for alerter in alerters if not isinstance(alerter, FilingsAlerter)]
 
             if any([isinstance(alerter, FilingsAlerter) for alerter in alerters]):
-
                 try:
                     self.init_telegram('1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk'). \
                         send_message(chat_id=1151317792,
@@ -243,10 +242,8 @@ class Alert(CommonRunnable):
         except Exception as e:
             self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}")
             self.logger.exception(e)
-        else:
+        finally:
             return True
-
-        return False
 
     @classmethod
     def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None, is_alert=True):
