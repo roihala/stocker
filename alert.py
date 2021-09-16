@@ -52,8 +52,11 @@ class Alert(CommonRunnable):
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
-        self._aiogram_bot = Bot(token=self._telegram_token)
-        self._aiogram_bot_dp = Dispatcher(self._aiogram_bot)
+
+        self._aiogram_bot = None
+        self._aiogram_bot_dp = None
+
+        self.init_aiogram()
 
     def run(self):
         streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
@@ -131,9 +134,6 @@ class Alert(CommonRunnable):
 
             users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
                     [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
 
             executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
 
@@ -244,6 +244,14 @@ class Alert(CommonRunnable):
             self.logger.exception(e)
         finally:
             return True
+
+    async def init_aiogram(self):
+        self._aiogram_bot = Bot(token=self._telegram_token)
+        self._aiogram_bot_dp = Dispatcher(self._aiogram_bot)
+
+        loop = asyncio.new_event_loop()
+
+        asyncio.set_event_loop(loop)
 
     @classmethod
     def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None, is_alert=True):
