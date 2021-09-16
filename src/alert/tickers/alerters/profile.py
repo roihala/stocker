@@ -63,7 +63,10 @@ class Profile(TickerAlerter):
         old, new = diff.get('old'), diff.get('new')
 
         if diff.get('changed_key') == "businessDesc":
-            return self.__compare_description(old, new)
+            try:
+                return self.__compare_description(old, new)
+            except Exception:
+                return False
         elif diff.get('changed_key') == "phone":
             return self.__parse_phone(old) != self.__parse_phone(new)
         else:
