@@ -150,7 +150,7 @@ class Alert(CommonRunnable):
         # executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
         try:
             for user in [_ for _ in users if _]:
-                await self.__send_msg(user, text)
+                self.__send_msg(user, text)
                 time.sleep(.0333333)
         except Exception as e:
             self.logger.warning("Couldn't __send_msg")
@@ -233,7 +233,7 @@ class Alert(CommonRunnable):
             self.logger.warning("Couldn't send_no_delay")
             self.logger.exception(e)
 
-    async def __send_msg(self, user, text):
+    def __send_msg(self, user, text):
         try:
             self._telegram_bots[
                 user.get("bot", STOCKER_ALERTS_BOT) if not self._debug else 'stocker_tests_bot'].send_message(
@@ -244,14 +244,14 @@ class Alert(CommonRunnable):
         except telegram.error.TimedOut as e:
             self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}: "
                                 f"Timed out")
-            await asyncio.sleep(10)
-            return await self.__send_msg(user, text)  # Recursive call
+            time.sleep(10)
+            return self.__send_msg(user, text)  # Recursive call
 
         except exceptions.RetryAfter as e:
             self.logger.warning(f"Couldn't send msg to {user.get('user_name')} of {user.get('chat_id')}: "
                                 f"Flood limit is exceeded. Sleep {e.timeout} seconds.")
-            await asyncio.sleep(e.timeout)
-            return await self.__send_msg(user, text)  # Recursive call
+            time.sleep(e.timeout)
+            return self.__send_msg(user, text)  # Recursive call
         except telegram.error.Unauthorized:
             self._mongo_db.telegram_users.update_one({'chat_id': user.get('chat_id')},
                                                      {'activation': {'$set': ActivationCodes.BLOCKED}})
