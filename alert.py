@@ -5,6 +5,7 @@ from typing import List
 import arrow
 import json
 import logging
+import time
 import os
 import random
 from copy import deepcopy
@@ -144,9 +145,16 @@ class Alert(CommonRunnable):
 
     @retry(tries=5, delay=1)
     def trigger_send(self, text, users):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        # executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
+        try:
+            for user in [_ for _ in users if _]:
+                self.__send_msg(user, text)
+                time.sleep(.0333333)
+        except Exception as e:
+            self.logger.warning("Couldn't __send_msg")
+            self.logger.exception(e)
 
     @staticmethod
     def get_alerters(diffs, alerter_args) -> list:
