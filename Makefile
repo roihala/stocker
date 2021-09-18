@@ -58,11 +58,10 @@ alerter_delete_pod:
 	kubectl delete pods -l run=alerter-app || true
 
 alerter_run_local:
-	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" alerter
+	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" -e REDIS_IP="10.80.176.3" alerter
 
 
 records: records_build_push records_delete_pod
-
 records_build_push:
 	docker build -t records -f dockerfiles/records.dockerfile .
 	docker tag records:latest eu.gcr.io/stocker-300519/records:latest

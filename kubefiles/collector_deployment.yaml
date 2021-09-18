@@ -17,9 +17,9 @@ spec:
           image: eu.gcr.io/stocker-300519/collector:latest
           resources:
             requests:
-              memory: "110Mi"
-            limits:
               memory: "120Mi"
+            limits:
+              memory: "140Mi"
           env:
             - name: ENV
               value: "production"

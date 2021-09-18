@@ -15,11 +15,12 @@ spec:
       containers:
         - name: alerter-app
           image: eu.gcr.io/stocker-300519/alerter:latest
+          imagePullPolicy: Always
           resources:
             requests:
-              memory: "150Mi"
+              memory: "200Mi"
             limits:
-              memory: "170Mi"
+              memory: "300Mi"
           env:
             - name: ENV
               value: "production"
@@ -27,3 +28,5 @@ spec:
               value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
+            - name: REDIS_IP
+              value: "10.80.176.3"
