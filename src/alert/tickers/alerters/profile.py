@@ -67,7 +67,7 @@ class Profile(TickerAlerter):
                 return self.__compare_description(old, new)
             except Exception:
                 return False
-        elif diff.get('changed_key') == "phone":
+        elif diff.get('changed_key') == "phone" and diff.get('diff_type') == 'change':
             return self.__parse_phone(old) != self.__parse_phone(new)
         else:
             return super()._is_valid_diff(diff)
@@ -95,10 +95,12 @@ class Profile(TickerAlerter):
         diff = super().edit_diff(diff)
 
         if diff.get('changed_key') == 'phone':
-            diff['old'] = phonenumbers.format_number(self.__parse_phone(diff['old']),
-                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
-            diff['new'] = phonenumbers.format_number(self.__parse_phone(diff['new']),
-                                                     phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+            diff['old'] = phonenumbers.format_number(
+                self.__parse_phone(diff['old']), phonenumbers.PhoneNumberFormat.INTERNATIONAL) \
+                if diff['old'] else diff['old']
+            diff['new'] = phonenumbers.format_number(
+                self.__parse_phone(diff['new']), phonenumbers.PhoneNumberFormat.INTERNATIONAL) \
+                if diff['new'] else diff['new']
 
         if diff.get('changed_key') in self.EXTRA_DATA:
             diff['new'] = self.__get_extra_data(diff)
