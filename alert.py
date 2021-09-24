@@ -1,20 +1,14 @@
-import asyncio
-import itertools
-from typing import List
-
 import arrow
 import json
 import logging
 import time
 import os
 import random
-from copy import deepcopy
 import pandas
 import telegram
 
 from bson import ObjectId
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import exceptions, executor
+from aiogram.utils import exceptions
 from retry import retry
 
 from common_runnable import CommonRunnable
@@ -54,11 +48,6 @@ class Alert(CommonRunnable):
 
         self._subscription_name = self.PUBSUB_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
-
-        self._aiogram_bot = None
-        self._aiogram_bot_dp = None
-
-        asyncio.run(self.init_aiogram())
 
     def run(self):
         streaming_pull_future = self._subscriber.subscribe(self._subscription_name, self.alert_batch)
@@ -143,15 +132,10 @@ class Alert(CommonRunnable):
             self.logger.exception(e)
             batch.nack()
 
-    @retry(tries=5, delay=1)
     def trigger_send(self, text, users):
-        # loop = asyncio.new_event_loop()
-        # asyncio.set_event_loop(loop)
-        # executor.start(self._aiogram_bot_dp, self.__send_no_delay(text, users))
         try:
             for user in [_ for _ in users if _]:
                 self.__send_msg(user, text)
-                time.sleep(.0333333)
         except Exception as e:
             self.logger.warning("Couldn't __send_msg")
             self.logger.exception(e)
@@ -224,15 +208,7 @@ class Alert(CommonRunnable):
 
         return telegram_bots
 
-    async def __send_no_delay(self, text, users):
-        try:
-            for user in [_ for _ in users if _]:
-                await self.__send_msg(user, text)
-                await asyncio.sleep(.0333333)
-        except Exception as e:
-            self.logger.warning("Couldn't send_no_delay")
-            self.logger.exception(e)
-
+    @retry(tries=3)
     def __send_msg(self, user, text):
         try:
             self._telegram_bots[
@@ -260,10 +236,6 @@ class Alert(CommonRunnable):
             self.logger.exception(e)
         finally:
             return True
-
-    async def init_aiogram(self):
-        self._aiogram_bot = Bot(token=self._telegram_token)
-        self._aiogram_bot_dp = Dispatcher(self._aiogram_bot)
 
     @classmethod
     def build_text(cls, alert_body, ticker, mongo_db, date=None, price=None, is_alert=True):
