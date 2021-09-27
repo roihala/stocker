@@ -13,6 +13,7 @@ from numpy import nan
 from alert import Alert
 from common_runnable import CommonRunnable
 from src.alerters_factory import AlertersFactory
+from src.collect.collector_base import CollectorBase
 from src.collector_factory import CollectorsFactory
 from src.find.site import Site
 from src.read import readers
@@ -310,42 +311,18 @@ class Client(CommonRunnable):
         self._mongo_db.diffs.delete_many({'_id': {'$in': alerted_df[alerted_df['alerted'] == False]['_id'].to_list()}})
 
     @staticmethod
-    def get_latest_data(collection, as_df=False):
-        # This function returns a dictionary containing the latest info for every ticker in the colleciton
-        df = pandas.DataFrame(collection.aggregate([
-            {
-                '$addFields': {
-                    'dateObject': {
-                        '$dateFromString': {
-                            'dateString': '$date'
-                        }
-                    }
-                }
-            }, {
-                '$sort': {
-                    'dateObject': -1
-                }
-            }, {
-                '$group': {
-                    '_id': '$id',
-                    'ticker': {
-                        '$first': '$ticker'
-                    },
-                    f'{collection.name}': {
-                        '$first': '$$ROOT'
-                    }
-                }
-            }
-        ], allowDiskUse=True))
+    def get_latest_data(collection: pymongo.collection.Collection, as_df=False):
+        """
+        This function exists for backwards compatibility
+        """
+        # Getting latest_collection
+        latest_collection = collection.database.get_collection(collection.name + CollectorBase.LATEST_TAG)
+        df = pandas.DataFrame(latest_collection.find()).set_index(['ticker'])
 
-        try:
-            if as_df:
-                return pandas.json_normalize(df[collection.name])
-        except Exception as e:
-            logging.warning(f"Couldn't convert {collection} to df")
-            logging.exception(e)
-
-        return pandas.Series(df[collection.name].values, index=df.ticker).to_dict()
+        if as_df:
+            return df
+        else:
+            return df.to_dict('index')
 
 
 def main():

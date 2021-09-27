@@ -124,6 +124,10 @@ class TickerCollector(CollectorBase, ABC):
             logger.info('{collection}.insert_one: {entry}'.format(collection=self.name, entry=copy))
         self.collection.insert_one(copy)
 
+        # Updating latest_collection
+        self.collection_latest.delete_many({'ticker': self.ticker})
+        self.collection_latest.insert_one(copy)
+
     def __collect_sons(self, diffs):
         for son in self.get_sons():
             try:
