@@ -45,17 +45,15 @@ class FilingsAlerter(AlerterBase, ABC):
             tier = hierarchy[0]
 
         # If lower than pink current or (last filing was more than 3 months)
-        # if hierarchy.index(tier) < hierarchy.index('PC') or \
-        #         (not self._prev_date or (arrow.utcnow() - arrow.get(self._prev_date)).days > 90):
-        if True:
+        if hierarchy.index(tier) < hierarchy.index('PC') or \
+                (not self._prev_date or (arrow.utcnow() - arrow.get(self._prev_date)).days > 90):
             # Filtering existing filings (shared across filings and filings_pdf)
             return [diff for diff in diffs if not self.__is_existing_record_id(diff.get('record_id'))]
         else:
             return []
 
     def __is_existing_record_id(self, record_id):
-        return any([True for collection in list(RecordsFactory.COLLECTIONS.keys()) + ['diffs'] if
-                    self._mongo_db.get_collection(collection).find_one({'record_id': record_id})])
+        return bool(self._mongo_db.diffs.find_one({'record_id': record_id}))
 
     def generate_msg(self, diff):
         return '{green_circle_emoji} {cloud_path}'.format(green_circle_emoji=self.GREEN_CIRCLE_EMOJI_UNICODE,

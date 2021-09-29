@@ -174,7 +174,7 @@ class Alert(CommonRunnable):
 
             tier_code = sec.get('tierCode')
             tier_hierarchy = Securities.get_hierarchy()['tierCode']
-            is_relevant_tier = tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
+            is_relevant_tier = tier_hierarchy.index('EM') < tier_hierarchy.index(tier_code) < tier_hierarchy.index('QB')
 
         except (ValueError, AttributeError):
             is_relevant_tier = True if is_relevant_tier is None else is_relevant_tier
