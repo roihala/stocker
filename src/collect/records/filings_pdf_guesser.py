@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from typing import List
+from collections import Counter
 
 # TODO: logger name
 logger = logging.getLogger('')
@@ -11,7 +12,8 @@ COMP_ABBREVIATIONS = {"inc": "incorporated", "ltd": "limited", "corp": "corporat
                       "incorporated": "inc", "limited": "ltd", "corporation":"corp"}
 
 # ["technologies", "solutions", "resources"]
-SYMBOLS_BLACKLIST_SET = {"OTCM", "FINRA"}
+SYMBOLS_BLACKLIST_SET = {"OTCM", "OTC", "FINRA"}
+POPULAR_EMAIL_DOMAINS = ["gmail", "hotmail", "yahoo", "aol", "msn", "orange", "wanadoo", "live", "ymail", "outlook"]
 
 RE_SYMBOL = re.compile(fr"(\b[A-Z]{{3,5}}\b)")
 RE_MAIL = re.compile(r"([\w\.-]+@[\w\.-]+(?:\.[\w]+)+)")
@@ -35,59 +37,47 @@ class FilingsPdfGuesser(object):
         self.profile_mapping = profile_mapping
         self.symbols_and_names = [(ticker, self.clear_text(self.profile_mapping[ticker]["name"]))
                                   for ticker in self.profile_mapping]
+        self.symbols = [ticker for ticker in self.profile_mapping]
 
     def guess_ticker(self, pages) -> str:
-        symbols_scores = {}
+        parser_results = [
+            self.__guess_by_company_name(pages),
+            self.__extract_symbols_from_pdf(pages),
+            self.__guess_by_mail_addresses(pages),
+            self.__guess_by_website_urls(pages),
+            self.__guess_by_phone_numbers(pages),
+            self.__guess_by_zip_codes(pages),
+            self.__guess_by_cusip(pages)
+        ]
 
-        by_comp_names = self.__guess_by_company_name(pages)
-        by_symbols = self.__extract_symbols_from_pdf(pages)
-        by_mail_addresses = self.__guess_by_mail_addresses(pages)
-        by_web_urls = self.__guess_by_website_urls(pages)
-        by_phone_numbers = self.__guess_by_phone_numbers(pages)
-        by_zip_codes = self.__guess_by_zip_codes(pages)
-        by_cusip = self.__guess_by_cusip(pages)
+        for method_results in parser_results:
+            print(method_results)
 
-        # logger.info("COMP_NAMES RESULTS: " + str(by_comp_names))
-        # logger.info("SYMBOLS RESULT: " + str(by_symbols))
-        # logger.info("MAIL_ADDRESSES RESULTS: " + str(by_mail_addresses))
-        # logger.info("WEB: " + str(by_web_urls))
-        # logger.info("PHONES: " + str(by_phone_numbers))
-        # logger.info("ZIP_CODES: " + str(by_zip_codes))
-        # logger.info("ZIP_CODES: " + str(by_cusip))
+        # Merge all counters
+        tickers_score = sum(parser_results, Counter())
 
-        all_symbols = set(
-            by_comp_names +
-            by_symbols +
-            by_mail_addresses +
-            by_web_urls +
-            by_phone_numbers +
-            by_zip_codes +
-            by_cusip
-        ) - SYMBOLS_BLACKLIST_SET
+        # Remove blacklisted tickers such as OTCM
+        for x in SYMBOLS_BLACKLIST_SET:
+            del tickers_score[x]
 
-        for symbol in all_symbols:
-            symbols_scores[symbol] = 0
+        # Calculate score
+        for ticker in tickers_score:
+            multiplier = 0
 
-            if symbol in by_comp_names:
-                symbols_scores[symbol] += 2
-            if symbol in by_symbols:
-                symbols_scores[symbol] += 1 if len(by_symbols) > 1 else 2
-            if symbol in by_mail_addresses:
-                symbols_scores[symbol] += 1 if len(by_mail_addresses) > 1 else 2
-            if symbol in by_web_urls:
-                symbols_scores[symbol] += 1 if len(by_web_urls) > 1 else 2
-            if symbol in by_phone_numbers:
-                symbols_scores[symbol] += 1 if len(by_phone_numbers) > 1 else 2
-            if symbol in by_zip_codes:
-                symbols_scores[symbol] += 1 if len(by_zip_codes) > 1 else 2
-            if symbol in by_cusip:
-                symbols_scores[symbol] += 1 if len(by_cusip) > 1 else 2
+            for method_results in parser_results:
+                if ticker in method_results:
+                    multiplier += 1
 
-        # Return the symbol with the highest score.
-        if symbols_scores:
-            symbol = max(symbols_scores, key=symbols_scores.get)
-            return symbol if symbols_scores[symbol] > 4 else ""
-        else:
+            tickers_score[ticker] = tickers_score[ticker] * multiplier
+
+        print(tickers_score)
+        try:
+            highest_score_ticker = tickers_score.most_common(1)[0][0]
+            if tickers_score[highest_score_ticker] > 15:
+                return highest_score_ticker
+            else:
+                return ""
+        except:
             return ""
 
     def __get_symbol_from_map(self, comp_name: str) -> str:
@@ -101,7 +91,7 @@ class FilingsPdfGuesser(object):
 
         return ""
 
-    def __guess_by_company_name(self, pages) -> List[str]:
+    def __guess_by_company_name(self, pages) -> Counter:
         optional_symbols = []
 
         for page in pages:
@@ -111,8 +101,6 @@ class FilingsPdfGuesser(object):
 
             if not companies:
                 continue
-
-            # logger.info("COMPANY_NAMES: " + str(companies))
 
             # split to words & remove commas & dots
             companies_opt = [comp.split() for comp in companies]
@@ -135,82 +123,82 @@ class FilingsPdfGuesser(object):
                     if symbol:
                         optional_symbols.append(symbol)
 
-        return list(set(optional_symbols)) if optional_symbols else []
+        return Counter(optional_symbols)
 
-    def __guess_by_mail_addresses(self, pages) -> List[str]:
+    def __guess_by_mail_addresses(self, pages) -> Counter:
         mail_addresses = []
         symbols = []
 
         for page in pages:
             mail_addresses.extend(RE_MAIL.findall(page))
 
-        # logger.info("MAILS: " + str(mail_addresses))
         for address in mail_addresses:
-            domain = address.split('@')[1]
+            domain = address.split('@')[1].split('.')[0]
 
-            # search mongo for email address
-            symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": {"$regex": ".*" +
-                                                                                                            domain}})])
+            if domain not in POPULAR_EMAIL_DOMAINS:
+                # search mongo for email address
+                symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": {"$regex": ".*" +
+                                                                                                                domain +
+                                                                                                                ".*"}
+                                                                                            })])
+            else:
+                symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"email": address})])
 
-        return list(set(symbols)) if symbols else []
+        return Counter(symbols)
 
-    def __guess_by_website_urls(self, pages) -> List[str]:
+    def __guess_by_website_urls(self, pages) -> Counter:
         web_urls = []
         symbols = []
 
         for page in pages:
             web_urls.extend(RE_WEB_URL.findall(page))
 
-        # logger.info("WEBSITES: " + str(web_urls))
         for url in web_urls:
             # search mongo for web URLs --> contains
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"website": {"$regex": ".*" +
                                                                                                               url + ".*"}})])
 
-        return list(set(symbols)) if symbols else []
+        return Counter(symbols)
 
-    def __guess_by_phone_numbers(self, pages) -> List[str]:
+    def __guess_by_phone_numbers(self, pages) -> Counter:
         phone_numbers = []
         symbols = []
 
         for page in pages:
             phone_numbers.extend(RE_PHONE_NUMBER.findall(page))
 
-        # logger.info("PHONE NUMBERS: " + str(phone_numbers))
         for phone_num in phone_numbers:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"phone": phone_num})])
 
-        return list(set(symbols)) if symbols else []
+        return Counter(symbols)
 
-    def __guess_by_zip_codes(self, pages) -> List[str]:
+    def __guess_by_zip_codes(self, pages) -> Counter:
         zip_codes = []
         symbols = []
 
         for page in pages:
             zip_codes.extend(RE_ZIP_CODE.findall(page))
 
-        # logger.info("ZIP CODES: " + str(zip_codes))
         for _zip in zip_codes:
             # search mongo for email address
             symbols.extend([profile["ticker"] for profile in self._mongo__profile.find({"zip": {"$regex": ".*" +
                                                                                                           _zip + ".*"}})])
 
-        return list(set(symbols)) if symbols else []
+        return Counter(symbols)
 
-    def __guess_by_cusip(self, pages) -> List[str]:
+    def __guess_by_cusip(self, pages) -> Counter:
         cusips = []
         symbols = []
 
         for page in pages:
             cusips.extend(RE_CUSIP.findall(page))
 
-        # logger.info("CUSIPs: " + str(cusips))
         for cp in cusips:
             # search securities for matching cusips
             symbols.extend([sec["symbol"] for sec in self._mongo__securities.find({"cusip": cp})])
 
-        return list(set(symbols)) if symbols else []
+        return Counter(symbols)
 
     @staticmethod
     def __extract_company_names_from_pdf(text) -> List[str]:
@@ -232,14 +220,18 @@ class FilingsPdfGuesser(object):
 
         return None if not companies else companies
 
-    @staticmethod
-    def __extract_symbols_from_pdf(pages) -> List[str]:
+    def __extract_symbols_from_pdf(self, pages) -> Counter:
+        symbols = []
         matches = []
 
         for page in pages:
             matches.extend(RE_SYMBOL.findall(page))
 
-        return list(set(matches)) if matches else []
+        for symbol in matches:
+            if symbol in self.symbols:
+                symbols.append(symbol)
+
+        return Counter(symbols)
 
     @staticmethod
     def clear_text(_str: str) -> str:
