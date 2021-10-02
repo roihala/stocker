@@ -4,13 +4,17 @@ import pandas as pd
 import requests
 import json
 
+from PIL import Image
+
 
 def main():
 
     # ### Configuration
+
+    im = Image.open("images/favicon.ico")
     st.set_page_config(
         page_title="Stocker Alerts - Toolkit",
-        page_icon="🧊",
+        page_icon=im,
         layout="wide",
         initial_sidebar_state="expanded")
 
@@ -36,11 +40,6 @@ def main():
         """
         # Stocker Alerts - Toolkit
         **[StockerAlerts](https://www.stocker.watch/)**
-        
-        `
-        The Stocker Alerts toolkit offers a lot of functions to track and see your favorite companies.
-        `
-        
         """
     )
     c2.header('')
