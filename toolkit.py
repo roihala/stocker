@@ -1,3 +1,5 @@
+import os
+
 import plotly.express as px
 import streamlit as st
 import pandas as pd
@@ -10,8 +12,9 @@ from PIL import Image
 def main():
 
     # ### Configuration
+    image_location = os.path.join(os.path.dirname(__file__), os.path.join('images', 'favicon.ico'))
+    im = Image.open(image_location)
 
-    im = Image.open("images/favicon.ico")
     st.set_page_config(
         page_title="Stocker Alerts - Toolkit",
         page_icon=im,

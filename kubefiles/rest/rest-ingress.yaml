@@ -19,3 +19,7 @@ spec:
             backend:
               serviceName: rest-service
               servicePort: 80
+          - path: /graph
+            backend:
+              serviceName: toolkit-service
+              servicePort: 80

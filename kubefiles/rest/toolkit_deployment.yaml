@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toolkit-app
+spec:
+  selector:
+    matchLabels:
+      run: toolkit-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: toolkit-app
+    spec:
+      containers:
+        - name: toolkit-app
+          image: eu.gcr.io/stocker-300519/toolkit:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: toolkit-service
+  labels:
+    run: toolkit-app
+spec:
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 8000
+  selector:
+    run: toolkit-app
+  type: LoadBalancer
