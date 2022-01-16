@@ -77,7 +77,7 @@ class Collect(CommonRunnable):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
-        all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.COLLECTIONS.keys(), [])
+        all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.COLLECTIONS.values(), [])
         all_diffs = []
 
         for collection_name in CollectorsFactory.COLLECTIONS.keys():
