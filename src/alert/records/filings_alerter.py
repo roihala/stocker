@@ -84,7 +84,7 @@ class FilingsAlerter(AlerterBase, ABC):
 
         # Records should be sorted in data source (self.site)
         url = self.site.get_ticker_url(self._ticker)
-        response = proxy_get(url, self._debug, headers=REQUIRED_HEADERS)
+        response = requests.get(url, headers=REQUIRED_HEADERS)
 
         records = response.json().get('records')
         try:

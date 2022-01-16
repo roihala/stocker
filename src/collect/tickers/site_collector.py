@@ -54,11 +54,13 @@ class SiteCollector(TickerCollector, ABC):
                         ticker=self.ticker, url=url))
                     raise InvalidTickerExcpetion(self.ticker)
                 
-            session = requests.Session()
-            session.auth = get_proxy_auth(self._debug)
+            # session = requests.Session()
+            # session.auth = get_proxy_auth(self._debug)
+            #
+            # session.proxies = {"http": PROXY, "https": PROXY}
+            # response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
 
-            session.proxies = {"http": PROXY, "https": PROXY}
-            response = session.get(url, timeout=5, headers=REQUIRED_HEADERS)
+            response = requests.get(url, headers=REQUIRED_HEADERS)
 
             if response.status_code == 404:
                 logger.error("Non existing ticker: {ticker}: {url} -> 404 error code".format(
