@@ -54,8 +54,8 @@ class RecordsCollector(FilingsCollector, ABC):
         response = requests.get(self.records_url, headers=REQUIRED_HEADERS)
 
         # Trying with proxy
-        if response.status_code == 429:
-            response = requests.get(self.records_url, proxies=Runnable.proxy, headers=REQUIRED_HEADERS)
+        # if response.status_code == 429:
+        #     response = requests.get(self.records_url, proxies=Runnable.proxy, headers=REQUIRED_HEADERS)
 
         if response.status_code != 200:
             logger.warning("Couldn't collect record at {url}, bad status code: {code}".format(

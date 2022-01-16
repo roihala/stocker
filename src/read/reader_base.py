@@ -193,8 +193,8 @@ class ReaderBase(ABC):
 
         try:
             # Trying with proxy
-            if response.status_code == 429:
-                response = requests.get(url, proxies=Runnable.proxy)
+            # if response.status_code == 429:
+            #     response = requests.get(url, proxies=Runnable.proxy)
 
             if response.json().get('lastSale'):
                 return float(response.json().get('lastSale'))
