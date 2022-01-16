@@ -68,6 +68,7 @@ class Collect(CommonRunnable):
                               trigger=trigger,
                               max_instances=1,
                               misfire_grace_time=120)
+        scheduler.start()
 
     def queue_listen(self, msg: bytes, ack_id):
         self.executor.submit(self.ticker_collect, msg, ack_id)
