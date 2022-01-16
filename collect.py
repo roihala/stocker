@@ -7,6 +7,11 @@ from functools import reduce
 
 import arrow
 import pymongo
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.combining import OrTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from bson import json_util
 from google.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1 import PublisherClient
@@ -49,41 +54,36 @@ class Collect(CommonRunnable):
         return parser
 
     def run(self):
-        if self.__is_static_tickers:
-            for ticker in self.extract_tickers(csv=self.args.csv):
-                ticker_info = {'ticker': ticker, 'collections': list(CollectorsFactory.COLLECTIONS.keys())}
-                self.ticker_collect(json.dumps(ticker_info).encode('utf-8'))
-            return
-        response = self._subscriber.pull(
-            request={"subscription": self._subscription_name, "max_messages": self.MAX_MESSAGES})
 
-        for msg in response.received_messages:
-            self.queue_listen(msg.message.data, msg.ack_id)
+        scheduler = BlockingScheduler(executors={
+            'default': ThreadPoolExecutor(10000)
+        })
 
-        self.executor.shutdown(wait=True)
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_MESSAGES)
+        self.disable_apscheduler_logs()
 
-        self.run()
+        trigger = OrTrigger([IntervalTrigger(minutes=10, jitter=300), DateTrigger()])
+        for ticker in self._tickers_list:
+            scheduler.add_job(self.ticker_collect,
+                              args=[ticker],
+                              trigger=trigger,
+                              max_instances=1,
+                              misfire_grace_time=120)
 
     def queue_listen(self, msg: bytes, ack_id):
         self.executor.submit(self.ticker_collect, msg, ack_id)
 
-    def ticker_collect(self, msg: bytes, ack_id=None):
-        if not ack_id and not self.__is_static_tickers:
-            raise ValueError("ticker_collect: ack_id is optional only for static_tickers debug mode")
-
-        # ticker = msg.data.decode('utf-8')
-        collect_info = json.loads(msg.decode('utf-8'))
-        ticker = collect_info['ticker']
-        collections = collect_info.get('collections', CollectorsFactory.COLLECTIONS.keys())
-
+    def ticker_collect(self, ticker):
         # Using date as a key for matching entries between collections
         date = arrow.utcnow()
 
+        all_sons = reduce(lambda x, y: x + y.get_sons(), CollectorsFactory.COLLECTIONS.keys(), [])
         all_diffs = []
 
-        for collection_name in collections:
+        for collection_name in CollectorsFactory.COLLECTIONS.keys():
             try:
+                if collection_name in all_sons:
+                    continue
+
                 collector_args = {'mongo_db': self._mongo_db, 'cache': self.cache, 'date': date, 'debug': self._debug,
                                   'ticker': ticker}
                 collector = CollectorsFactory.factory(collection_name, **collector_args)
@@ -102,17 +102,6 @@ class Collect(CommonRunnable):
         if all_diffs:
             data = json.dumps(all_diffs, default=json_util.default).encode('utf-8')
             self.publisher.publish(self.topic_name, data)
-
-        # static_tickers debug mode ends here
-        if self.__is_static_tickers:
-            return
-
-        self._subscriber.acknowledge(
-            request={
-                "subscription": self._subscription_name,
-                "ack_ids": [ack_id],
-            }
-        )
 
 
 def main():
