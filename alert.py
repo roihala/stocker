@@ -36,8 +36,8 @@ class Alert(CommonRunnable):
     TROPHY_EMOJI_UNICODE = u'\U0001F3C6'
     BANG_EMOJI_UNICODE = u'\U0001F4A5'
 
-    PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/diff-updates-sub'
-    PUBSUB_RELEVANT_TOPIC_NAME = 'projects/stocker-300519/topics/diffs-relevant'
+    PUBSUB_SUBSCRIPTION_NAME = 'projects/stocker-439910/subscriptions/diff-updates-sub'
+    PUBSUB_RELEVANT_TOPIC_NAME = 'projects/stocker-439910/topics/diffs-relevant'
 
     def __init__(self):
         super().__init__()
@@ -91,13 +91,13 @@ class Alert(CommonRunnable):
             processed_diffs = [diff for alerter in alerters for diff in alerter.processed_diffs]
             self._mongo_db.diffs.insert_many(processed_diffs)
 
-            try:
-                data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
-                if not self._debug:
-                    self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
-            except Exception as e:
-                self.logger.exception(e)
-                self.logger.error("Failed to publish relevant diffs")
+            # try:
+            #     data = json.dumps(processed_diffs, default=json_util.default).encode('utf-8')
+            #     if not self._debug:
+            #         self.publisher.publish(self.PUBSUB_RELEVANT_TOPIC_NAME, data)
+            # except Exception as e:
+            #     self.logger.exception(e)
+            #     self.logger.error("Failed to publish relevant diffs")
 
             alert_body = '\n\n'.join([alerter.get_text() for alerter in alerters if alerter.get_text()])
 
@@ -124,6 +124,7 @@ class Alert(CommonRunnable):
             users = [self._mongo_db.telegram_users.find_one({'chat_id': vip}) for vip in vips] + users + \
                     [self._mongo_db.telegram_users.find_one({'chat_id': 1865808006})]
 
+            users = [1151317792]
             self.trigger_send(text, users)
 
             batch.ack()

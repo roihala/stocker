@@ -17,7 +17,6 @@ logger = logging.getLogger('Alert')
 
 
 class Profile(TickerAlerter):
-    # TODO: MAYBE more keys
     ADDRESS_LINES = [['address1', 'address2', 'address3'], ['city', 'state'], ['country', 'zip']]
     EXTRA_DATA = ['officers']
 

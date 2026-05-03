@@ -87,7 +87,6 @@ class FatherBot(BaseBot):
             if not self.registration_bot.create_user_args:
                 return Indexers.CONVERSATION_CALLBACK
 
-            # TODO: create user should update user
             self.registration_bot.create_user(query.from_user.name, query.from_user.id, query.message,
                                               **self.registration_bot.create_user_args)
 

@@ -14,7 +14,6 @@ from collect import Collect
 from common_runnable import CommonRunnable
 from src.collect.records.filings_pdf_guesser import FilingsPdfGuesser
 
-# TODO: logger name
 logger = logging.getLogger('')
 
 
@@ -25,7 +24,7 @@ except Exception:
 
 
 class GuessRecords(CommonRunnable):
-    GUESSER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/records-finder-sub'
+    GUESSER_SUBSCRIPTION_NAME = 'projects/stocker-439910/subscriptions/records-finder-sub'
 
     def __init__(self):
         super().__init__()

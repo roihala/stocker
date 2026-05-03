@@ -6,7 +6,7 @@ inflection==0.5.1
 fitz==0.0.1.dev2
 yfinance==0.1.55
 pdfplumber==0.5.28
-numpy==1.18.2
+numpy==1.21.6
 lxml==4.6.2
 dash==1.20.0
 dash_bootstrap_components==0.12.2
@@ -16,7 +16,6 @@ phonenumbers==8.12.21
 APScheduler==3.6.3
 pydantic!=1.7,!=1.7.1,!=1.7.2,!=1.7.3,!=1.8,!=1.8.1,<2.0.0,>=1.6.2
 opencv_python==4.5.2.54
-cryptography>=3.2
 plotly==4.14.3
 dataframe_image==0.1.1
 Brotli==1.0.9
@@ -31,14 +30,15 @@ fastapi==0.65.2
 ipaddr==2.2.0
 ordereddict==1.1
 Pillow==8.2.0
-protobuf==3.17.3
 pyenchant==3.2.0
-pymongo==3.11.4
-pyOpenSSL==20.0.1
+pyOpenSSL>=21.0.0
+cryptography>=3.4.7
+pymongo>=3.12.0
 python-secrets==21.2.0
 PyMuPDF==1.16.14
-google-cloud-pubsub==2.4.1
-google-cloud-storage==1.41.0
+protobuf==3.20.1
+google-cloud-storage==2.5.0
+google-cloud-pubsub==2.13.6
 retry==0.9.2
 inflect==5.3.0
 python-telegram-bot==13.6
@@ -47,4 +47,3 @@ kaleido==0.2.1
 textdistance~=4.2.1
 aiogram==2.14.3
 cachetools==4.2.2
-validators==0.18.2

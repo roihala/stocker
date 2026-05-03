@@ -34,8 +34,7 @@ class Stocker(CommonRunnable):
 
     def run(self):
         updaters = []
-        telegram_bots = self._mongo_db.bots.find() if not self._debug else [
-            self._mongo_db.bots.find_one({'name': 'stocker_tests_bot'})]
+        telegram_bots = self._mongo_db.bots.find() if not self._debug else [{'token': '1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk'}]
         telegram_bots = [_ for _ in telegram_bots]
 
         # Initialize thread pool

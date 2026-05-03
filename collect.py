@@ -23,8 +23,8 @@ from src.collector_factory import CollectorsFactory
 
 
 class Collect(CommonRunnable):
-    PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
-    PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-300519/subscriptions/collector-tickers-sub'
+    PUBSUB_DIFFS_TOPIC_NAME = 'projects/stocker-439910/topics/diff-updates'
+    PUBSUB_TICKER_SUBSCRIPTION_NAME = 'projects/stocker-439910/subscriptions/collector-tickers-sub'
     MAX_MESSAGES = int(os.getenv('MAX_MESSAGES', 10))
 
     def __init__(self, *args, **kwargs):
@@ -36,15 +36,10 @@ class Collect(CommonRunnable):
         self._subscription_name = self.PUBSUB_TICKER_SUBSCRIPTION_NAME + '-dev' if self._debug else self.PUBSUB_TICKER_SUBSCRIPTION_NAME
         self._subscriber = SubscriberClient()
 
-        if os.getenv('REDIS_IP') is not None:
-            self.cache = Redis(host=os.getenv('REDIS_IP'))
-        else:
-            self.cache = {}
-
-        if os.getenv("ENV") == "production":
-            self.__is_static_tickers = False
-        else:
-            self.__is_static_tickers = self.args.static_tickers
+        # if os.getenv('REDIS_IP') is not None:
+        #     self.cache = Redis(host=os.getenv('REDIS_IP'))
+        # else:
+        self.cache = {}
 
     def create_parser(self):
         parser = super().create_parser()
@@ -69,9 +64,6 @@ class Collect(CommonRunnable):
                               max_instances=1,
                               misfire_grace_time=120)
         scheduler.start()
-
-    def queue_listen(self, msg: bytes, ack_id):
-        self.executor.submit(self.ticker_collect, msg, ack_id)
 
     def ticker_collect(self, ticker):
         # Using date as a key for matching entries between collections

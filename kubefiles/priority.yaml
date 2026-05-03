@@ -15,11 +15,11 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: priority
-              image: eu.gcr.io/stocker-300519/priority:latest
+              image: eu.gcr.io/stocker-439910/priority:latest
               env:
                 - name: ENV
                   value: "production"
                 - name: MONGO_URI
-                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                  value: "mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority"
 #                - name: DEBUG
 #                  value: "true"

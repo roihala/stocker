@@ -37,7 +37,13 @@ class Site(object):
         if not self.is_otc:
             raise Exception("Site.get_company_site: Unimplemented for non OTC markets")
 
-        response = requests.get(self.TICKER_PROFILE_URL.format(ticker=ticker))
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+            "Referer": "https://www.otcmarkets.com/",
+            "Origin": "https://www.otcmarkets.com"
+        }
+
+        response = requests.get(self.TICKER_PROFILE_URL.format(ticker=ticker), headers=headers)
 
         try:
             return response.json()['website']

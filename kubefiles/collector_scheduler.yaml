@@ -14,7 +14,7 @@
 #    spec:
 #      containers:
 #        - name: collector-scheduler
-#          image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+#          image: eu.gcr.io/stocker-439910/collector-scheduler:latest
 #          env:
 #            - name: ENV
 #              value: "production"
@@ -39,7 +39,7 @@ spec:
           restartPolicy: OnFailure # <2>
           containers:
             - name: collector-scheduler
-              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              image: eu.gcr.io/stocker-439910/collector-scheduler:latest
               env:
                 - name: ENV
                   value: "production"
@@ -48,7 +48,7 @@ spec:
                 - name: INTERVAL
                   value: 'high'
                 - name: MONGO_URI
-                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                  value: "mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority"
                 - name: TELEGRAM_TOKEN
                   value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
 #                - name: DEBUG
@@ -72,7 +72,7 @@ spec:
           restartPolicy: OnFailure # <2>
           containers:
             - name: collector-scheduler
-              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              image: eu.gcr.io/stocker-439910/collector-scheduler:latest
               env:
                 - name: ENV
                   value: "production"
@@ -81,7 +81,7 @@ spec:
                 - name: INTERVAL
                   value: 'medium'
                 - name: MONGO_URI
-                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                  value: "mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority"
                 - name: TELEGRAM_TOKEN
                   value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
 #                - name: DEBUG
@@ -106,7 +106,7 @@ spec:
           restartPolicy: OnFailure # <2>
           containers:
             - name: collector-scheduler
-              image: eu.gcr.io/stocker-300519/collector-scheduler:latest
+              image: eu.gcr.io/stocker-439910/collector-scheduler:latest
               env:
                 - name: ENV
                   value: "production"
@@ -115,7 +115,7 @@ spec:
                 - name: INTERVAL
                   value: 'all'
                 - name: MONGO_URI
-                  value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+                  value: "mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority"
                 - name: TELEGRAM_TOKEN
                   value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
 #                - name: DEBUG

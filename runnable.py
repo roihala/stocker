@@ -19,10 +19,10 @@ class Runnable(ABC):
     PROXY_PASSWORD = "ed219e-f3f65b-ee63e4-8c9349-e28bfe"
     PROXY_RACK_DNS = "megaproxy.rotating.proxyrack.net:222"
 
-    http_proxy_packetstream = "http://yonisoli:QKzLinmMxlo3UqbH@proxy.packetstream.io:31112"
-
-    proxy = {"http": http_proxy_packetstream,
-             'https': http_proxy_packetstream}
+    # http_proxy_packetstream = "http://yonisoli:QKzLinmMxlo3UqbH@proxy.packetstream.io:31112"
+    #
+    # proxy = {"http": http_proxy_packetstream,
+    #          'https': http_proxy_packetstream}
 
     def __init__(self, args=None):
         if os.getenv("ENV") == "production":

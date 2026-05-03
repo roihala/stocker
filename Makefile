@@ -1,5 +1,5 @@
 get_gcp_cluster:
-	gcloud container clusters get-credentials stocker --zone europe-west2-a --project stocker-300519
+	gcloud container clusters get-credentials autopilot-cluster-1 --zone us-central1 --project stocker-439910
 
 
 all: collector alerter telegram records rest scheduler
@@ -8,8 +8,8 @@ collector: collector_build_push collector_delete_pod
 
 collector_build_push:
 	docker build -t collector -f dockerfiles/collector.dockerfile .
-	docker tag collector:latest eu.gcr.io/stocker-300519/collector:latest
-	docker push eu.gcr.io/stocker-300519/collector:latest
+	docker tag collector:latest eu.gcr.io/stocker-439910/collector:latest
+	docker push eu.gcr.io/stocker-439910/collector:latest
 
 collector_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles/collector_deployment.yaml
@@ -25,8 +25,8 @@ telegram: telegram_build_push telegram_delete_pod
 
 telegram_build_push:
 	docker build -t telegram-bot -f dockerfiles/telegram_bot.dockerfile .
-	docker tag telegram-bot:latest eu.gcr.io/stocker-300519/telegram-bot:latest
-	docker push eu.gcr.io/stocker-300519/telegram-bot:latest
+	docker tag telegram-bot:latest eu.gcr.io/stocker-439910/telegram-bot:latest
+	docker push eu.gcr.io/stocker-439910/telegram-bot:latest
 
 telegram_update_deployment: get_gcp_cluster
 		kubectl apply -f kubefiles/telegram_bot_deployment.yaml
@@ -38,15 +38,15 @@ telegram_delete_pod:
 	kubectl delete pods -l run=telegram-bot-app || true
 
 telegram_run_local:
-	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" telegram-bot
+	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" telegram-bot
 
 
 alerter: alerter_build_push alerter_delete_pod
 
 alerter_build_push:
 	docker build -t alerter -f dockerfiles/alerter.dockerfile .
-	docker tag alerter:latest eu.gcr.io/stocker-300519/alerter:latest
-	docker push eu.gcr.io/stocker-300519/alerter:latest
+	docker tag alerter:latest eu.gcr.io/stocker-439910/alerter:latest
+	docker push eu.gcr.io/stocker-439910/alerter:latest
 
 alerter_update_deployment: get_gcp_cluster
 		kubectl apply -f kubefiles/alerter_deployment.yaml
@@ -58,14 +58,14 @@ alerter_delete_pod:
 	kubectl delete pods -l run=alerter-app || true
 
 alerter_run_local:
-	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" -e REDIS_IP="10.80.176.3" alerter
+	docker run -it --rm -e ENV=production -e MONGO_URI="mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority" -e TELEGRAM_TOKEN="1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ" -e REDIS_IP="10.80.176.3" alerter
 
 
 records: records_build_push records_delete_pod
 records_build_push:
 	docker build -t records -f dockerfiles/records.dockerfile .
-	docker tag records:latest eu.gcr.io/stocker-300519/records:latest
-	docker push eu.gcr.io/stocker-300519/records:latest
+	docker tag records:latest eu.gcr.io/stocker-439910/records:latest
+	docker push eu.gcr.io/stocker-439910/records:latest
 
 records_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles/records_deployment.yaml
@@ -81,8 +81,8 @@ records_guesser: records_guesser_build records_guesser_delete_pod
 
 records_guesser_build:
 	docker build -t records-guesser -f dockerfiles/records.dockerfile .
-	docker tag records-guesser:latest eu.gcr.io/stocker-300519/records-guesser:latest
-	docker push eu.gcr.io/stocker-300519/records-guesser:latest
+	docker tag records-guesser:latest eu.gcr.io/stocker-439910/records-guesser:latest
+	docker push eu.gcr.io/stocker-439910/records-guesser:latest
 
 records_guesser_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles/records_guesser_deployment.yaml
@@ -98,8 +98,8 @@ rest: rest_build_push rest_delete_pod
 
 rest_build_push:
 	docker build -t stocker -f dockerfiles/rest.dockerfile .
-	docker tag stocker:latest eu.gcr.io/stocker-300519/rest:latest
-	docker push eu.gcr.io/stocker-300519/rest:latest
+	docker tag stocker:latest eu.gcr.io/stocker-439910/rest:latest
+	docker push eu.gcr.io/stocker-439910/rest:latest
 
 rest_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles\rest
@@ -115,8 +115,8 @@ scheduler: scheduler_build scheduler_delete_pod
 
 scheduler_build:
 	docker build -t collector-scheduler -f dockerfiles/scheduler.dockerfile .
-	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/collector-scheduler:latest
-	docker push eu.gcr.io/stocker-300519/collector-scheduler:latest
+	docker tag collector-scheduler:latest eu.gcr.io/stocker-439910/collector-scheduler:latest
+	docker push eu.gcr.io/stocker-439910/collector-scheduler:latest
 
 scheduler_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles\collector_scheduler.yaml
@@ -129,8 +129,8 @@ scheduler_delete_pod:
 
 priority_build:
 	docker build -t priority-scheduler -f dockerfiles/priority.dockerfile .
-	docker tag collector-scheduler:latest eu.gcr.io/stocker-300519/priority-scheduler:latest
-	docker push eu.gcr.io/stocker-300519/priority-scheduler:latest
+	docker tag collector-scheduler:latest eu.gcr.io/stocker-439910/priority-scheduler:latest
+	docker push eu.gcr.io/stocker-439910/priority-scheduler:latest
 
 priority_update_deployment: get_gcp_cluster
 	kubectl apply -f kubefiles\priority_scheduler.yaml

@@ -14,18 +14,18 @@ spec:
     spec:
       containers:
         - name: collector-app
-          image: eu.gcr.io/stocker-300519/collector:latest
+          image: eu.gcr.io/stocker-439910/collector:latest
           resources:
             requests:
-              memory: "8Gi"
-#              memory: "120Mi"
-#            limits:
-#              memory: "140Mi"
+#              memory: "8Gi"
+              memory: "120Mi"
+            limits:
+              memory: "140Mi"
           env:
             - name: ENV
               value: "production"
             - name: MONGO_URI
-              value: "mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/stocker"
+              value: "mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority"
             - name: TELEGRAM_TOKEN
               value: "1177225094:AAGtBg9BzIJVVXHelSSYnaQB6HBhyG1obiQ"
             - name: REDIS_IP

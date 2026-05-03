@@ -3,7 +3,6 @@ import os
 import re
 from typing import List
 
-# TODO: logger name
 logger = logging.getLogger('')
 
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'pdfs')

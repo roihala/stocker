@@ -1,6 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="stocker_alerts_bot" type="PythonConfigurationType" factoryName="Python">
     <module name="stocker" />
+    <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
@@ -8,7 +9,7 @@
     </envs>
     <option name="SDK_HOME" value="C:\Users\RoiHa\PycharmProjects\venv\Scripts\python.exe" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
-    <option name="IS_MODULE_SDK" value="false" />
+    <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
@@ -23,7 +24,7 @@
       </ENTRIES>
     </EXTENSION>
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/stocker_alerts_bot.py" />
-    <option name="PARAMETERS" value="--debug --verbose --uri &quot;mongodb+srv://stocker:halamish123@cluster2.3nsz4.mongodb.net/dev&quot; --token &quot;1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk&quot;" />
+    <option name="PARAMETERS" value="--debug --verbose --uri &quot;mongodb+srv://doadmin:dYUhqv4V9H057681@db-mongodb-nyc3-51884-ccd4f7da.mongo.ondigitalocean.com/admin?retryWrites=true&amp;w=majority&quot; --token &quot;1840118134:AAEo0DdrZj5ZHEJ95Y9o1FJxDsfIcm5K7xk&quot;" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

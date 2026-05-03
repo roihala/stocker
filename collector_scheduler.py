@@ -12,7 +12,7 @@ from common_runnable import CommonRunnable
 
 
 class CollectScheduler(CommonRunnable):
-    PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-300519/topics/collector-tickers"
+    PUBSUB_TICKERS_TOPIC_NAME = "projects/stocker-439910/topics/collector-tickers"
     interval = os.environ['INTERVAL'].lower()
 
     def __init__(self, *args, **kwargs):

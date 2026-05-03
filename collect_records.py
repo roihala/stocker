@@ -26,7 +26,7 @@ NAMES_CSV = os.path.join(os.path.dirname(__file__), os.path.join('csv', 'names.c
 
 
 class CollectRecords(CommonRunnable):
-    TICKER_GUESSER_TOPIC_NAME = 'projects/stocker-300519/topics/records-finder'
+    TICKER_GUESSER_TOPIC_NAME = 'projects/stocker-439910/topics/records-finder'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

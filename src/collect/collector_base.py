@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 
 class CollectorBase(ABC):
-    PUBSUB_TOPIC_NAME = 'projects/stocker-300519/topics/diff-updates'
+    PUBSUB_TOPIC_NAME = 'projects/stocker-439910/topics/diff-updates'
     LATEST_TAG = '_latest'
 
     def __init__(self, mongo_db: Database, cache, date=None, debug=False):
